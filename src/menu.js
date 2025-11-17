@@ -115,7 +115,7 @@ export const rightClick = rightClickCommands.join('\n');
 // ALL COMMANDS FOR THE SELECT TOOL
 
 selectCommands.push(`
-    execute as @n[type=item_frame,tag=easy-anim-edge] at @s positioned ^ ^ ^0.5 align xyz
+    execute as @n[type=item_frame,tag=easy-anim-edge] at @s positioned ^ ^ ^0.5 align xyz run say to be implemented!
     execute as @n[type=item_frame,tag=easy-anim-edge] run kill @s
 `);
 
