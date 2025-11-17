@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:multi_action",
+  "title": "Animation Main Menu",
+  "inputs": [],
+  "exit_action": {
+    "label": "Exit",
+    "width": 30
+  },
+  "actions": [
+    {
+      "label": "Create New Animation",
+      "width": 120,
+      "action": {
+        "type": "minecraft:run_command",
+        "command": "execute in easy-anim:editor run function easy-anim:menu/create with entity @s"
+      }
+    }
+  ]
+}
