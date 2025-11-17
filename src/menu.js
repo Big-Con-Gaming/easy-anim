@@ -1,7 +1,7 @@
 // Set up stuff
 import mcf from './mcf.js';
 const folder = mcf.menu;
-export const { create, exit } = folder;
+export const { create, exit, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 // Sets up the lists used to compile commands.
@@ -10,6 +10,8 @@ const inventoryLoadCommands = [];
 const workingHotbarCommands = [];
 const rightClickCommands = [];
 const selectCommands = [];
+const boundingBoxCommands = [];
+const displayBoxCommands = [];
 
 // INVENTORY SAVE AND LOAD COMMANDS
 
@@ -25,14 +27,14 @@ for (let i = 0; i < 27; i++) {
 
 // Toss the inventory items into storage on the save side.
 inventorySaveCommands.push(`
-    data modify storage ${ns}.player_data current.inventory0 set from block 0 -63 0 Items
+    data modify storage ${ns}:player_data current.inventory0 set from block 0 -63 0 Items
     data remove block 0 -63 0 Items
 `);
 
 // Retrieve the hotbar and armor items from storage on the load side.
 inventoryLoadCommands.push(`
     data remove block 0 -63 0 Items
-    data modify block 0 -63 0 Items set from storage ${ns}.player_data current.inventory1
+    data modify block 0 -63 0 Items set from storage ${ns}:player_data current.inventory1
 `);
 
 // Place the hotbar into a barrel on the save side, and retrieve the hotbar on the load side.
@@ -65,7 +67,7 @@ inventoryLoadCommands.push(`
 
 // Toss the hotbar and armor items into storage.
 inventorySaveCommands.push(`
-    data modify storage ${ns}.player_data current.inventory1 set from block 0 -63 0 Items
+    data modify storage ${ns}:player_data current.inventory1 set from block 0 -63 0 Items
 `);
 
 // HOTBAR TOOLS CREATION
@@ -114,36 +116,116 @@ export const rightClick = rightClickCommands.join('\n');
 
 // ALL COMMANDS FOR THE SELECT TOOL
 
+// These commands construct the bounding box for the selection tool. This is done by finding the most negative and positive corners between the anchor and the newly selected block.
+const axis = ["x", "y", "z"];
+
+function createBoundingBoxCommands(axis) {
+    var i = 0;
+    if (axis == "y") {i = 1};
+    if (axis == "z") {i = 2};
+    return`
+        # Store the anchor and current new position in the scoreboard.
+        execute store result score anchor${axis} easy-anim-math run data get storage easy-anim:animation_data new.anchor[${i}] 1
+        execute store result score current${axis} easy-anim-math run data get entity @s Pos[${i}] 1
+        # Copy the anchor to newanchor for comparison to get the most negative corner.
+        scoreboard players operation newanchor${axis} easy-anim-math = anchor${axis} easy-anim-math
+        # Compare the current position to the anchor and update the anchor to be the most negative corner.
+        scoreboard players operation newanchor${axis} easy-anim-math < current${axis} easy-anim-math
+        # Calculate the furthest positive corner from the anchor and the new position.
+        scoreboard players operation poscorner${axis} easy-anim-math = current${axis} easy-anim-math
+        scoreboard players operation poscorner${axis} easy-anim-math > anchor${axis} easy-anim-math
+        # Calculate the size of the box by subtracting the furthest positive corner from the new anchor.
+        scoreboard players operation size${axis} easy-anim-math = poscorner${axis} easy-anim-math
+        scoreboard players operation size${axis} easy-anim-math -= newanchor${axis} easy-anim-math
+        # Store the new anchor and size in the animation data.
+        execute store result storage easy-anim:animation_data new.anchor[${i}] double 1 run scoreboard players get newanchor${axis} easy-anim-math
+        execute store result storage easy-anim:animation_data new.size[${i}] double 1 run scoreboard players get size${axis} easy-anim-math
+    `;
+}
+
+boundingBoxCommands.push(...axis.map(createBoundingBoxCommands))
+
 selectCommands.push(`
-    execute as @n[type=item_frame,tag=easy-anim-edge] at @s positioned ^ ^ ^0.5 align xyz run say to be implemented!
+    execute as @n[type=item_frame,tag=easy-anim-edge] at @s positioned ^ ^ ^-0.5 align xyz summon minecraft:marker run ${a`
+        # If we have an anchor but not a size, calculate a size with this new corner and update the size to match. Anchor might move to stay as the most negative corner.
+        execute if data storage easy-anim:animation_data new.anchor unless data storage easy-anim:animation_data new.size run ${a`
+            # Create a temporary scoreboard to store the math.
+            scoreboard objectives add easy-anim-math dummy
+            # Set placeholder values so that they can be set to different values.
+            data modify storage easy-anim:animation_data new.size set value [0.0d, 0.0d, 0.0d]
+            # This function finds the most negative corner to become the anchor and the most positive corner to calulate box size. It maps through each axis.
+            ${boundingBoxCommands.join('\n')}
+            # Remove the temporary scoreboard.
+            scoreboard objectives remove easy-anim-math
+        `}
+        # If the current animation doesn't have an anchor, set the new selection position as the anchor.
+        execute unless data storage easy-anim:animation_data new.anchor run data modify storage easy-anim:animation_data new.anchor set from entity @s Pos
+        kill @s
+    `}
     execute as @n[type=item_frame,tag=easy-anim-edge] run kill @s
 `);
 
 export const select = selectCommands.join('\n');
+
+// ALL COMMANDS FOR THE DISPLAY BOX
+
+// These commands calculate the different sides of the selector box using the different axes.
+function createDisplayBoxCommands(axis){
+    var i = 0;
+    if (axis == "y") {i = 1};
+    if (axis == "z") {i = 2};
+    return`
+        execute store result score anchor${axis} easy-anim-math run data get storage easy-anim:animation_data new.anchor[${i}] 10
+        execute store result score size${axis} easy-anim-math run data get storage easy-anim:animation_data new.size[${i}] 10
+    `;
+};
+
+// Sets up the display box commands before the axis-specifc commands are compiled.
+displayBoxCommands.push(`
+    # Kill the previous display box entities.
+    kill @e[type=minecraft:block_display,tag=easy-anim-handle]
+    # Create a temporary scoreboard to store the math.
+    scoreboard objectives add easy-anim-math dummy
+`);
+
+// Calculates the different positions for the sides of the box to place displays.
+displayBoxCommands.push(...axis.map(createDisplayBoxCommands));
+
+// Cleans up the display box by removing the temporary scoreboard.
+displayBoxCommands.push(`
+    # Remove the temporary scoreboard.
+    scoreboard objectives remove easy-anim-math
+`);
+
+export const displayBox = displayBoxCommands.join('\n');
 
 // This runs when the player clicks the "Create New Animation" button in the main menu. Ran inside the editor dimension.
 create`
     # Save all inventory items into current, and then append current into players. Key UUID can be used to retrieve.
     setblock 0 -63 0 minecraft:barrel
     ${inventorySaveCommands.join('\n')}
-    data modify storage ${ns}.player_data current.UUID set from entity @s UUID
-    data modify storage ${ns}.player_data players append from storage ${ns}.player_data current
+    data modify storage ${ns}:player_data current.UUID set from entity @s UUID
+    data modify storage ${ns}:player_data players append from storage ${ns}:player_data current
     setblock 0 -63 0 black_concrete
     # Remove all items and the temporary current player data.
     clear @s *
-    data remove storage ${ns}.player_data current
+    data remove storage ${ns}:player_data current
     # Give player our full hotbar.
     ${workingHotbarCommands.join('\n')}
+    # Set up the data section for the new animation.
+    data modify storage ${ns}:animation_data new set value {}
 `;
 
 // This runs when the player uses the exit item in their inventory. Ran inside the editor dimension.
 exit`
     # Load the player's inventory from storage.
-    $data modify storage ${ns}.player_data current set from storage ${ns}.player_data players[{UUID:$(UUID)}]
+    $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
     setblock 0 -63 0 minecraft:barrel
-    data modify block 0 -63 0 Items set from storage ${ns}.player_data current.inventory0
+    data modify block 0 -63 0 Items set from storage ${ns}:player_data current.inventory0
     ${inventoryLoadCommands.join('\n')}
     setblock 0 -63 0 black_concrete
-    $data remove storage ${ns}.player_data players[{UUID:$(UUID)}]
-    data remove storage ${ns}.player_data current
+    $data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
+    data remove storage ${ns}:player_data current
+    # Remove the new selection.
+    data remove storage ${ns}:animation_data new
 `;
