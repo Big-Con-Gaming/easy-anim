@@ -3,7 +3,7 @@
 // Import your mcf context and any functions you want to use.
 
 import mcf from './mcf.js';
-import { rightClick, select, displayBox } from './menu.js';
+import { rightClick, select } from './menu.js';
 
 // Declare the functions you want to use
 const { tick, load, menu } = mcf;
@@ -15,7 +15,6 @@ tick`
   ${rightClick}
   execute as @a[scores={easy-anim-right-click=1..}] run scoreboard players set @s easy-anim-right-click 0
   ${select}
-  ${displayBox}
 `;
 
 // These commands run when the datapack has been loaded in.

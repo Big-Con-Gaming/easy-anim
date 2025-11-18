@@ -1,7 +1,7 @@
 // Set up stuff
 import mcf from './mcf.js';
 const folder = mcf.menu;
-export const { create, exit, anonymous: a } = folder;
+export const { create, exit, displaySummon, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 // Sets up the lists used to compile commands.
@@ -12,6 +12,7 @@ const rightClickCommands = [];
 const selectCommands = [];
 const boundingBoxCommands = [];
 const displayBoxCommands = [];
+const displayBoxSummonCommands = [];
 
 // INVENTORY SAVE AND LOAD COMMANDS
 
@@ -82,7 +83,7 @@ function createHotbarCommands({slot, name, display, action, dimension, placeable
     // Sets up right click detection to execute functions under the same name as action within the menu folder.
     
     // Assume the item ID is a carrot on a stick, but if the item is placeable, change it to an item frame. If an item frame, do not run right click detection.
-    var itemId = "minecraft:carrot_on_a_stick";
+    let itemId = "minecraft:carrot_on_a_stick";
     if (placeable) {
         itemId = "minecraft:item_frame";
     } else {
@@ -120,7 +121,7 @@ export const rightClick = rightClickCommands.join('\n');
 const axis = ["x", "y", "z"];
 
 function createBoundingBoxCommands(axis) {
-    var i = 0;
+    let i = 0;
     if (axis == "y") {i = 1};
     if (axis == "z") {i = 2};
     return`
@@ -145,6 +146,94 @@ function createBoundingBoxCommands(axis) {
 
 boundingBoxCommands.push(...axis.map(createBoundingBoxCommands))
 
+// ALL COMMANDS FOR THE DISPLAY BOX. Bounding box continues down below.
+
+// These commands calculate the different sides of the selector box using the different axes. mainly, just the half of size for each axis and anchor and size in 10x precision.
+function createDisplayBoxCommands(axis){
+    let i = 0;
+    if (axis == "y") {i = 1};
+    if (axis == "z") {i = 2};
+    return`
+        execute store result score anchor${axis} easy-anim-math run data get storage easy-anim:animation_data new.anchor[${i}] 10
+        execute store result score size${axis} easy-anim-math run data get storage easy-anim:animation_data new.size[${i}] 10
+        scoreboard players operation halfsize${axis} easy-anim-math = size${axis} easy-anim-math
+        scoreboard players operation halfsize${axis} easy-anim-math /= 2 easy-anim-math
+    `;
+};
+
+// Sets up the display box commands before the axis-specifc commands are compiled.
+displayBoxCommands.push(`
+    # Kill the previous display block_display entities.
+    kill @e[type=minecraft:block_display,tag=easy-anim-outline]
+    # create a constant value of 0, 1, and 2 inside of the scoreboard.
+    scoreboard players set 0 easy-anim-math 0
+    scoreboard players set 1 easy-anim-math 1
+    scoreboard players set 2 easy-anim-math 2
+`);
+
+// Calculates the different half size steps for each axis and their anchor and size components, scaled 10x.
+displayBoxCommands.push(...axis.map(createDisplayBoxCommands));
+
+// The goal is to start at the anchor and then add each x, y, and z size to get to the different sides and corners of the bounding box. We'll add a half at a time, scaling x2 to get fully across. This matrix holds each combination of scaling.
+const multiplicationMatrix = [];
+for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+        for (let k = 0; k < 3; k++) {
+            multiplicationMatrix.push({xmult:i,ymult:j,zmult:k});
+        }
+    }
+}
+
+// Separated so it can be macroed, this grabs saved coordinates from the easy-anim:temp storage to place lime concrete blocks at each corner and side that are glowing.
+displaySummon`
+    $summon minecraft:block_display $(x) $(y) $(z) {block_state: {Name: "minecraft:lime_concrete"}, transformation: {left_rotation: [0.0f, 0.0f, 0.0f, 1.0f], right_rotation: [0.0f, 0.0f, 0.0f, 1.0f], scale: [0.25f, 0.25f, 0.25f], translation: [-0.125f, -0.125f, -0.125f]}, Tags:["easy-anim-outline"], Glowing: true}
+`;
+
+// Creates the coordinates for each side and corner of the selection.
+function createDisplayBoxSummonCommands({xmult, ymult, zmult}) {
+    const axisMultiplyingCommands = [];
+    // We localized the mults created inside the matrix and the axis to be one variable for more reusable code
+    const axesData = [
+        {axis: "x", mult: xmult},
+        {axis: "y", mult: ymult},
+        {axis: "z", mult: zmult}
+    ]
+
+    for (const {axis, mult} of axesData) {
+        // For each x y and z, we start at the anchor and add either 0 times, 1 times, or 2 times half of the size length in that direction to get to each midpoint of each side, and each corner.
+        axisMultiplyingCommands.push(`
+            # Finds the side math for axis: ${axis} with a multiplier of: ${mult}.
+            scoreboard players operation currentpos${axis} easy-anim-math = anchor${axis} easy-anim-math
+            scoreboard players operation additive${axis} easy-anim-math = halfsize${axis} easy-anim-math
+            scoreboard players operation additive${axis} easy-anim-math *= ${mult} easy-anim-math
+        `);
+        // We add a half step to the y-coordinate to better center the boxes
+        if (axis === "y") {axisMultiplyingCommands.push(`
+            scoreboard players add additivey easy-anim-math 5
+        `)}
+        // All of these coordinates are tossed into a temporary storage container to be mapped into a summon command.
+        axisMultiplyingCommands.push(`
+            scoreboard players operation currentpos${axis} easy-anim-math += additive${axis} easy-anim-math
+            execute store result storage easy-anim:temp display.${axis} double 0.1 run scoreboard players get currentpos${axis} easy-anim-math
+        `);
+    }
+    // For each box, we grab the axisMultiplyingCommands from above that generate coordinates, and then summon the display at those coords using a macro.
+    return`
+        ${axisMultiplyingCommands.join('\n')}
+        ${displaySummon} with storage easy-anim:temp display
+    `;
+}
+
+// 
+displayBoxSummonCommands.push(...multiplicationMatrix.map(createDisplayBoxSummonCommands))
+
+// Cleans up the display box by removing the temporary scoreboard.
+displayBoxCommands.push(`
+    ${displayBoxSummonCommands.join('\n')}
+    # Remove the temporary data location.
+    data remove storage easy-anim:temp display
+`);
+
 selectCommands.push(`
     execute as @n[type=item_frame,tag=easy-anim-edge] at @s positioned ^ ^ ^-0.5 align xyz summon minecraft:marker run ${a`
         # If we have an anchor but not a size, calculate a size with this new corner and update the size to match. Anchor might move to stay as the most negative corner.
@@ -155,6 +244,8 @@ selectCommands.push(`
             data modify storage easy-anim:animation_data new.size set value [0.0d, 0.0d, 0.0d]
             # This function finds the most negative corner to become the anchor and the most positive corner to calulate box size. It maps through each axis.
             ${boundingBoxCommands.join('\n')}
+            # This function places green block displays at each corner and side that glow to map the area visually to the player.
+            ${displayBoxCommands.join('\n')}
             # Remove the temporary scoreboard.
             scoreboard objectives remove easy-anim-math
         `}
@@ -166,38 +257,6 @@ selectCommands.push(`
 `);
 
 export const select = selectCommands.join('\n');
-
-// ALL COMMANDS FOR THE DISPLAY BOX
-
-// These commands calculate the different sides of the selector box using the different axes.
-function createDisplayBoxCommands(axis){
-    var i = 0;
-    if (axis == "y") {i = 1};
-    if (axis == "z") {i = 2};
-    return`
-        execute store result score anchor${axis} easy-anim-math run data get storage easy-anim:animation_data new.anchor[${i}] 10
-        execute store result score size${axis} easy-anim-math run data get storage easy-anim:animation_data new.size[${i}] 10
-    `;
-};
-
-// Sets up the display box commands before the axis-specifc commands are compiled.
-displayBoxCommands.push(`
-    # Kill the previous display box entities.
-    kill @e[type=minecraft:block_display,tag=easy-anim-handle]
-    # Create a temporary scoreboard to store the math.
-    scoreboard objectives add easy-anim-math dummy
-`);
-
-// Calculates the different positions for the sides of the box to place displays.
-displayBoxCommands.push(...axis.map(createDisplayBoxCommands));
-
-// Cleans up the display box by removing the temporary scoreboard.
-displayBoxCommands.push(`
-    # Remove the temporary scoreboard.
-    scoreboard objectives remove easy-anim-math
-`);
-
-export const displayBox = displayBoxCommands.join('\n');
 
 // This runs when the player clicks the "Create New Animation" button in the main menu. Ran inside the editor dimension.
 create`
@@ -228,4 +287,6 @@ exit`
     data remove storage ${ns}:player_data current
     # Remove the new selection.
     data remove storage ${ns}:animation_data new
+    # Kill the display block_display entities from the old selection.
+    kill @e[type=minecraft:block_display,tag=easy-anim-outline]
 `;
