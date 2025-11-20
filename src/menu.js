@@ -13,6 +13,7 @@ const selectCommands = [];
 const boundingBoxCommands = [];
 const displayBoxCommands = [];
 const displayBoxSummonCommands = [];
+const structureBlockPosition = [];
 
 // INVENTORY SAVE AND LOAD COMMANDS
 
@@ -161,10 +162,28 @@ function createDisplayBoxCommands(axis){
     `;
 };
 
+// Takes the anchor position and subtracts 1 to find the structure block location. Also tosses some information into the same storage for macros (size)
+function calculateStructureBlockPosition(axis){
+    let i = 0;
+    if (axis == "y") {i = 1};
+    if (axis == "z") {i = 2};
+    return`
+        execute store result score str${axis} easy-anim-math run data get storage easy-anim:animation_data new.anchor[${i}] 1
+        scoreboard players remove str${axis} easy-anim-math 1
+        execute store result storage easy-anim:temp str.${axis} int 1 run scoreboard players get str${axis} easy-anim-math
+        data modify storage easy-anim:temp str.s${axis} set from storage easy-anim:animation_data new.size[${i}]
+    `;
+}
+
+structureBlockPosition.push(...axis.map(calculateStructureBlockPosition));
+
 // Sets up the display box commands before the axis-specifc commands are compiled.
 displayBoxCommands.push(`
-    # Kill the previous display block_display entities.
-    kill @e[type=minecraft:block_display,tag=easy-anim-outline]
+    # Save the block at the neg neg neg corner (outside of region) to the editor dimension and place in a new structure block
+    ${a`
+        $clone $(x) $(y) $(z) $(x) $(y) $(z) to easy-anim:editor 0 0 0 strict
+        $setblock $(x) $(y) $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:1,posY:1,posZ:1,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"test",strict:true}
+    `} with storage easy-anim:temp str
     # create a constant value of 0, 1, and 2 inside of the scoreboard.
     scoreboard players set 0 easy-anim-math 0
     scoreboard players set 1 easy-anim-math 1
@@ -172,7 +191,7 @@ displayBoxCommands.push(`
 `);
 
 // Calculates the different half size steps for each axis and their anchor and size components, scaled 10x.
-displayBoxCommands.push(...axis.map(createDisplayBoxCommands));
+// displayBoxCommands.push(...axis.map(createDisplayBoxCommands));
 
 // The goal is to start at the anchor and then add each x, y, and z size to get to the different sides and corners of the bounding box. We'll add a half at a time, scaling x2 to get fully across. This matrix holds each combination of scaling.
 const multiplicationMatrix = [];
@@ -186,7 +205,8 @@ for (let i = 0; i < 3; i++) {
 
 // Separated so it can be macroed, this grabs saved coordinates from the easy-anim:temp storage to place lime concrete blocks at each corner and side that are glowing.
 displaySummon`
-    $summon minecraft:block_display $(x) $(y) $(z) {block_state: {Name: "minecraft:lime_concrete"}, transformation: {left_rotation: [0.0f, 0.0f, 0.0f, 1.0f], right_rotation: [0.0f, 0.0f, 0.0f, 1.0f], scale: [0.25f, 0.25f, 0.25f], translation: [-0.125f, -0.125f, -0.125f]}, Tags:["easy-anim-outline"], Glowing: true}
+    # $summon minecraft:block_display $(x) $(y) $(z) {block_state: {Name: "minecraft:lime_concrete"}, transformation: {left_rotation: [0.0f, 0.0f, 0.0f, 1.0f], right_rotation: [0.0f, 0.0f, 0.0f, 1.0f], scale: [0.25f, 0.25f, 0.25f], translation: [-0.125f, -0.125f, -0.125f]}, Tags:["easy-anim-outline"], Glowing: true}
+    # $summon minecraft:slime $(x) $(y) $(z) {Tags:["easy-anim-outline"], Glowing: true, Size:1, NoAI:true, Size:0, Silent:true, DeathLootTable:"minecraft:air", Invulnerable:true, TicksFrozen:-1, NoGravity:true, PersistenceRequired:true, active_effects:[{id: "minecraft:invisibility", duration: -1, show_particles: 0b, show_icon: 0b}]}
 `;
 
 // Creates the coordinates for each side and corner of the selection.
@@ -224,14 +244,14 @@ function createDisplayBoxSummonCommands({xmult, ymult, zmult}) {
     `;
 }
 
-// 
-displayBoxSummonCommands.push(...multiplicationMatrix.map(createDisplayBoxSummonCommands))
+// Summons the displays at each corner and side of the area.
+// displayBoxSummonCommands.push(...multiplicationMatrix.map(createDisplayBoxSummonCommands))
 
 // Cleans up the display box by removing the temporary scoreboard.
 displayBoxCommands.push(`
-    ${displayBoxSummonCommands.join('\n')}
+    # ${displayBoxSummonCommands.join('\n')}
     # Remove the temporary data location.
-    data remove storage easy-anim:temp display
+    data remove storage easy-anim:temp str
 `);
 
 selectCommands.push(`
@@ -285,8 +305,10 @@ exit`
     setblock 0 -63 0 black_concrete
     $data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
     data remove storage ${ns}:player_data current
+    # Replace the structure block with the block that was there previously
+    ${}
     # Remove the new selection.
     data remove storage ${ns}:animation_data new
     # Kill the display block_display entities from the old selection.
-    kill @e[type=minecraft:block_display,tag=easy-anim-outline]
+    # kill @e[type=minecraft:slime,tag=easy-anim-outline]
 `;
