@@ -306,7 +306,7 @@ exit`
     $data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
     data remove storage ${ns}:player_data current
     # Replace the structure block with the block that was there previously
-    ${}
+    ${structureBlockPosition.join('\n')}
     # Remove the new selection.
     data remove storage ${ns}:animation_data new
     # Kill the display block_display entities from the old selection.
