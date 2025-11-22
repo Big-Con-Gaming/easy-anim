@@ -1,7 +1,7 @@
 // Set up stuff
 import mcf from './mcf.js';
 const folder = mcf.menu;
-export const { create, exit, displaySummon, resetCornerBlock, anonymous: a } = folder;
+export const { create, exit, resetCornerBlock, placeStructureBlock, execute_as_marker, update_selection, create_two_point_selection, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 // Sets up the lists used to compile commands.
@@ -10,10 +10,10 @@ const inventoryLoadCommands = [];
 const workingHotbarCommands = [];
 const rightClickCommands = [];
 const selectCommands = [];
-const boundingBoxCommands = [];
+const twoPointCommands = [];
 const displayBoxCommands = [];
-const displayBoxSummonCommands = [];
-const structureBlockPosition = [];
+const handleSummonCommands = [];
+const grabStrBlockPos = [];
 const updateSelectionCommands = [];
 
 // INVENTORY SAVE AND LOAD COMMANDS
@@ -120,55 +120,55 @@ export const rightClick = rightClickCommands.join('\n');
 // ALL COMMANDS FOR THE SELECT TOOL
 
 // These commands construct the bounding box for the selection tool. This is done by finding the most negative and positive corners between the anchor and the newly selected block.
-const axis = ["x", "y", "z"];
+const axis = [{axis:"x",i:"0"},{axis:"y",i:"1"},{axis:"z",i:"2"}];
 
-function createBoundingBoxCommands(axis) {
-    let i = 0;
-    if (axis == "y") {i = 1};
-    if (axis == "z") {i = 2};
+function createTwoPointCommands({axis, i}) {
+    mcf[`menu/two_point_pos/calc_size_current_pos_${axis}`]`
+        # Calculate size by subtracting the newly selected point by anchor.
+        scoreboard players operation size${axis} easy-anim-math = current${axis} easy-anim-math
+        scoreboard players operation size${axis} easy-anim-math -= anchor${axis} easy-anim-math
+    `
+    mcf[`menu/two_point_neg/calc_size_current_neg_${axis}`]`
+        # Calculate size by setting size to anchor and then subtracting off the newly selected point.
+        scoreboard players operation size${axis} easy-anim-math = anchor${axis} easy-anim-math
+        scoreboard players operation size${axis} easy-anim-math -= current${axis} easy-anim-math
+        # Make the newly selected point the anchor.
+        scoreboard players operation anchor${axis} easy-anim-math = current${axis} easy-anim-math
+        execute store result storage easy-anim:animation_data new.anchor[${i}] double 1 run scoreboard players get anchor${axis} easy-anim-math
+    `
     return`
         # Store the anchor and current new position in the scoreboard.
         execute store result score anchor${axis} easy-anim-math run data get storage easy-anim:animation_data new.anchor[${i}] 1
         execute store result score current${axis} easy-anim-math run data get entity @s Pos[${i}] 1
-        # Copy the anchor to newanchor for comparison to get the most negative corner.
-        scoreboard players operation newanchor${axis} easy-anim-math = anchor${axis} easy-anim-math
-        # Compare the current position to the anchor and update the anchor to be the most negative corner.
-        scoreboard players operation newanchor${axis} easy-anim-math < current${axis} easy-anim-math
-        # Calculate the furthest positive corner from the anchor and the new position.
-        scoreboard players operation poscorner${axis} easy-anim-math = current${axis} easy-anim-math
-        scoreboard players operation poscorner${axis} easy-anim-math > anchor${axis} easy-anim-math
-        # Calculate the size of the box by subtracting the furthest positive corner from the new anchor.
-        scoreboard players operation size${axis} easy-anim-math = poscorner${axis} easy-anim-math
-        scoreboard players operation size${axis} easy-anim-math -= newanchor${axis} easy-anim-math
+        # Initialize size with 0 (it won't change if anchor and size are on the same axis.)
+        scoreboard players set size${axis} easy-anim-math 0
+        # If the newly selected point on the ${axis} axis is more positive than the anchor,
+        execute if score current${axis} easy-anim-math > anchor${axis} easy-anim-math run function ${ns}:menu/two_point_pos/calc_size_current_pos_${axis}
+        # If the newly selected point on the ${axis} axis is more negative than the anchor,
+        execute if score current${axis} easy-anim-math < anchor${axis} easy-anim-math run function ${ns}:menu/two_point_neg/calc_size_current_neg_${axis}
         # Increase each axis by 1 to fully represent the full box (X1 - X2 = S - 1)
         scoreboard players add size${axis} easy-anim-math 1
-        # Store the new anchor and size in the animation data.
-        execute store result storage easy-anim:animation_data new.anchor[${i}] double 1 run scoreboard players get newanchor${axis} easy-anim-math
         execute store result storage easy-anim:animation_data new.size[${i}] double 1 run scoreboard players get size${axis} easy-anim-math
     `;
 }
 // Set up a temporary scoreboard to do calculations in
-boundingBoxCommands.push(`
+twoPointCommands.push(`
     scoreboard objectives add easy-anim-math dummy
 `)
 // Add all axis-specific commands from the function above.
-boundingBoxCommands.push(...axis.map(createBoundingBoxCommands))
+twoPointCommands.push(...axis.map(createTwoPointCommands))
 // Remove temporary scoreboard.
-boundingBoxCommands.push(`
+twoPointCommands.push(`
     scoreboard objectives remove easy-anim-math
 `)
 
-function createUpdateSelectionCommands(axis) {
-    let i = 0;
-    if (axis == "y") {i = 1};
-    if (axis == "z") {i = 2};
-    mcf[`update_size_${axis}`]`
+function createUpdateSelectionCommands({axis, i}) {
+    mcf[`menu/update_selection/update_size_${axis}`]`
         # Increase the new size by 1 so it makes logical sense for a size.
         scoreboard players add diff${axis} easy-anim-math 1
         # Toss this new size into the storage.
         execute store result storage easy-anim:animation_data new.size[${i}] double 1 run scoreboard players get diff${axis} easy-anim-math
     `
-    
     return`
         # for ${axis} axis, grab the new coordinate, anchor coordinate, and size coordinate and place those in scores.
         execute store result score add${axis} easy-anim-math run data get entity @s Pos[${i}]
@@ -186,7 +186,7 @@ function createUpdateSelectionCommands(axis) {
             scoreboard players operation diff${axis} easy-anim-math = add${axis} easy-anim-math
             scoreboard players operation diff${axis} easy-anim-math -= poscorner${axis} easy-anim-math
             scoreboard players operation diff${axis} easy-anim-math += size${axis} easy-anim-math
-            function ${ns}:${`update_size_${axis}`}
+            function ${ns}:${`menu/update_selection/update_size_${axis}`}
         `}
         # If the new selection is more negative in the ${axis} axis,
         execute if score add${axis} easy-anim-math < anchor${axis} easy-anim-math run ${a`
@@ -195,7 +195,7 @@ function createUpdateSelectionCommands(axis) {
             # Calculate a new size for this coordinate by setting it equal to the positive corner and subtracting the anchor.
             scoreboard players operation diff${axis} easy-anim-math = poscorner${axis} easy-anim-math
             scoreboard players operation diff${axis} easy-anim-math -= add${axis} easy-anim-math
-            function ${ns}:${`update_size_${axis}`}
+            function ${ns}:${`menu/update_selection/update_size_${axis}`}
         `}
     `
 }
@@ -216,10 +216,7 @@ updateSelectionCommands.push(`
 // ALL COMMANDS FOR THE DISPLAY BOX. Bounding box continues down below.
 
 // These commands calculate the different sides of the selector box using the different axes. mainly, just the half of size for each axis and anchor and size in 10x precision.
-function createDisplayBoxCommands(axis){
-    let i = 0;
-    if (axis == "y") {i = 1};
-    if (axis == "z") {i = 2};
+function createDisplayBoxCommands({axis, i}){
     return`
         execute store result score anchor${axis} easy-anim-math run data get storage easy-anim:animation_data new.anchor[${i}] 10
         execute store result score size${axis} easy-anim-math run data get storage easy-anim:animation_data new.size[${i}] 10
@@ -229,103 +226,112 @@ function createDisplayBoxCommands(axis){
 };
 
 // Takes the anchor position and subtracts 1 to find the structure block location. Also tosses some information into the same storage for macros (size)
-function calculateStructureBlockPosition(axis){
-    let i = 0;
-    if (axis == "y") {i = 1};
-    if (axis == "z") {i = 2};
+function calculateGrabStrBlockPos({axis, i}){
     return`
-        execute store result score str${axis} easy-anim-calculateStructureBlockPosition run data get storage easy-anim:animation_data new.anchor[${i}] 1
-        scoreboard players remove str${axis} easy-anim-calculateStructureBlockPosition 1
-        execute store result storage easy-anim:temp str.${axis} int 1 run scoreboard players get str${axis} easy-anim-calculateStructureBlockPosition
+        # Take anchor out of storge and subtract one on all axis (position of structure block)
+        execute store result score str${axis} easy-anim-calculateGrabStrBlockPos run data get storage easy-anim:animation_data new.anchor[${i}] 1
+        scoreboard players remove str${axis} easy-anim-calculateGrabStrBlockPos 1
+        # Give size an initial value of 1 (in case there isn't one set yet, in case there's only the anchor selected)
+        data modify storage easy-anim:temp str.s${axis} set value 1
+        # Toss the structure block coordinates into a temporary storage to be macroed into the command.
+        execute store result storage easy-anim:temp str.${axis} int 1 run scoreboard players get str${axis} easy-anim-calculateGrabStrBlockPos
+        # Toss the size of the selection into a temporary storage to be macroed into the command.
         data modify storage easy-anim:temp str.s${axis} set from storage easy-anim:animation_data new.size[${i}]
+        # Take size out of storage, divide it in half, and toss it into a temporary storage to be macroed.
+        execute store result score halfsize${axis} easy-anim-calculateGrabStrBlockPos run data get storage easy-anim:animation_data new.size[${i}] 10
+        scoreboard players set 2 easy-anim-calculateGrabStrBlockPos 2
+        scoreboard players operation halfsize${axis} easy-anim-calculateGrabStrBlockPos /= 2 easy-anim-calculateGrabStrBlockPos
+        execute store result storage easy-anim:temp str.sh${axis} double 0.1 run scoreboard players get halfsize${axis} easy-anim-calculateGrabStrBlockPos
     `;
 }
 // Set up temporary scoreboard
-structureBlockPosition.push(`
-    scoreboard objectives add easy-anim-calculateStructureBlockPosition dummy
+grabStrBlockPos.push(`
+    scoreboard objectives add easy-anim-calculateGrabStrBlockPos dummy
+    # Set the dimension based on the closest player, because this command can either be executed by: the player (so @p = @s), or an item frame, which doesn't have dimension. However, the closest player will always be in the same dimension as the item frame.
     data modify storage easy-anim:temp str.dimension set from entity @p Dimension
 `);
 // Add axis-specific commands from function above.
-structureBlockPosition.push(...axis.map(calculateStructureBlockPosition));
+grabStrBlockPos.push(...axis.map(calculateGrabStrBlockPos));
 // Remove temporary scoreboard
-structureBlockPosition.push(`
-    scoreboard objectives remove easy-anim-calculateStructureBlockPosition
+grabStrBlockPos.push(`
+    scoreboard objectives remove easy-anim-calculateGrabStrBlockPos
+`);
+
+// Holds all necessary information for each handle. xyz represent how many copies of half of size in that direction that needs to be added to the anchor coordinate to get to the position. dir represents the direction the handle faces, and align represents the axis that is parallel to that side of the selection area.
+const handles = [
+    {dir:"west", x:0, y:1, z:1, rotation:"[0.0f,0.0f,0.38268346f,0.9238795f]"},
+    {dir:"down", x:1, y:0, z:1, rotation:"[0.65328145f,0.2705981f,0.65328145f,0.2705981f]"},
+    {dir:"north", x:1, y:1, z:0, rotation:"[-0.2705981f,-0.6532815f,0.2705981f,0.6532815f]"},
+    {dir:"south", x:1, y:1, z:2, rotation:"[0.2705981f,0.65328145f,0.2705981f,0.65328145f]"},
+    {dir:"up", x:1, y:2, z:1, rotation:"[-0.2705981f,0.6532815f,-0.2705981f,0.6532815f]"},
+    {dir:"east", x:2, y:1, z:1, rotation:"[0.38268346f,0.9238795f,0.0f,0.0f]"}
+];
+
+// Creates the coordinates for each side and corner of the selection. I plan to reuse this for quick update handle interactions!!
+function createHandleSummonCommands({dir, x, y, z, rotation}) {
+    const axisMultiplyingCommands = [];
+    // We localized the mults created inside the matrix and the axis to be one variable for more reusable code
+    const axesData = [
+        {axis: "x", mult: x, i:0},
+        {axis: "y", mult: y, i:1},
+        {axis: "z", mult: z, i:2}
+    ]
+
+    for (const {axis, mult, i} of axesData) {
+        // For each x y and z, we start at the anchor and add either 0 times, 1 times, or 2 times half of the size length in that direction to get to each midpoint of each side, and each corner.
+        axisMultiplyingCommands.push(`
+            # Finds the side math for axis: ${axis} with a multiplier of: ${mult}.
+            # Grabs anchor and size out of storage
+            execute store result score anchor${axis} easy-anim-handle run data get storage ${ns}:animation_data new.anchor[${i}] 10
+            execute store result score halfsize${axis} easy-anim-handle run data get storage ${ns}:animation_data new.size[${i}] 10
+            # Sets the current position to the anchor and then adds a multiple of half of the side to get to the right coordinates.
+            scoreboard players operation currentpos${axis} easy-anim-handle = anchor${axis} easy-anim-handle
+            scoreboard players operation halfsize${axis} easy-anim-handle /= 2 easy-anim-handle
+            scoreboard players operation additive${axis} easy-anim-handle = halfsize${axis} easy-anim-handle
+            scoreboard players operation additive${axis} easy-anim-handle *= ${mult} easy-anim-handle
+            scoreboard players operation currentpos${axis} easy-anim-handle += additive${axis} easy-anim-handle
+            # Toss the new position directly into the entity we are executing as
+            execute store result entity @s Pos[${i}] double 0.1 run scoreboard players get currentpos${axis} easy-anim-handle
+        `);
+    }
+    // For each box, we grab the axisMultiplyingCommands from above that generate coordinates, and then summon the display at those coords using a macro.
+    return`
+        # Summon the new block display and execute as it
+        execute summon minecraft:item_display run ${a`
+            # Find the coordinates needed for the block display handle and set them directly in Pos
+            ${axisMultiplyingCommands.join('\n')}
+            # Toss on remaining needed data
+            data merge entity @s {item: {id: "minecraft:arrow", count: 1}, transformation: {left_rotation: ${rotation}, right_rotation: [0.0f, 0.0f, 0.0f, 1.0f], scale: [0.50f, 0.50f, 0.50f], translation: [0.0f,0.0f,0.0f]}, Tags:["easy-anim-handle", "easy-anim-handle${dir}"], Glowing: true, brightness: {block:15, sky:15}}
+        `}
+    `;
+}
+
+// Create a temporary scoreboard objective for math.
+handleSummonCommands.push(`
+    scoreboard objectives add easy-anim-handle dummy
+    # setup a constant 0, 1, and 2 for division and multiplcation
+    scoreboard players set 0 easy-anim-handle 0
+    scoreboard players set 1 easy-anim-handle 1
+    scoreboard players set 2 easy-anim-handle 2
+`);
+
+// Summons the handles on each side of the box.
+handleSummonCommands.push(...handles.map(createHandleSummonCommands))
+
+// Remove the temporary scoreboard.
+handleSummonCommands.push(`
+    scoreboard objectives remove easy-anim-handle
 `);
 
 // Sets up the display box commands before the axis-specifc commands are compiled.
 displayBoxCommands.push(`
     # Save the block at the neg neg neg corner (outside of region) to the editor dimension and place in a new structure block
-    ${structureBlockPosition.join('\n')}
-    ${a`
+    ${grabStrBlockPos.join('\n')}
+    ${placeStructureBlock`
         $clone $(x) $(y) $(z) $(x) $(y) $(z) to easy-anim:editor 0 0 0 strict
         $setblock $(x) $(y) $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:1,posY:1,posZ:1,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"test",strict:true}
     `} with storage easy-anim:temp str
-    # create a constant value of 0, 1, and 2 inside of the scoreboard.
-    # scoreboard players set 0 easy-anim-math 0
-    # scoreboard players set 1 easy-anim-math 1
-    # scoreboard players set 2 easy-anim-math 2
-`);
-
-// Calculates the different half size steps for each axis and their anchor and size components, scaled 10x.
-// displayBoxCommands.push(...axis.map(createDisplayBoxCommands));
-
-// The goal is to start at the anchor and then add each x, y, and z size to get to the different sides and corners of the bounding box. We'll add a half at a time, scaling x2 to get fully across. This matrix holds each combination of scaling.
-const multiplicationMatrix = [];
-for (let i = 0; i < 3; i++) {
-    for (let j = 0; j < 3; j++) {
-        for (let k = 0; k < 3; k++) {
-            multiplicationMatrix.push({xmult:i,ymult:j,zmult:k});
-        }
-    }
-}
-
-// Separated so it can be macroed, this grabs saved coordinates from the easy-anim:temp storage to place lime concrete blocks at each corner and side that are glowing.
-displaySummon`
-    # $summon minecraft:block_display $(x) $(y) $(z) {block_state: {Name: "minecraft:lime_concrete"}, transformation: {left_rotation: [0.0f, 0.0f, 0.0f, 1.0f], right_rotation: [0.0f, 0.0f, 0.0f, 1.0f], scale: [0.25f, 0.25f, 0.25f], translation: [-0.125f, -0.125f, -0.125f]}, Tags:["easy-anim-outline"], Glowing: true}
-    # $summon minecraft:slime $(x) $(y) $(z) {Tags:["easy-anim-outline"], Glowing: true, Size:1, NoAI:true, Size:0, Silent:true, DeathLootTable:"minecraft:air", Invulnerable:true, TicksFrozen:-1, NoGravity:true, PersistenceRequired:true, active_effects:[{id: "minecraft:invisibility", duration: -1, show_particles: 0b, show_icon: 0b}]}
-`;
-
-// Creates the coordinates for each side and corner of the selection. I plan to reuse this for quick update handle interactions!!
-function createDisplayBoxSummonCommands({xmult, ymult, zmult}) {
-    const axisMultiplyingCommands = [];
-    // We localized the mults created inside the matrix and the axis to be one variable for more reusable code
-    const axesData = [
-        {axis: "x", mult: xmult},
-        {axis: "y", mult: ymult},
-        {axis: "z", mult: zmult}
-    ]
-
-    for (const {axis, mult} of axesData) {
-        // For each x y and z, we start at the anchor and add either 0 times, 1 times, or 2 times half of the size length in that direction to get to each midpoint of each side, and each corner.
-        axisMultiplyingCommands.push(`
-            # Finds the side math for axis: ${axis} with a multiplier of: ${mult}.
-            scoreboard players operation currentpos${axis} easy-anim-math = anchor${axis} easy-anim-math
-            scoreboard players operation additive${axis} easy-anim-math = halfsize${axis} easy-anim-math
-            scoreboard players operation additive${axis} easy-anim-math *= ${mult} easy-anim-math
-        `);
-        // We add a half step to the y-coordinate to better center the boxes
-        if (axis === "y") {axisMultiplyingCommands.push(`
-            scoreboard players add additivey easy-anim-math 5
-        `)}
-        // All of these coordinates are tossed into a temporary storage container to be mapped into a summon command.
-        axisMultiplyingCommands.push(`
-            scoreboard players operation currentpos${axis} easy-anim-math += additive${axis} easy-anim-math
-            execute store result storage easy-anim:temp display.${axis} double 0.1 run scoreboard players get currentpos${axis} easy-anim-math
-        `);
-    }
-    // For each box, we grab the axisMultiplyingCommands from above that generate coordinates, and then summon the display at those coords using a macro.
-    return`
-        ${axisMultiplyingCommands.join('\n')}
-        ${displaySummon} with storage easy-anim:temp display
-    `;
-}
-
-// Summons the displays at each corner and side of the area.
-// displayBoxSummonCommands.push(...multiplicationMatrix.map(createDisplayBoxSummonCommands))
-
-// Cleans up the display box by removing the temporary scoreboard.
-displayBoxCommands.push(`
-    # ${displayBoxSummonCommands.join('\n')}
+    ${handleSummonCommands.join('\n')}
     # Remove the temporary data location.
     data remove storage easy-anim:temp str
 `);
@@ -336,30 +342,35 @@ resetCornerBlock`
 `
 
 selectCommands.push(`
-    execute as @n[type=item_frame,tag=easy-anim-edge] at @s positioned ^ ^ ^-0.5 align xyz summon minecraft:marker run ${a`
+    execute as @n[type=item_frame,tag=easy-anim-edge] at @s positioned ^ ^ ^-0.5 align xyz summon minecraft:marker run ${execute_as_marker`
         # If we have an anchor and a preexisting size, we must test to see if the new selection is outside of the current region, and on which axis to update the previous region by.
-        execute if data storage easy-anim:animation_data new.anchor if data storage easy-anim:animation_data new.size run ${a`
+        execute if data storage easy-anim:animation_data new.anchor if data storage easy-anim:animation_data new.size run ${update_selection`
             # Reset the current display structure block.
-            ${structureBlockPosition.join('\n')}
+            ${grabStrBlockPos.join('\n')}
             ${resetCornerBlock} with storage easy-anim:temp str
+            # Kill the display item_display entities from the old selection.
+            kill @e[type=minecraft:item_display,tag=easy-anim-handle]
             # Remove the temporary data location.
             data remove storage easy-anim:temp str
             # Update the new selection.
             ${updateSelectionCommands.join('\n')}
-            # This function places a structure block with the right size parameters to highlight the selected area.
-            ${displayBoxCommands.join('\n')}
         `}
         # If we have an anchor but not a size, calculate a size with this new corner and update the size to match. Anchor might move to stay as the most negative corner.
-        execute if data storage easy-anim:animation_data new.anchor unless data storage easy-anim:animation_data new.size run ${a`
+        execute if data storage easy-anim:animation_data new.anchor unless data storage easy-anim:animation_data new.size run ${create_two_point_selection`
+            # Reset the current display structure block. (It's currently only highlighting the anchor.)
+            ${grabStrBlockPos.join('\n')}
+            ${resetCornerBlock} with storage easy-anim:temp str
+            # Kill the display item_display entities from the old selection.
+            kill @e[type=minecraft:item_display,tag=easy-anim-handle]
             # Set placeholder values so that they can be set to different values.
             data modify storage easy-anim:animation_data new.size set value [0.0d, 0.0d, 0.0d]
             # This function finds the most negative corner to become the anchor and the most positive corner to calulate box size. It maps through each axis.
-            ${boundingBoxCommands.join('\n')}
-            # This function places a structure block with the right size parameters to highlight the selected area.
-            ${displayBoxCommands.join('\n')}
+            ${twoPointCommands.join('\n')}
         `}
         # If the current animation doesn't have an anchor, set the new selection position as the anchor.
         execute unless data storage easy-anim:animation_data new.anchor run data modify storage easy-anim:animation_data new.anchor set from entity @s Pos
+        # This function places a structure block with the right size parameters to highlight the selected area.
+        ${displayBoxCommands.join('\n')}
         kill @s
     `}
     execute as @n[type=item_frame,tag=easy-anim-edge] run kill @s
@@ -395,13 +406,13 @@ exit`
     setblock 0 -63 0 black_concrete
     $data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
     data remove storage ${ns}:player_data current
-    ${structureBlockPosition.join('\n')}
+    ${grabStrBlockPos.join('\n')}
     ${resetCornerBlock} with storage easy-anim:temp str
     # Remove the temporary data locations.
     setblock 0 0 0 minecraft:air
     data remove storage easy-anim:temp str
     # Remove the new selection.
     data remove storage ${ns}:animation_data new
-    # Kill the display block_display entities from the old selection.
-    # kill @e[type=minecraft:slime,tag=easy-anim-outline]
+    # Kill the display item_display entities from the old selection.
+    kill @e[type=minecraft:item_display,tag=easy-anim-handle]
 `;
