@@ -19,7 +19,7 @@ tick`
     ${handleDetection}
     execute as @e[type=interaction, tag=${ns}-handle] if data entity @s interaction run data remove entity @s interaction
     execute as @e[type=interaction, tag=${ns}-handle] if data entity @s attack run data remove entity @s attack
-    execute as @a at @s anchored eyes positioned ^ ^ ^ summon minecraft:marker run ${raycast}
+    execute as @a at @s anchored eyes positioned ^ ^ ^ summon minecraft:interaction run ${raycast} with entity @p
 `;
 
 // These commands run when the datapack has been loaded in.
@@ -35,27 +35,18 @@ load`
 menu`
     dialog show @s ${ns}:main_menu
 `;
-
-for (let i = 0; i < 6; i++) {
+// Executes commands that have to run for each raycast iteration (we start at the player and move out 0.25 blocks more each time, until we are 5 blocks away.)
+for (let i = 0.25; i < 5.5; i += 0.25) {
     raycastCommands.push(`
-        ${handleHighlight}
-        tp @s ^ ^ ^1
+        execute at @s run ${handleHighlight}
+        $execute at @a[nbt={UUID:$(UUID)}] positioned ~ ~1.6 ~ run tp @s ^ ^ ^${i}
     `);
 }
 
-raycastCommands.push(`
-    data modify storage ${ns}:temp temp.x set from entity @s Pos[0]
-    data modify storage ${ns}:temp temp.y set from entity @s Pos[1]
-    data modify storage ${ns}:temp temp.z set from entity @s Pos[2]
-    data modify storage ${ns}:temp temp.yaw set from entity @s Rotation[0]
-    data modify storage ${ns}:temp temp.pitch set from entity @s Rotation[1]
-    ${a`$say x: $(x) y: $(y) z: $(z) yaw: $(yaw) pitch: $(pitch)`} with storage ${ns}:temp temp
-    data remove storage ${ns}:temp temp
-    
-`);
-
+// this is executed as an interaction entity at the player's eyes. We just gotta make sure we're facing the same direction as the player, that we have a size of 0.25, and that we kill this interaction after its use.
 raycast`
     data modify entity @s Rotation set from entity @p Rotation
+    data merge entity @s {width:0.25f,height:0.25f}
     ${raycastCommands.join('\n')}
     kill @s
 `;

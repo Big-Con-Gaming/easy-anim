@@ -413,9 +413,13 @@ export const handleDetection = `
     execute as @e[type=item_display, tag=${ns}-handle] run data merge entity @s {Glowing:0b}
 `;
 
-// Thrown into the player raycast command, if the player is looking at a handle, it will highlight.
+// Thrown into the player raycast command, if the player is looking at a handle, it will highlight. Special method is used here to make sure we are looking at the 0.25 x 0.25 interaction entity. (we check a 1x1x1 cube that is 1 - 0.125 away from our destination and a 1x1x1 cube at this current position.)
 handleHighlight`
-    execute as @e[distance=..1, type=item_display, tag=${ns}-handle] run data merge entity @s {Glowing:1b}
+    execute positioned ~-0.875 ~-0.875 ~-0.875 as @e[dx=0, dy=0, dz=0, type=interaction, tag=${ns}-handle] as @n[type=item_display, tag=${ns}-handle] run tag @s add ${ns}-handle-select1
+    execute positioned ~ ~ ~ as @e[dx=0, dy=0, dz=0, type=interaction, tag=${ns}-handle] as @n[type=item_display, tag=${ns}-handle] run tag @s add ${ns}-handle-select2
+    execute as @e[type=item_display,tag=${ns}-handle-select1, tag=${ns}-handle-select2] run data merge entity @s {Glowing:1b}
+    tag @e[tag=${ns}-handle-select1] remove ${ns}-handle-select1
+    tag @e[tag=${ns}-handle-select2] remove ${ns}-handle-select2
 `
 
 // Macro command to replace the structure block with the block it used to have.
