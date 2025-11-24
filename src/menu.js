@@ -1,7 +1,7 @@
 // Set up stuff
 import mcf from './mcf.js';
 const folder = mcf.menu;
-export const { create, exit, handleExecution, handleHighlight, resetCornerBlock, placeStructureBlock, execute_as_marker, update_selection, create_two_point_selection, anonymous: a } = folder;
+export const { create, exit, handleExecution, handleHighlight, place_ghost, keepHoverSelect, removeHovers, resetCornerBlock, placeStructureBlock, execute_as_marker, update_selection, create_two_point_selection, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 // Sets up the lists used to compile commands.
@@ -77,12 +77,12 @@ inventorySaveCommands.push(`
 // HOTBAR TOOLS CREATION
 // Specify the hotbar tools with their display item, name, slot within the hotbar, and the function that is ran on right click.
 const hotbarTools = [
-    {display:"minecraft:barrier", name:"Exit", slot:8, action: "exit with entity @s", dimension: "easy-anim:editor"},
-    {display:"minecraft:structure_void", name:"Select", slot:0, placeable:true, entity_data:'{id:"minecraft:item_frame",Invisible:1b,Tags:["easy-anim-edge"]}'}
+    {display:`minecraft:barrier`, name:"Exit", slot:8, action: `exit with entity @s`, dimension: `easy-anim:editor`},
+    {display:`minecraft:structure_void`, name:"Select", slot:0, placeable:true, entity_data:`{id:"minecraft:item_frame",Invisible:1b,Tags:["easy-anim-edge"]}`, on_hover:`anchored eyes positioned ^ ^ ^5 if block ~ ~ ~ minecraft:air run function ${ns}:menu/place_ghost`, on_not_hover:`as @e[type=interaction,tag=${ns}-hover-select] run function ${ns}:menu/remove_hovers`}
 ];
 
 // Sets up each item in the hotbar.
-function createHotbarCommands({slot, name, display, action, dimension, placeable, entity_data}) {
+function createHotbarCommands({slot, name, display, action, dimension, placeable, entity_data, on_hover, on_not_hover}) {
     // Sets up right click detection to execute functions under the same name as action within the menu folder.
     
     // Assume the item ID is a carrot on a stick, but if the item is placeable, change it to an item frame. If an item frame, do not run right click detection.
@@ -100,6 +100,17 @@ function createHotbarCommands({slot, name, display, action, dimension, placeable
                 execute as @a[nbt={SelectedItem:{id:"${itemId}", components:{"minecraft:item_model":"${display}","minecraft:item_name":"${name}"}}}, scores={${ns}-right-click=1..}] at @s run function ${ns}:menu/${action}
             `);
         }
+    }
+    // Throws specified commands into the rightClick section of commands but only executes if the item is selected, not right clicked.
+    if (on_hover != null) {
+        rightClickCommands.push(`
+            execute as @a[nbt={SelectedItem:{id:"${itemId}", components:{"minecraft:item_model":"${display}","minecraft:item_name":"${name}"}}}] at @s ${on_hover}
+        `);
+    }
+    if (on_not_hover != null) {
+        rightClickCommands.push(`
+            execute unless entity @a[nbt={SelectedItem:{id:"${itemId}", components:{"minecraft:item_model":"${display}","minecraft:item_name":"${name}"}}}] ${on_not_hover}
+        `);
     }
     // This command places the item in the player's hotbar.
     if (entity_data != null) {
@@ -291,7 +302,7 @@ function createHandleSummonCommands({dir, x, y, z, rotation}) {
         # Summon the new block display and execute as it
         execute summon minecraft:item_display run ${a`
             # Summon in the interaction entity needed for this handle
-            summon minecraft:interaction ~ ~ ~ {height:0.25f, width:0.25f, Tags:["${ns}-handle", "${ns}-handle-interaction", "${ns}-handle-${dir}"]}
+            summon minecraft:interaction ~ ~ ~ {height:0.25f, width:0.50f, Tags:["${ns}-handle", "${ns}-handle-interaction", "${ns}-handle-${dir}"]}
             # Find the coordinates needed for the block display handle and set them directly in Pos
             ${axisMultiplyingCommands.join('\n')}
             # Move interactions .125 down to center the hitbox on the arrow
@@ -421,6 +432,22 @@ handleHighlight`
     tag @e[tag=${ns}-handle-select1] remove ${ns}-handle-select1
     tag @e[tag=${ns}-handle-select2] remove ${ns}-handle-select2
 `
+// Places a temporary block intended for players to use to select off of.
+place_ghost`
+    setblock ~ ~ ~ minecraft:light_blue_stained_glass
+    execute align xyz positioned ~0.5 ~ ~0.5 run summon minecraft:interaction ~ ~ ~ {width:0.99f,height:0.99f,Tags:["${ns}-hover-select"]}
+`
+keepHoverSelect`
+    execute positioned ~-0.505 ~-0.505 ~-0.505 as @e[dx=0, dy=0, dz=0, type=interaction, tag=${ns}-hover-select] run tag @s add ${ns}-hover-select1
+    execute positioned ~ ~ ~ as @e[dx=0, dy=0, dz=0, type=interaction, tag=${ns}-hover-select] run tag @s add ${ns}-hover-select2
+    execute as @e[type=interaction,tag=${ns}-hover-select1, tag=${ns}-hover-select2] run tag @s remove ${ns}-hover-select-delete
+    tag @e[tag=${ns}-hover-select1] remove ${ns}-hover-select1
+    tag @e[tag=${ns}-hover-select2] remove ${ns}-hover-select2
+`
+removeHovers`
+    execute at @s run setblock ~ ~ ~ minecraft:air
+    kill @s
+`
 
 // Macro command to replace the structure block with the block it used to have.
 resetCornerBlock`
@@ -460,6 +487,8 @@ selectCommands.push(`
         kill @s
     `}
     execute as @n[type=item_frame,tag=${ns}-edge] run kill @s
+    # Tag all HoverSelect boxes for deletion
+    tag @e[type=interaction, tag=${ns}-hover-select] add ${ns}-hover-select-delete
 `);
 
 export const select = selectCommands.join('\n');

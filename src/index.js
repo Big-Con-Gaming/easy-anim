@@ -3,7 +3,7 @@
 // Import your mcf context and any functions you want to use.
 
 import mcf from './mcf.js';
-import { rightClick, select, handleDetection, handleHighlight } from './menu.js';
+import { rightClick, select, handleDetection, handleHighlight, keepHoverSelect, removeHovers } from './menu.js';
 
 // Declare the functions you want to use
 const { tick, load, menu, raycast, anonymous: a } = mcf;
@@ -20,6 +20,7 @@ tick`
     execute as @e[type=interaction, tag=${ns}-handle] if data entity @s interaction run data remove entity @s interaction
     execute as @e[type=interaction, tag=${ns}-handle] if data entity @s attack run data remove entity @s attack
     execute as @a at @s anchored eyes positioned ^ ^ ^ summon minecraft:interaction run ${raycast} with entity @p
+    execute as @e[type=interaction, tag=${ns}-hover-select-delete] run ${removeHovers}
 `;
 
 // These commands run when the datapack has been loaded in.
@@ -36,12 +37,17 @@ menu`
     dialog show @s ${ns}:main_menu
 `;
 // Executes commands that have to run for each raycast iteration (we start at the player and move out 0.25 blocks more each time, until we are 5 blocks away.)
-for (let i = 0.25; i < 5.5; i += 0.25) {
+for (let i = 0.0; i < 5.25; i += 0.25) {
     raycastCommands.push(`
-        execute at @s run ${handleHighlight}
         $execute at @a[nbt={UUID:$(UUID)}] positioned ~ ~1.6 ~ run tp @s ^ ^ ^${i}
+        execute at @s run ${handleHighlight}
     `);
 }
+
+// These commands will run at the furthest raycast (5 blocks out from the player)
+raycastCommands.push(`
+    execute at @s run ${keepHoverSelect}
+`)
 
 // this is executed as an interaction entity at the player's eyes. We just gotta make sure we're facing the same direction as the player, that we have a size of 0.25, and that we kill this interaction after its use.
 raycast`
