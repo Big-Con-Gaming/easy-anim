@@ -3,7 +3,8 @@
 // Import your mcf context and any functions you want to use.
 
 import mcf from './mcf.js';
-import { rightClick, select, handleDetection, handleHighlight, keepHoverSelect, removeHovers } from './menu.js';
+import { toolbarRightClick } from './inventory.js';
+import { select, handleDetection, handleHighlight, keepHoverSelect, removeHovers } from './selection.js';
 
 // Declare the functions you want to use
 const { tick, load, menu, raycast, anonymous: a } = mcf;
@@ -13,7 +14,7 @@ const ns = 'easy-anim';
 
 // These commands will run every tick.
 tick`
-    ${rightClick}
+    ${toolbarRightClick}
     execute as @a[scores={${ns}-right-click=1..}] run scoreboard players set @s ${ns}-right-click 0
     ${select}
     ${handleDetection}
