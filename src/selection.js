@@ -247,6 +247,7 @@ displayBoxCommands.push(`
     ${placeStructureBlock`
         $clone $(x) $(y) $(z) $(x) $(y) $(z) to ${ns}:editor 0 0 0 strict
         $setblock $(x) $(y) $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:1,posY:1,posZ:1,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"test",strict:true}
+        $summon minecraft:interaction $(x) $(y) $(z) {width:1.01f,height:1.01f,Tags:["${ns}-select-str-block"]}
     `} with storage ${ns}:temp str
     ${handleSummonCommands.join('\n')}
     # Remove the temporary data location.
@@ -254,6 +255,12 @@ displayBoxCommands.push(`
 `);
 
 displayBox`${displayBoxCommands.join('\n')}`;
+
+// Macro command to replace the structure block with the block it used to have.
+resetCornerBlock`
+    $clone from ${ns}:editor 0 0 0 0 0 0 to $(dimension) $(x) $(y) $(z) strict
+    $execute positioned $(x) $(y) $(z) run kill @n[type=minecraft:interaction, tag=${ns}-select-str-block]
+`
 
 // These commands grab the matrix data from the sides and subtracts one (they line up with the size manipulation needed to get to the target size). Then, we add that to size.
 function createHandleExecutionCommands({dir, x, y, z, anchorChange}) {
@@ -321,7 +328,7 @@ handleExecutionCommands.push(`
     # Clean up the temporary scoreboard
     scoreboard objectives remove ${ns}-handle-detect
     # This function places a structure block and handles with the right size parameters to highlight the selected area.
-    ${displayBoxCommands.join('\n')}
+    ${displayBox}
 `);
 
 // Compile commands inside of list into one reference.
@@ -358,11 +365,6 @@ keepHoverSelect`
 removeHovers`
     execute at @s run setblock ~ ~ ~ minecraft:air
     kill @s
-`
-
-// Macro command to replace the structure block with the block it used to have.
-resetCornerBlock`
-    $clone from ${ns}:editor 0 0 0 0 0 0 to $(dimension) $(x) $(y) $(z) strict
 `
 
 selectCommands.push(`
