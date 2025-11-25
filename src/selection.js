@@ -1,8 +1,10 @@
 // Set up stuff
 import mcf from './mcf.js';
 const folder = mcf.selection;
-export const { anonymous: a, grabStrBlockPos, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, executeAsMarker, updateSelection, createTwoPointSelection } = folder;
+export const { anonymous: a, updateSelection, grabStrBlockPos, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection } = folder;
+// updateSelection: changes size and anchor to fit in a new selection point into preexisting selection box. Selections within the box run twoPointSelection.
 // grabStrBlockPos: Grabs the structure block position of the current selection box and places it into ${ns}:temp str. Also grabs the box's size for a macro.
+// displayBox: Places in the structure block and handles on a selection.
 // placeStructureBlock: tosses the block that is xyz - 1 from the anchor of the selection into the editor, and then places the structure block there needed to display the selection's size. Must be executed with storage ${ns}:temp str.
 // handleExecution: takes the right and left clicks performed on handles and transforms the selection box accordingly.
 // resetCornerBlock: replaces the structure block in a selection with the block that was previously there. must be executed with storage ${ns}:temp str.
@@ -11,8 +13,10 @@ export const { anonymous: a, grabStrBlockPos, placeStructureBlock, handleExecuti
 // keepHoverSelect: If the player is still looking at a hover selection box, prevent its deletion. Tossed into the end of the raycast system.
 // removeHovers: When executed on an interaction entity representing a hover selection, it will remove itself from the world.
 // executeAsMarker: ran as a marker in the world, depicting the center of the block that a player first selects. Runs the decision tree to determine which selection command to execute.
-// updateSelection: considers the current entity's position as a third point to a current box selection and expands the selection to fit such.
+// updateFullSelection: considers the current entity's position as a third point to a current box selection and expands the selection to fit such. Uses updateSelection for the math, but also fixes the handles and the structure block.
 // createTwoPointSelection: Assumes that an anchor position is the only thing created for the current selection, and treats the current entity's position as the second corner of this selection. Changes anchor and size to match the new selection.
+// twoPointSelection: Finds the most negative corner to become the anchor and the most positive corner to calculate box size. It maps through each axis.
+
 const ns = 'easy-anim';
 
 // Set up lists that will hold commands.
@@ -34,44 +38,45 @@ const axis = [
 ];
 
 function createTwoPointCommands({axis, i}) {
-    mcf[`menu/two_point_pos/calc_size_current_pos_${axis}`]`
+    mcf[`selection/two_point_pos/calc_size_current_pos_${axis}`]`
         # Calculate size by subtracting the newly selected point by anchor.
-        scoreboard players operation size${axis} ${ns}-math = current${axis} ${ns}-math
-        scoreboard players operation size${axis} ${ns}-math -= anchor${axis} ${ns}-math
+        scoreboard players operation size${axis} ${ns}-twopoint = current${axis} ${ns}-twopoint
+        scoreboard players operation size${axis} ${ns}-twopoint -= anchor${axis} ${ns}-twopoint
     `
-    mcf[`menu/two_point_neg/calc_size_current_neg_${axis}`]`
+    mcf[`selection/two_point_neg/calc_size_current_neg_${axis}`]`
         # Calculate size by setting size to anchor and then subtracting off the newly selected point.
-        scoreboard players operation size${axis} ${ns}-math = anchor${axis} ${ns}-math
-        scoreboard players operation size${axis} ${ns}-math -= current${axis} ${ns}-math
+        scoreboard players operation size${axis} ${ns}-twopoint = anchor${axis} ${ns}-twopoint
+        scoreboard players operation size${axis} ${ns}-twopoint -= current${axis} ${ns}-twopoint
         # Make the newly selected point the anchor.
-        scoreboard players operation anchor${axis} ${ns}-math = current${axis} ${ns}-math
-        execute store result storage ${ns}:animation_data new.anchor[${i}] double 1 run scoreboard players get anchor${axis} ${ns}-math
+        scoreboard players operation anchor${axis} ${ns}-twopoint = current${axis} ${ns}-twopoint
+        execute store result storage ${ns}:animation_data new.anchor[${i}] double 1 run scoreboard players get anchor${axis} ${ns}-twopoint
     `
     return`
         # Store the anchor and current new position in the scoreboard.
-        execute store result score anchor${axis} ${ns}-math run data get storage ${ns}:animation_data new.anchor[${i}] 1
-        execute store result score current${axis} ${ns}-math run data get entity @s Pos[${i}] 1
+        execute store result score anchor${axis} ${ns}-twopoint run data get storage ${ns}:animation_data new.anchor[${i}] 1
+        execute store result score current${axis} ${ns}-twopoint run data get entity @s Pos[${i}] 1
         # Initialize size with 0 (it won't change if anchor and size are on the same axis.)
-        scoreboard players set size${axis} ${ns}-math 0
+        scoreboard players set size${axis} ${ns}-twopoint 0
         # If the newly selected point on the ${axis} axis is more positive than the anchor,
-        execute if score current${axis} ${ns}-math > anchor${axis} ${ns}-math run function ${ns}:menu/two_point_pos/calc_size_current_pos_${axis}
+        execute if score current${axis} ${ns}-twopoint > anchor${axis} ${ns}-twopoint run function ${ns}:selection/two_point_pos/calc_size_current_pos_${axis}
         # If the newly selected point on the ${axis} axis is more negative than the anchor,
-        execute if score current${axis} ${ns}-math < anchor${axis} ${ns}-math run function ${ns}:menu/two_point_neg/calc_size_current_neg_${axis}
+        execute if score current${axis} ${ns}-twopoint < anchor${axis} ${ns}-twopoint run function ${ns}:selection/two_point_neg/calc_size_current_neg_${axis}
         # Increase each axis by 1 to fully represent the full box (X1 - X2 = S - 1)
-        scoreboard players add size${axis} ${ns}-math 1
-        execute store result storage ${ns}:animation_data new.size[${i}] double 1 run scoreboard players get size${axis} ${ns}-math
+        scoreboard players add size${axis} ${ns}-twopoint 1
+        execute store result storage ${ns}:animation_data new.size[${i}] double 1 run scoreboard players get size${axis} ${ns}-twopoint
     `;
 }
 // Set up a temporary scoreboard to do calculations in
 twoPointCommands.push(`
-    scoreboard objectives add ${ns}-math dummy
+    scoreboard objectives add ${ns}-twopoint dummy
 `)
 // Add all axis-specific commands from the function above.
 twoPointCommands.push(...axis.map(createTwoPointCommands))
 // Remove temporary scoreboard.
 twoPointCommands.push(`
-    scoreboard objectives remove ${ns}-math
+    scoreboard objectives remove ${ns}-twopoint
 `)
+twoPointSelection`${twoPointCommands.join('\n')}`;
 
 function createUpdateSelectionCommands({axis, i}) {
     mcf[`selection/update_selection/update_size_${axis}`]`
@@ -108,12 +113,15 @@ function createUpdateSelectionCommands({axis, i}) {
             scoreboard players operation diff${axis} ${ns}-math -= add${axis} ${ns}-math
             function ${ns}:${`selection/update_selection/update_size_${axis}`}
         `}
+        # If the new selection is within the region on the ${axis} axis, tally this in a temporary scoreboard. If all 3 axis are within the selection, act as if this is a new corner.
+        execute if score add${axis} ${ns}-math >= anchor${axis} ${ns}-math if score add${axis} ${ns}-math <= poscorner${axis} ${ns}-math run scoreboard players add inside-cube ${ns}-math 1
     `
 }
 
 // Set up a scoreboard for temporary math
 updateSelectionCommands.push(`
     scoreboard objectives add ${ns}-math dummy
+    scoreboard players set inside-cube ${ns}-math 0
 `)
 
 // Add all axis-specific commands from the function above.
@@ -121,8 +129,11 @@ updateSelectionCommands.push(...axis.map(createUpdateSelectionCommands))
 
 // Remove the temporary scoreboard.
 updateSelectionCommands.push(`
+    execute if score inside-cube ${ns}-math matches 3 run ${twoPointSelection}
     scoreboard objectives remove ${ns}-math
 `)
+// Toss all commands into a function
+updateSelection`${updateSelectionCommands.join('\n')}`;
 
 // ALL COMMANDS FOR THE DISPLAY BOX. Bounding box continues down below.
 
@@ -242,6 +253,8 @@ displayBoxCommands.push(`
     data remove storage ${ns}:temp str
 `);
 
+displayBox`${displayBoxCommands.join('\n')}`;
+
 // These commands grab the matrix data from the sides and subtracts one (they line up with the size manipulation needed to get to the target size). Then, we add that to size.
 function createHandleExecutionCommands({dir, x, y, z, anchorChange}) {
     const axesData = [
@@ -253,12 +266,12 @@ function createHandleExecutionCommands({dir, x, y, z, anchorChange}) {
         let executeAnchor = "";
         if (anchorChange) {
             executeAnchor = `
-                function ${ns}:menu/handle_execution_math/${dir}_for_${axis}_anchor
+                function ${ns}:selection/handle_execution_math/${dir}_for_${axis}_anchor
             `;
         }
         // Create a method for each side and each axis of size, only if that axis is changing.
         if (`${mult}` != 0) {
-            mcf[`menu/handle_execution_math/${dir}_for_${axis}_anchor`]`
+            mcf[`selection/handle_execution_math/${dir}_for_${axis}_anchor`]`
                 # Grab anchor out of storage.
                 execute store result score anchor ${ns}-handle-detect run data get storage ${ns}:animation_data new.anchor[${i}]
                 # Change the coordinate in coordination with the previous diff. (Reverse direction)
@@ -267,7 +280,7 @@ function createHandleExecutionCommands({dir, x, y, z, anchorChange}) {
                 execute store result storage ${ns}:animation_data new.anchor[${i}] double 1 run scoreboard players get anchor ${ns}-handle-detect
             `;
             
-            mcf[`menu/handle_execution_math/${dir}_for_${axis}`]`
+            mcf[`selection/handle_execution_math/${dir}_for_${axis}`]`
                 # Pull size out of storage
                 execute store result score size ${ns}-handle-detect run data get storage ${ns}:animation_data new.size[${i}]
                 # Set diff to a default value of 1 for this axis
@@ -283,7 +296,7 @@ function createHandleExecutionCommands({dir, x, y, z, anchorChange}) {
             `;
             // Executes the above commands only if the current entity matches in direction
             handleExecutionCommands.push(`
-                execute if entity @s[tag=${ns}-handle-${dir}] run function ${ns}:menu/handle_execution_math/${dir}_for_${axis}
+                execute if entity @s[tag=${ns}-handle-${dir}] run function ${ns}:selection/handle_execution_math/${dir}_for_${axis}
             `);
         }
     }
@@ -355,7 +368,7 @@ resetCornerBlock`
 selectCommands.push(`
     execute as @n[type=item_frame,tag=${ns}-edge] at @s positioned ^ ^ ^-0.5 align xyz summon minecraft:marker run ${executeAsMarker`
         # If we have an anchor and a preexisting size, we must test to see if the new selection is outside of the current region, and on which axis to update the previous region by.
-        execute if data storage ${ns}:animation_data new.anchor if data storage ${ns}:animation_data new.size run ${updateSelection`
+        execute if data storage ${ns}:animation_data new.anchor if data storage ${ns}:animation_data new.size run ${updateFullSelection`
             # Reset the current display structure block.
             ${grabStrBlockPos}
             ${resetCornerBlock} with storage ${ns}:temp str
@@ -364,7 +377,7 @@ selectCommands.push(`
             # Remove the temporary data location.
             data remove storage ${ns}:temp str
             # Update the new selection.
-            ${updateSelectionCommands.join('\n')}
+            ${updateSelection}
         `}
         # If we have an anchor but not a size, calculate a size with this new corner and update the size to match. Anchor might move to stay as the most negative corner.
         execute if data storage ${ns}:animation_data new.anchor unless data storage ${ns}:animation_data new.size run ${createTwoPointSelection`
@@ -375,13 +388,13 @@ selectCommands.push(`
             kill @e[tag=${ns}-handle]
             # Set placeholder values so that they can be set to different values.
             data modify storage ${ns}:animation_data new.size set value [0.0d, 0.0d, 0.0d]
-            # This function finds the most negative corner to become the anchor and the most positive corner to calulate box size. It maps through each axis.
-            ${twoPointCommands.join('\n')}
+            # This function finds the most negative corner to become the anchor and the most positive corner to calculate box size. It maps through each axis.
+            ${twoPointSelection}
         `}
         # If the current animation doesn't have an anchor, set the new selection position as the anchor.
         execute unless data storage ${ns}:animation_data new.anchor run data modify storage ${ns}:animation_data new.anchor set from entity @s Pos
         # This function places a structure block and handles with the right size parameters to highlight the selected area.
-        ${displayBoxCommands.join('\n')}
+        ${displayBox}
         kill @s
     `}
     execute as @n[type=item_frame,tag=${ns}-edge] run kill @s

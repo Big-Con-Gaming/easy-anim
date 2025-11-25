@@ -5,9 +5,10 @@
 import mcf from './mcf.js';
 import { toolbarRightClick } from './inventory.js';
 import { select, handleDetection, handleHighlight, keepHoverSelect, removeHovers } from './selection.js';
+import './menu.js';
 
 // Declare the functions you want to use
-const { tick, load, menu, raycast, anonymous: a } = mcf;
+const { tick, load, menu, raycast } = mcf;
 const raycastCommands = [];
 
 const ns = 'easy-anim';
@@ -34,9 +35,11 @@ load`
     say Easy Animations Datapack Loaded!
 `;
 
+// Opens the main menu dialog for whoever runs this command.
 menu`
     dialog show @s ${ns}:main_menu
 `;
+
 // Executes commands that have to run for each raycast iteration (we start at the player and move out 0.25 blocks more each time, until we are 5 blocks away.)
 for (let i = 0.0; i < 5.25; i += 0.25) {
     raycastCommands.push(`

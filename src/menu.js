@@ -1,9 +1,9 @@
 // Set up stuff
-import { saveInventory, loadInventory, workingHotbar } from './inventory.js';
 import mcf from './mcf.js';
+import { saveInventory, loadInventory, workingHotbar } from './inventory.js';
 import { grabStrBlockPos, resetCornerBlock } from './selection.js';
 const folder = mcf.menu;
-export const { create, exit, anonymous: a,  } = folder;
+export const { create, exit } = folder;
 const ns = 'easy-anim';
 
 // Sets up the lists used to compile commands.
@@ -27,7 +27,6 @@ exit`
     # Load the player's inventory from storage.
     $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
     ${loadInventory}
-    
     $data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
     data remove storage ${ns}:player_data current
     ${grabStrBlockPos}

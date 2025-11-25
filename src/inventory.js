@@ -87,19 +87,21 @@ inventoryLoadCommands.push(`
     execute in ${ns}:editor run setblock 0 -63 0 black_concrete
 `);
 
+// Compile the save and load commands into one function reference.
 saveInventory`${inventorySaveCommands.join('\n')}`;
 loadInventory`${inventoryLoadCommands.join('\n')}`;
 
 // HOTBAR TOOLS CREATION
+
 // Specify the hotbar tools with their display item, name, slot within the hotbar, and the function that is ran on right click.
 const hotbarTools = [
-    {display:`minecraft:barrier`, name:"Exit", slot:8, action: `exit with entity @s`, dimension: `easy-anim:editor`},
-    {display:`minecraft:structure_void`, name:"Select", slot:0, placeable:true, entity_data:`{id:"minecraft:item_frame",Invisible:1b,Tags:["easy-anim-edge"]}`, on_hover:`anchored eyes positioned ^ ^ ^5 if block ~ ~ ~ minecraft:air run function ${ns}:menu/place_ghost`, on_not_hover:`as @e[type=interaction,tag=${ns}-hover-select] run function ${ns}:menu/remove_hovers`}
+    {display:`minecraft:barrier`, name:"Exit", slot:8, action: `menu/exit with entity @s`, dimension: `easy-anim:editor`},
+    {display:`minecraft:structure_void`, name:"Select", slot:0, placeable:true, entity_data:`{id:"minecraft:item_frame",Invisible:1b,Tags:["easy-anim-edge"]}`, on_hover:`anchored eyes positioned ^ ^ ^5 if block ~ ~ ~ minecraft:air run function ${ns}:selection/place_ghost`, on_not_hover:`as @e[type=interaction,tag=${ns}-hover-select] run function ${ns}:selection/remove_hovers`}
 ];
 
 // Sets up each item in the hotbar.
 function createHotbarCommands({slot, name, display, action, dimension, placeable, entity_data, on_hover, on_not_hover}) {
-    // Sets up right click detection to execute functions under the same name as action within the menu folder.
+    // Sets up right click detection to execute functions defined in the action field.
     
     // Assume the item ID is a carrot on a stick, but if the item is placeable, change it to an item frame. If an item frame, do not run right click detection.
     let itemId = "minecraft:carrot_on_a_stick";
@@ -109,11 +111,11 @@ function createHotbarCommands({slot, name, display, action, dimension, placeable
         // This command sets up the right click action for the item, but it's executed in tick back in index.js. If a dimension is specified, the command is executed in that dimension.
         if (dimension != null) {
             rightClickCommands.push(`
-                execute in ${dimension} as @a[nbt={SelectedItem:{id:"${itemId}", components:{"minecraft:item_model":"${display}","minecraft:item_name":"${name}"}}}, scores={${ns}-right-click=1..}] run function ${ns}:menu/${action}
+                execute in ${dimension} as @a[nbt={SelectedItem:{id:"${itemId}", components:{"minecraft:item_model":"${display}","minecraft:item_name":"${name}"}}}, scores={${ns}-right-click=1..}] run function ${ns}:${action}
             `);
         } else {
             rightClickCommands.push(`
-                execute as @a[nbt={SelectedItem:{id:"${itemId}", components:{"minecraft:item_model":"${display}","minecraft:item_name":"${name}"}}}, scores={${ns}-right-click=1..}] at @s run function ${ns}:menu/${action}
+                execute as @a[nbt={SelectedItem:{id:"${itemId}", components:{"minecraft:item_model":"${display}","minecraft:item_name":"${name}"}}}, scores={${ns}-right-click=1..}] at @s run function ${ns}:${action}
             `);
         }
     }
