@@ -1,9 +1,11 @@
 // Set up stuff
 import mcf from './mcf.js';
 const folder = mcf.selection;
-export const { anonymous: a, updateSelection, grabStrBlockPos, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection } = folder;
+export const { anonymous: a, grabSizeAnchor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, targetSelectInSelection } = folder;
+// grabSizeAnchor: Throws the anchor position, selection size, and the real size (shrunk by 1) into a temporary storage space for macros.
 // updateSelection: changes size and anchor to fit in a new selection point into preexisting selection box. Selections within the box run twoPointSelection.
 // grabStrBlockPos: Grabs the structure block position of the current selection box and places it into ${ns}:temp str. Also grabs the box's size for a macro.
+// handleSummon: Places arrow item entities and interaction entities at each side of the selection area.
 // displayBox: Places in the structure block and handles on a selection.
 // placeStructureBlock: tosses the block that is xyz - 1 from the anchor of the selection into the editor, and then places the structure block there needed to display the selection's size. Must be executed with storage ${ns}:temp str.
 // handleExecution: takes the right and left clicks performed on handles and transforms the selection box accordingly.
@@ -12,14 +14,18 @@ export const { anonymous: a, updateSelection, grabStrBlockPos, displayBox, place
 // placeGhost: Where ever executed, places a hover selection box so that the player can use it to select an area with a corner filled with air.
 // keepHoverSelect: If the player is still looking at a hover selection box, prevent its deletion. Tossed into the end of the raycast system.
 // removeHovers: When executed on an interaction entity representing a hover selection, it will remove itself from the world.
+// turnEntityDocile: Turns the executor "docile" (No AI, No Gravity, Silent, Invulnerable, Persistent, Full Pickup Delay and No Despawn Timer for Items)
+// removeDocile: Removes docile attributes/nbtdata from the executor.
 // executeAsMarker: ran as a marker in the world, depicting the center of the block that a player first selects. Runs the decision tree to determine which selection command to execute.
 // updateFullSelection: considers the current entity's position as a third point to a current box selection and expands the selection to fit such. Uses updateSelection for the math, but also fixes the handles and the structure block.
 // createTwoPointSelection: Assumes that an anchor position is the only thing created for the current selection, and treats the current entity's position as the second corner of this selection. Changes anchor and size to match the new selection.
 // twoPointSelection: Finds the most negative corner to become the anchor and the most positive corner to calculate box size. It maps through each axis.
+// targetSelectInSelection: using grabSizeAnchor data, it executes turnEntityDocile on every entity (besides the player) in the selection radius.
 
 const ns = 'easy-anim';
 
 // Set up lists that will hold commands.
+const grabSizeAnchorCommands = [];
 const selectCommands = [];
 const twoPointCommands = [];
 const displayBoxCommands = [];
@@ -27,6 +33,8 @@ const handleSummonCommands = [];
 const grabStrBlockPosCommands = [];
 const updateSelectionCommands = [];
 const handleExecutionCommands = [];
+const turnEntityDocileCommands = [];
+const removeDocileCommands = [];
 
 // ALL COMMANDS FOR THE SELECT TOOL
 
@@ -36,6 +44,29 @@ const axis = [
     {axis:"y",i:"1"},
     {axis:"z",i:"2"}
 ];
+
+// Grabs size and anchor and toss them into a temporary storage place to be used in other commands. Exports data into ${ns}:temp grabsizeanchor.
+function createGrabSizeAnchorCommands({axis, i}){
+    return`
+        data modify storage ${ns}:temp grabsizeanchor.a${axis} set from storage ${ns}:animation_data new.anchor[${i}]
+        data modify storage ${ns}:temp grabsizeanchor.s${axis} set from storage ${ns}:animation_data new.size[${i}]
+        execute store result score s${axis} ${ns}-grabSizeAnchor run data get storage ${ns}:animation_data new.size[${i}]
+        scoreboard players remove s${axis} ${ns}-grabSizeAnchor 1
+        execute store result storage ${ns}:temp grabsizeanchor.sh${axis} int 1 run scoreboard players get s${axis} ${ns}-grabSizeAnchor
+    `;
+}
+
+grabSizeAnchorCommands.push(`
+    scoreboard objectives add ${ns}-grabSizeAnchor dummy
+`);
+
+grabSizeAnchorCommands.push(...axis.map(createGrabSizeAnchorCommands));
+
+grabSizeAnchorCommands.push(`
+    scoreboard objectives remove ${ns}-grabSizeAnchor
+`);
+
+grabSizeAnchor`${grabSizeAnchorCommands.join('\n')}`;
 
 function createTwoPointCommands({axis, i}) {
     mcf[`selection/two_point_pos/calc_size_current_pos_${axis}`]`
@@ -240,6 +271,8 @@ handleSummonCommands.push(`
     scoreboard objectives remove ${ns}-handle
 `);
 
+handleSummon`${handleSummonCommands.join('\n')}`;
+
 // Sets up the display box commands before the axis-specifc commands are compiled.
 displayBoxCommands.push(`
     # Save the block at the neg neg neg corner (outside of region) to the editor dimension and place in a new structure block
@@ -367,6 +400,68 @@ removeHovers`
     kill @s
 `
 
+// All nbtdata that needs to be changed (set to true by default) to make an entity "docile".
+const entityAttributes = [
+    {name:"NoAI"},
+    {name:"NoGravity"},
+    {name:"Silent"},
+    {name:"Glowing"},
+    {name:"Invulnerable"},
+    {name:"PersistenceRequired"},
+    {name:"PickupDelay", value:"10s", itemOnly:true},
+    {name:"Age", value:"0s", itemOnly:true}
+];
+
+// Turn all entities within the selection area "docile" (No AI, No Gravity, Silent, Invulnerable, Persistent, Full Pickup Delay and No Despawn Timer for Items)
+// These commands here specifically change all of the attributes required to be docile to the executor.
+function createTurnEntityDocileCommands({name, value, itemOnly}){
+    if (itemOnly) {
+        return`
+            execute if entity @s[type=item] store success score ${ns}-${name} ${ns}-entity-docile run data modify entity @s ${name} set value ${value}
+            execute if entity @s[type=item] if score ${ns}-${name} ${ns}-entity-docile matches 1 run tag @s add ${ns}-${name}
+        `;
+    } else {
+        return`
+            execute unless entity @s[tag=${ns}-entity-turned-docile] store success score ${ns}-${name} ${ns}-entity-docile run data modify entity @s ${name} set value true
+            execute unless entity @s[tag=${ns}-entity-turned-docile] if score ${ns}-${name} ${ns}-entity-docile matches 1 run tag @s add ${ns}-${name}
+        `;
+    }
+};
+
+turnEntityDocileCommands.push(`
+    scoreboard objectives add ${ns}-entity-docile dummy
+`);
+
+turnEntityDocileCommands.push(...entityAttributes.map(createTurnEntityDocileCommands));
+
+turnEntityDocileCommands.push(`
+    scoreboard objectives remove ${ns}-entity-docile
+    execute unless entity @s[tag=${ns}-entity-turned-docile] run tag @s add ${ns}-entity-turned-docile
+`);
+
+// These commands here specifically remove all of the attributes that make an entity docile from the executor.
+function createRemoveDocileCommands({name, itemOnly}){
+    if (itemOnly) {
+        return`
+            execute if entity @s[tag=${ns}-${name}] run tag @s remove ${ns}-${name}
+        `;
+    } else {
+        return`
+            execute if entity @s[tag=${ns}-${name}] run data modify entity @s ${name} set value false
+            execute if entity @s[tag=${ns}-${name}] run tag @s remove ${ns}-${name}
+        `;
+    }
+}
+
+removeDocileCommands.push(...entityAttributes.map(createRemoveDocileCommands));
+
+removeDocileCommands.push(`
+    execute if entity @s[tag=${ns}-entity-turned-docile] run tag @s remove ${ns}-entity-turned-docile
+`);
+
+turnEntityDocile`${turnEntityDocileCommands.join('\n')}`;
+removeDocile`${removeDocileCommands.join('\n')}`;
+
 selectCommands.push(`
     execute as @n[type=item_frame,tag=${ns}-edge] at @s positioned ^ ^ ^-0.5 align xyz summon minecraft:marker run ${executeAsMarker`
         # If we have an anchor and a preexisting size, we must test to see if the new selection is outside of the current region, and on which axis to update the previous region by.
@@ -402,6 +497,14 @@ selectCommands.push(`
     execute as @n[type=item_frame,tag=${ns}-edge] run kill @s
     # Tag all HoverSelect boxes for deletion
     tag @e[type=interaction, tag=${ns}-hover-select] add ${ns}-hover-select-delete
+    # Remove all docile entities
+    execute as @e[tag=${ns}-entity-turned-docile] run ${removeDocile}
+    # If an entity is inside the newly created selection radius, make them docile.
+    ${grabSizeAnchor}
+    ${targetSelectInSelection`
+        $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
+        data remove storage ${ns}:temp grabsizeanchor
+    `} with storage ${ns}:temp grabsizeanchor
 `);
 
 export const select = selectCommands.join('\n');
