@@ -1,7 +1,13 @@
 // Set up stuff
 import mcf from './mcf.js';
 const folder = mcf.inventory;
-export const {saveInventory, loadInventory, workingHotbar} = folder;
+export const {grabOwnerPlayerData, calculateLaneX, findPlayerAxisOffset, recEditorSearch, unclaimLane, macroUnclaim, saveInventory, loadInventory, workingHotbar, anonymous: a} = folder;
+// grabOwnerPlayerData: Using the owner tag on a selection, it pulls that player's data into current.
+// calculateLaneX: Takes the current.lane player data and multiplies by 48 to find the X coordinate. Specify an output storage position to place the number.
+// findPlayerAxisOffset: searches the editor dimension recursively to find a "lane" for a player. This will be stored inside of player_data, and this function outputs into current.lane.
+// recEditorSearch: The recursively looped function that looks for the lane to assign a new player. Repeats until current.lane exists in ${ns}:player_data.
+// unclaimLane: Removes all data indicating the player's assignment to a lane in the editor. Uses lane data from ${ns}:player_data current.lane.
+// macroUnclaim: uses the x coordinate that is placed into a macro storage to remove the bedrock block and forceloaded chunk to remove a player's lane.
 // saveInventory: places the inventory of the player running this function and tosses it into player_data.current.
 // loadInventory: takes the player data in player_data.current and applies it to the inventory of the player running this function.
 // workingHotbar: places all of the creating a selection tools into the entity's inventory who ran the function.
@@ -12,6 +18,52 @@ const inventorySaveCommands = [];
 const inventoryLoadCommands = [];
 const workingHotbarCommands = [];
 const rightClickCommands = [];
+
+// Using the owner tag on a selection, it pulls that player's data into current.
+
+grabOwnerPlayerData`
+    ${a`$data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(owner)}]`} with storage ${ns}:animation_data new
+`;
+
+// Calculates the x position from the lane value placed in the current player's data. Output is a specified path with the output macro.
+
+calculateLaneX`
+    ${grabOwnerPlayerData}
+    scoreboard objectives add ${ns}-lane dummy
+    scoreboard players set 48 ${ns}-lane 48
+    execute store result score current-lane ${ns}-lane run data get storage ${ns}:player_data current.lane
+    scoreboard players operation blocks ${ns}-lane = current-lane ${ns}-lane
+    scoreboard players operation blocks ${ns}-lane *= 48 ${ns}-lane
+    $execute store result storage $(output) int 1 run scoreboard players get blocks ${ns}-lane
+    scoreboard objectives remove ${ns}-lane
+    data remove storage ${ns}:player_data current
+`;
+
+// Searches the editor dimension recursively to find a "lane" for a player. This will be stored inside of player_data, and this function outputs into current.lane.
+
+findPlayerAxisOffset`
+    scoreboard objectives add ${ns}-lane dummy
+    scoreboard players set current-lane ${ns}-lane 0
+    execute unless data storage ${ns}:player_data current.lane in ${ns}:editor positioned 0 1 0 run ${recEditorSearch`
+        execute if block ~ ~ ~ minecraft:air store result storage ${ns}:player_data current.lane int 1 run scoreboard players get current-lane ${ns}-lane
+        execute if block ~ ~ ~ minecraft:air run setblock ~ ~ ~ minecraft:bedrock
+        execute unless data storage ${ns}:player_data current.lane run scoreboard players add current-lane ${ns}-lane 1
+        execute unless data storage ${ns}:player_data current.lane run forceload add ~48 ~
+        execute unless data storage ${ns}:player_data current.lane positioned ~48 ~ ~ run ${recEditorSearch}
+    `}
+    scoreboard objectives remove ${ns}-lane
+`;
+
+// Removes a player's lane by deleting the bedrock block and by unforceloading the chunk. current.lane is used and must be provided.
+
+unclaimLane`
+    ${calculateLaneX} {output:"${ns}:temp macro_unclaim.pos"}
+    ${macroUnclaim`
+        $setblock $(pos) 1 0 minecraft:air
+        $execute unless block ~ 2 0 minecraft:obsidian run forceload remove $(pos) 0
+    `} with storage ${ns}:temp macro_unclaim
+    data remove storage ${ns}:temp macro_unclaim
+`;
 
 // INVENTORY SAVE AND LOAD COMMANDS
 
@@ -79,6 +131,7 @@ inventoryLoadCommands.push(`
 inventorySaveCommands.push(`
     execute in ${ns}:editor run data modify storage ${ns}:player_data current.inventory1 set from block 0 -63 0 Items
     data modify storage ${ns}:player_data current.UUID set from entity @s UUID
+    ${findPlayerAxisOffset}
     data modify storage ${ns}:player_data players append from storage ${ns}:player_data current
     execute in ${ns}:editor run setblock 0 -63 0 black_concrete
 `);
@@ -119,6 +172,7 @@ function createHotbarCommands({slot, name, display, action, dimension, placeable
             `);
         }
     }
+
     // Throws specified commands into the rightClick section of commands but only executes if the item is selected, not right clicked.
     if (on_hover != null) {
         rightClickCommands.push(`

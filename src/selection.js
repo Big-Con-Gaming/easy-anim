@@ -1,5 +1,6 @@
 // Set up stuff
 import mcf from './mcf.js';
+import { calculateLaneX } from './inventory.js';
 const folder = mcf.selection;
 export const { anonymous: a, grabSizeAnchor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, targetSelectInSelection } = folder;
 // grabSizeAnchor: Throws the anchor position, selection size, and the real size (shrunk by 1) into a temporary storage space for macros.
@@ -277,12 +278,13 @@ handleSummon`${handleSummonCommands.join('\n')}`;
 displayBoxCommands.push(`
     # Save the block at the neg neg neg corner (outside of region) to the editor dimension and place in a new structure block
     ${grabStrBlockPos}
+    ${calculateLaneX} {output:"${ns}:temp str.lanex"}
     ${placeStructureBlock`
-        $clone $(x) $(y) $(z) $(x) $(y) $(z) to ${ns}:editor 0 0 0 strict
+        $clone $(x) $(y) $(z) $(x) $(y) $(z) to ${ns}:editor $(lanex) 0 0 strict
         $setblock $(x) $(y) $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:1,posY:1,posZ:1,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"test",strict:true}
         $summon minecraft:interaction $(x) $(y) $(z) {width:1.01f,height:1.01f,Tags:["${ns}-select-str-block"]}
     `} with storage ${ns}:temp str
-    ${handleSummonCommands.join('\n')}
+    ${handleSummon}
     # Remove the temporary data location.
     data remove storage ${ns}:temp str
 `);
@@ -291,7 +293,8 @@ displayBox`${displayBoxCommands.join('\n')}`;
 
 // Macro command to replace the structure block with the block it used to have.
 resetCornerBlock`
-    $clone from ${ns}:editor 0 0 0 0 0 0 to $(dimension) $(x) $(y) $(z) strict
+    $clone from ${ns}:editor $(lanex) 0 0 $(lanex) 0 0 to $(dimension) $(x) $(y) $(z) strict
+    $execute in ${ns}:editor run setblock $(lanex) 0 0 minecraft:air
     $execute positioned $(x) $(y) $(z) run kill @n[type=minecraft:interaction, tag=${ns}-select-str-block]
 `
 
@@ -350,6 +353,7 @@ handleExecutionCommands.push(`
     scoreboard players set 1 ${ns}-handle-detect 1
     # Reset the current display structure block.
     ${grabStrBlockPos}
+    ${calculateLaneX} {output:"${ns}:temp str.lanex"}
     ${resetCornerBlock} with storage ${ns}:temp str
     # Kill the display item_display entities from the old selection.
     kill @e[tag=${ns}-handle]
@@ -468,6 +472,7 @@ selectCommands.push(`
         execute if data storage ${ns}:animation_data new.anchor if data storage ${ns}:animation_data new.size run ${updateFullSelection`
             # Reset the current display structure block.
             ${grabStrBlockPos}
+            ${calculateLaneX} {output:"${ns}:temp str.lanex"}
             ${resetCornerBlock} with storage ${ns}:temp str
             # Kill the display item_display entities from the old selection.
             kill @e[tag=${ns}-handle]
@@ -480,6 +485,7 @@ selectCommands.push(`
         execute if data storage ${ns}:animation_data new.anchor unless data storage ${ns}:animation_data new.size run ${createTwoPointSelection`
             # Reset the current display structure block. (It's currently only highlighting the anchor.)
             ${grabStrBlockPos}
+            ${calculateLaneX} {output:"${ns}:temp str.lanex"}
             ${resetCornerBlock} with storage ${ns}:temp str
             # Kill the display item_display entities from the old selection.
             kill @e[tag=${ns}-handle]
@@ -505,6 +511,7 @@ selectCommands.push(`
         $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
         data remove storage ${ns}:temp grabsizeanchor
     `} with storage ${ns}:temp grabsizeanchor
+    data remove storage ${ns}:temp grabsizeanchor
 `);
 
 export const select = selectCommands.join('\n');

@@ -1,6 +1,6 @@
 // Set up stuff
 import mcf from './mcf.js';
-import { saveInventory, loadInventory, workingHotbar } from './inventory.js';
+import { saveInventory, loadInventory, workingHotbar, unclaimLane, calculateLaneX } from './inventory.js';
 import { grabStrBlockPos, resetCornerBlock } from './selection.js';
 const folder = mcf.menu;
 export const { create, exit } = folder;
@@ -19,6 +19,7 @@ create`
     ${workingHotbar}
     # Set up the data section for the new animation.
     data modify storage ${ns}:animation_data new set value {}
+    data modify storage ${ns}:animation_data new.owner set from entity @s UUID
 `;
 
 
@@ -27,12 +28,12 @@ exit`
     # Load the player's inventory from storage.
     $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
     ${loadInventory}
+    ${unclaimLane}
     $data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
-    data remove storage ${ns}:player_data current
     ${grabStrBlockPos}
+    ${calculateLaneX} {output:"${ns}:temp str.lanex"}
     ${resetCornerBlock} with storage ${ns}:temp str
     # Remove the temporary data locations.
-    setblock 0 0 0 minecraft:air
     data remove storage ${ns}:temp str
     # Remove the new selection.
     data remove storage ${ns}:animation_data new

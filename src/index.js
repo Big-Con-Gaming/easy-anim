@@ -31,6 +31,8 @@ load`
     scoreboard objectives add ${ns}-right-click minecraft.used:minecraft.carrot_on_a_stick
     # Forceload the main chunk in the editor dimension so the inventory barrel at the bottom of the world is always loaded and can be used.
     execute in ${ns}:editor run forceload add 0 0
+    # Place a block at 0 2 0 in the editor to indicate it is the first lane (needed for recursive functions and to prevent forceload from being removed)
+    execute in ${ns}:editor run setblock 0 2 0 minecraft:obsidian
     # Let operators know the datapack has been loaded.
     say Easy Animations Datapack Loaded!
 `;
