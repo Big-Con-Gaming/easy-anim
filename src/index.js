@@ -23,12 +23,18 @@ tick`
     execute as @e[type=interaction, tag=${ns}-handle] if data entity @s attack run data remove entity @s attack
     execute as @a at @s anchored eyes positioned ^ ^ ^ summon minecraft:interaction run ${raycast} with entity @p
     execute as @e[type=interaction, tag=${ns}-hover-select-delete] run ${removeHovers}
+    # Sets up a trigger command to access the main menu. A tag called ${ns}-disable is preconfigured so players with this tag can't access the menu, in case of survival and creative gameplay mixtures.
+    execute as @a[scores={${ns}=1..}] run dialog show @s ${ns}:main_menu
+    execute as @a[scores={${ns}=1..}] run scoreboard players reset @s ${ns}
+    scoreboard players enable @a[tag=!${ns}-disable] ${ns}
 `;
 
 // These commands run when the datapack has been loaded in.
 load`
     # Set up the scoreboard for detecting right clicks.
     scoreboard objectives add ${ns}-right-click minecraft.used:minecraft.carrot_on_a_stick
+    # Set up a trigger scoreboard for quick menu access
+    scoreboard objectives add ${ns} trigger
     # Forceload the main chunk in the editor dimension so the inventory barrel at the bottom of the world is always loaded and can be used.
     execute in ${ns}:editor run forceload add 0 0
     # Place a block at 0 2 0 in the editor to indicate it is the first lane (needed for recursive functions and to prevent forceload from being removed)

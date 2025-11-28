@@ -149,7 +149,7 @@ loadInventory`${inventoryLoadCommands.join('\n')}`;
 // Specify the hotbar tools with their display item, name, slot within the hotbar, and the function that is ran on right click.
 const hotbarTools = [
     {display:`minecraft:barrier`, name:"Exit", slot:8, action: `menu/exit with entity @s`, dimension: `easy-anim:editor`},
-    {display:`minecraft:structure_void`, name:"Select", slot:0, placeable:true, entity_data:`{id:"minecraft:item_frame",Invisible:1b,Tags:["easy-anim-edge"]}`, on_hover:`anchored eyes positioned ^ ^ ^5 if block ~ ~ ~ minecraft:air run function ${ns}:selection/place_ghost`, on_not_hover:`as @e[type=interaction,tag=${ns}-hover-select] run function ${ns}:selection/remove_hovers`}
+    {display:`minecraft:structure_void`, name:"Select", slot:0, placeable:true, entity_data:`{id:"minecraft:item_frame",Invisible:1b,Tags:["easy-anim-edge"],data:{currentAnim:$(name)}}`, on_hover:`anchored eyes positioned ^ ^ ^5 if block ~ ~ ~ minecraft:air run function ${ns}:selection/place_ghost`, on_not_hover:`as @e[type=interaction,tag=${ns}-hover-select] run function ${ns}:selection/remove_hovers`}
 ];
 
 // Sets up each item in the hotbar.
@@ -186,9 +186,16 @@ function createHotbarCommands({slot, name, display, action, dimension, placeable
     }
     // This command places the item in the player's hotbar.
     if (entity_data != null) {
-        return `
-            item replace entity @s hotbar.${slot} with ${itemId}[item_model="${display}",item_name={text:"${name}"}, entity_data=${entity_data}]
-        `;
+        if (entity_data.includes("$(")) {
+            return `
+                $item replace entity @s hotbar.${slot} with ${itemId}[item_model="${display}",item_name={text:"${name}"}, entity_data=${entity_data}]
+            `;
+        } else {
+            return `
+                item replace entity @s hotbar.${slot} with ${itemId}[item_model="${display}",item_name={text:"${name}"}, entity_data=${entity_data}]
+            `;
+        }
+        
     } else {
         return `
             item replace entity @s hotbar.${slot} with ${itemId}[item_model="${display}",item_name={text:"${name}"}]

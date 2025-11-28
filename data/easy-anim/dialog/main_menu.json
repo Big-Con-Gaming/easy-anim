@@ -11,8 +11,8 @@
       "label": "Create New Animation",
       "width": 120,
       "action": {
-        "type": "minecraft:run_command",
-        "command": "execute in easy-anim:editor run function easy-anim:menu/create with entity @s"
+        "type": "minecraft:show_dialog",
+        "dialog": "easy-anim:set_name"
       }
     }
   ]

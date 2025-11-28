@@ -2,7 +2,9 @@
 import mcf from './mcf.js';
 import { calculateLaneX } from './inventory.js';
 const folder = mcf.selection;
-export const { anonymous: a, grabSizeAnchor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, targetSelectInSelection } = folder;
+export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, grabSizeAnchor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection } = folder;
+// grabAnimationData: Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
+// cleanUpNewAnimationData: Saves changes made to the new namespace within animation_data to the actual animation's data. Must be ran with storage ${ns}:animation_data new.
 // grabSizeAnchor: Throws the anchor position, selection size, and the real size (shrunk by 1) into a temporary storage space for macros.
 // updateSelection: changes size and anchor to fit in a new selection point into preexisting selection box. Selections within the box run twoPointSelection.
 // grabStrBlockPos: Grabs the structure block position of the current selection box and places it into ${ns}:temp str. Also grabs the box's size for a macro.
@@ -21,6 +23,7 @@ export const { anonymous: a, grabSizeAnchor, updateSelection, grabStrBlockPos, h
 // updateFullSelection: considers the current entity's position as a third point to a current box selection and expands the selection to fit such. Uses updateSelection for the math, but also fixes the handles and the structure block.
 // createTwoPointSelection: Assumes that an anchor position is the only thing created for the current selection, and treats the current entity's position as the second corner of this selection. Changes anchor and size to match the new selection.
 // twoPointSelection: Finds the most negative corner to become the anchor and the most positive corner to calculate box size. It maps through each axis.
+// recDocileSearch: Recursive, is called until temporary list docileSearch in animationData is empty. Goes through each animation and turns entities docile within each.
 // targetSelectInSelection: using grabSizeAnchor data, it executes turnEntityDocile on every entity (besides the player) in the selection radius.
 
 const ns = 'easy-anim';
@@ -45,6 +48,19 @@ const axis = [
     {axis:"y",i:"1"},
     {axis:"z",i:"2"}
 ];
+
+// Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
+grabAnimationData`
+    $data modify storage ${ns}:animation_data new set from storage ${ns}:animation_data animations[{name:$(currentAnim)}].data
+    $data modify storage ${ns}:animation_data new.name set value $(currentAnim)
+`;
+
+// Saves changes made to the new namespace within animation_data to the actual animation's data. Must be ran with storage ${ns}:animation_data new.
+cleanUpNewAnimationData`
+    data remove storage ${ns}:animation_data new.name
+    $data modify storage ${ns}:animation_data animations[{name:$(name)}].data set from storage ${ns}:animation_data new
+    data remove storage ${ns}:animation_data new
+`
 
 // Grabs size and anchor and toss them into a temporary storage place to be used in other commands. Exports data into ${ns}:temp grabsizeanchor.
 function createGrabSizeAnchorCommands({axis, i}){
@@ -244,14 +260,14 @@ function createHandleSummonCommands({dir, x, y, z, rotation}) {
         # Summon the new block display and execute as it
         execute summon minecraft:item_display run ${a`
             # Summon in the interaction entity needed for this handle
-            summon minecraft:interaction ~ ~ ~ {height:0.25f, width:0.50f, Tags:["${ns}-handle", "${ns}-handle-interaction", "${ns}-handle-${dir}"]}
+            $summon minecraft:interaction ~ ~ ~ {height:0.25f, width:0.50f, Tags:["${ns}-handle", "${ns}-handle-interaction", "${ns}-handle-${dir}"], data:{currentAnim: $(name)}}
             # Find the coordinates needed for the block display handle and set them directly in Pos
             ${axisMultiplyingCommands.join('\n')}
             # Move interactions .125 down to center the hitbox on the arrow
             execute as @n[type=minecraft:interaction,tag=${ns}-handle-${dir}] at @s run tp @s ~ ~-0.125 ~
             # Toss on remaining needed data
-            data merge entity @s {item: {id: "minecraft:arrow", count: 1}, transformation: {left_rotation: ${rotation}, right_rotation: [0.0f, 0.0f, 0.0f, 1.0f], scale: [0.50f, 0.50f, 0.50f], translation: [0.0f,0.0f,0.0f]}, Tags:["${ns}-handle", "${ns}-handle-${dir}"], brightness: {block:15, sky:15}}
-        `}
+            data merge entity @s {item: {id: "minecraft:arrow", count: 1, components:{"minecraft:custom_model_data": {strings: ["${ns}-handle"]}}}, transformation: {left_rotation: ${rotation}, right_rotation: [0.0f, 0.0f, 0.0f, 1.0f], scale: [0.50f, 0.50f, 0.50f], translation: [0.0f,0.0f,0.0f]}, Tags:["${ns}-handle", "${ns}-handle-${dir}"], brightness: {block:15, sky:15}}
+        `} with storage ${ns}:animation_data new
     `;
 }
 
@@ -346,6 +362,8 @@ function createHandleExecutionCommands({dir, x, y, z, anchorChange}) {
 }
 
 handleExecutionCommands.push(`
+    # Pull the current animation's data into animation_data new.
+    ${grabAnimationData} with entity @s data
     # Set up the temporary scoreboard with constants needed for multiplication.
     scoreboard objectives add ${ns}-handle-detect dummy
     scoreboard players set -1 ${ns}-handle-detect -1
@@ -366,6 +384,7 @@ handleExecutionCommands.push(`
     scoreboard objectives remove ${ns}-handle-detect
     # This function places a structure block and handles with the right size parameters to highlight the selected area.
     ${displayBox}
+    ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
 `);
 
 // Compile commands inside of list into one reference.
@@ -468,6 +487,8 @@ removeDocile`${removeDocileCommands.join('\n')}`;
 
 selectCommands.push(`
     execute as @n[type=item_frame,tag=${ns}-edge] at @s positioned ^ ^ ^-0.5 align xyz summon minecraft:marker run ${executeAsMarker`
+        # Pull out animation data for this selection and place it inside new. Add the name to the data temporarily.
+        $${grabAnimationData} {currentAnim:$(currentAnim)}
         # If we have an anchor and a preexisting size, we must test to see if the new selection is outside of the current region, and on which axis to update the previous region by.
         execute if data storage ${ns}:animation_data new.anchor if data storage ${ns}:animation_data new.size run ${updateFullSelection`
             # Reset the current display structure block.
@@ -499,19 +520,31 @@ selectCommands.push(`
         # This function places a structure block and handles with the right size parameters to highlight the selected area.
         ${displayBox}
         kill @s
-    `}
+    `} with entity @n[type=item_frame,tag=${ns}-edge] data
+    # Save modifications made to the new selection.
+    ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     execute as @n[type=item_frame,tag=${ns}-edge] run kill @s
     # Tag all HoverSelect boxes for deletion
     tag @e[type=interaction, tag=${ns}-hover-select] add ${ns}-hover-select-delete
     # Remove all docile entities
     execute as @e[tag=${ns}-entity-turned-docile] run ${removeDocile}
     # If an entity is inside the newly created selection radius, make them docile.
-    ${grabSizeAnchor}
-    ${targetSelectInSelection`
-        $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
+    data modify storage ${ns}:temp docileSearch set from storage ${ns}:animation_data animations
+    # Recursive, is called until temporary list docileSearch in animationData is empty. Goes through each animation and turns entities docile within each.
+    ${recDocileSearch`
+        data modify storage ${ns}:animation_data new set from storage ${ns}:temp docileSearch[0].data
+        data modify storage ${ns}:animation_data new.name set from storage ${ns}:temp docileSearch[0].name
+        ${grabSizeAnchor}
+        ${targetSelectInSelection`
+            $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
+            data remove storage ${ns}:temp grabsizeanchor
+        `} with storage ${ns}:temp grabsizeanchor
         data remove storage ${ns}:temp grabsizeanchor
-    `} with storage ${ns}:temp grabsizeanchor
-    data remove storage ${ns}:temp grabsizeanchor
+        data remove storage ${ns}:temp docileSearch[0]
+        data remove storage ${ns}:animation_data new
+        execute if data storage ${ns}:temp docileSearch[] run ${recDocileSearch}
+    `}
+    data remove storage ${ns}:temp docileSearch
 `);
 
 export const select = selectCommands.join('\n');
