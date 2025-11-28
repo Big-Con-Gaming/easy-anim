@@ -431,24 +431,29 @@ const entityAttributes = [
     {name:"Glowing"},
     {name:"Invulnerable"},
     {name:"PersistenceRequired"},
-    {name:"PickupDelay", value:"10s", itemOnly:true},
-    {name:"Age", value:"0s", itemOnly:true}
+    {name:"PickupDelay", value:"10s", itemOnly:true,repeated:true},
+    {name:"Age", value:"0s", itemOnly:true, repeated:true},
+    {name:"Motion", value:"[0.0d,0.0d,0.0d]", repeated:true}
 ];
 
 // Turn all entities within the selection area "docile" (No AI, No Gravity, Silent, Invulnerable, Persistent, Full Pickup Delay and No Despawn Timer for Items)
 // These commands here specifically change all of the attributes required to be docile to the executor.
-function createTurnEntityDocileCommands({name, value, itemOnly}){
-    if (itemOnly) {
-        return`
-            execute if entity @s[type=item] store success score ${ns}-${name} ${ns}-entity-docile run data modify entity @s ${name} set value ${value}
-            execute if entity @s[type=item] if score ${ns}-${name} ${ns}-entity-docile matches 1 run tag @s add ${ns}-${name}
-        `;
-    } else {
-        return`
-            execute unless entity @s[tag=${ns}-entity-turned-docile] store success score ${ns}-${name} ${ns}-entity-docile run data modify entity @s ${name} set value true
-            execute unless entity @s[tag=${ns}-entity-turned-docile] if score ${ns}-${name} ${ns}-entity-docile matches 1 run tag @s add ${ns}-${name}
-        `;
+function createTurnEntityDocileCommands({name, value, itemOnly, repeated}){
+    let selector = ``;
+    let output = "true";
+    if (repeated = null) {
+        selector = `unless entity @s[tag=${ns}-entity-turned-docile] `;
     }
+    if (itemOnly) {
+        selector.concat(`if entity @s[type=item]` );
+    }
+    if (value) {
+        output = value;
+    }
+    return`
+            execute ${selector}store success score ${ns}-${name} ${ns}-entity-docile run data modify entity @s ${name} set value ${output}
+            execute ${selector}if score ${ns}-${name} ${ns}-entity-docile matches 1 run tag @s add ${ns}-${name}
+    `;
 };
 
 turnEntityDocileCommands.push(`
