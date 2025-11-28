@@ -20,7 +20,7 @@
     "width": 40,
     "action": {
       "type": "minecraft:run_command",
-      "command": "function easy-anim:menu/camera_finish {note:none}"
+      "command": "function easy-anim:menu/camera_finish {note:\"\"}"
     }
   },
   "actions": [

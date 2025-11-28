@@ -150,6 +150,7 @@ loadInventory`${inventoryLoadCommands.join('\n')}`;
 const hotbarTools = [
     {display:`minecraft:structure_void`, name:"Select", slot:0, placeable:true, entity_data:`{id:"minecraft:item_frame",Invisible:1b,Tags:["easy-anim-edge"],data:{currentAnim:$(name)}}`, on_hover:`anchored eyes positioned ^ ^ ^5 if block ~ ~ ~ minecraft:air run function ${ns}:selection/place_ghost`, on_not_hover:`as @e[type=interaction,tag=${ns}-hover-select] run function ${ns}:selection/remove_hovers`},
     {display:`minecraft:dispenser`, name:"Set Camera", slot:1, action:`menu/camera with entity @s`},
+    {display:`minecraft:observer`, name:"Load Camera", slot:2, action:`menu/camera_load with entity @s`},
     {display:`minecraft:barrier`, name:"Exit", slot:8, action: `menu/exit with entity @s`, dimension: `easy-anim:editor`}
 ];
 

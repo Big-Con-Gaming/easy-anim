@@ -2,9 +2,12 @@
 import mcf from './mcf.js';
 import { calculateLaneX } from './inventory.js';
 const folder = mcf.selection;
-export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, anchorDifference, grabSizeAnchor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection } = folder;
+export const { anonymous: a, exitCamera, grabAnimationData, cleanUpNewAnimationData, storeArrayMacro, storeAxisMacro, anchorDifference, constructRealCoordinates, grabSizeAnchor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection } = folder;
+// exitCamera: When the player moves from being in a camera, it brings them back to creative and removes their tag.
 // grabAnimationData: Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
 // cleanUpNewAnimationData: Saves changes made to the new namespace within animation_data to the actual animation's data. Must be ran with storage ${ns}:animation_data new.
+// storeArrayMacro: places data into an output array location dependent on an iterative varible i. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
+// storeAxisMacro: places data into an output object location dependent on a string varible axis. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
 // anchorDifference: Takes an input storage location and calculates the difference between that location and the anchor location from the new selection.
 // grabSizeAnchor: Throws the anchor position, selection size, and the real size (shrunk by 1) into a temporary storage space for macros.
 // updateSelection: changes size and anchor to fit in a new selection point into preexisting selection box. Selections within the box run twoPointSelection.
@@ -31,6 +34,7 @@ const ns = 'easy-anim';
 
 // Set up lists that will hold commands.
 const anchorDifferenceCommands = [];
+const constructRealCoordinatesCommands = [];
 const grabSizeAnchorCommands = [];
 const selectCommands = [];
 const twoPointCommands = [];
@@ -51,6 +55,12 @@ const axis = [
     {axis:"z",i:"2"}
 ];
 
+// When the player moves from being in a camera, it brings them back to creative and removes their tag.
+exitCamera`
+    gamemode creative @s
+    tag @s remove ${ns}-camera-view
+`;
+
 // Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
 grabAnimationData`
     $data modify storage ${ns}:animation_data new set from storage ${ns}:animation_data animations[{name:$(currentAnim)}].data
@@ -64,18 +74,36 @@ cleanUpNewAnimationData`
     data remove storage ${ns}:animation_data new
 `
 
+// places data into an output array location dependent on an iterative varible i. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
+storeArrayMacro`
+    $execute store result $(output)$(i)] double 0.0001 run scoreboard players get $(namespace)$(axis) ${ns}-$(namespace)math
+`;
+
+// places data into an output object location dependent on a string varible axis. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
+storeAxisMacro`
+    $execute store result $(output)$(axis) double 0.0001 run scoreboard players get $(namespace)$(axis) ${ns}-$(namespace)math
+`;
+
 // Takes an input storage location and calculates the difference between that location and the anchor location from the new selection.
 function createAnchorDifferenceCommands({axis, i}) {
     return`
-       $execute store result score diff${axis} ${ns}-diffmath run data get $(input)${i}] 10000
-       execute store result score anchor${axis} ${ns}-diffmath run data get storage ${ns}:animation_data new.anchor[${i}] 10000
-       scoreboard players operation diff${axis} ${ns}-diffmath -= anchor${axis} ${ns}-diffmath
-       $execute store result $(output)${i}] double 0.0001 run scoreboard players get diff${axis} ${ns}-diffmath
+        $execute store result score diff${axis} ${ns}-diffmath run data get $(input)${i}] 10000
+        execute store result score anchor${axis} ${ns}-diffmath run data get storage ${ns}:animation_data new.anchor[${i}] 10000
+        scoreboard players operation diff${axis} ${ns}-diffmath -= anchor${axis} ${ns}-diffmath
+        data modify storage ${ns}:temp anchorDifference.axis set value ${axis}
+        data modify storage ${ns}:temp anchorDifference.i set value ${i}
+        data modify storage ${ns}:temp anchorDifference.namespace set value "diff"
+        $data modify storage ${ns}:temp anchorDifference.output set value "$(output)"
+        $execute if score $(arrayformat) ${ns}-diffmath matches 1 run ${storeArrayMacro} with storage ${ns}:temp anchorDifference
+        $execute if score $(arrayformat) ${ns}-diffmath matches 0 run ${storeAxisMacro} with storage ${ns}:temp anchorDifference
+        data remove storage ${ns}:temp anchorDifference
     `;
 }
 
 anchorDifferenceCommands.push(`
     scoreboard objectives add ${ns}-diffmath dummy
+    scoreboard players set 0 ${ns}-diffmath 0
+    scoreboard players set 1 ${ns}-diffmath 1
 `);
 
 anchorDifferenceCommands.push(...axis.map(createAnchorDifferenceCommands));
@@ -85,6 +113,36 @@ anchorDifferenceCommands.push(`
 `);
 
 anchorDifference`${anchorDifferenceCommands.join('\n')}`;
+
+//
+function createConstructRealCoordinatesCommands({axis, i}) {
+    return`
+        $execute store result score real${axis} ${ns}-realmath run data get $(input)${i}] 10000
+        execute store result score anchor${axis} ${ns}-realmath run data get storage ${ns}:animation_data new.anchor[${i}] 10000
+        scoreboard players operation real${axis} ${ns}-realmath += anchor${axis} ${ns}-realmath
+        data modify storage ${ns}:temp constructRealCoordinates.axis set value ${axis}
+        data modify storage ${ns}:temp constructRealCoordinates.i set value ${i}
+        data modify storage ${ns}:temp constructRealCoordinates.namespace set value "real"
+        $data modify storage ${ns}:temp constructRealCoordinates.output set value "$(output)"
+        $execute if score $(arrayformat) ${ns}-realmath matches 1 run ${storeArrayMacro} with storage ${ns}:temp constructRealCoordinates
+        $execute if score $(arrayformat) ${ns}-realmath matches 0 run ${storeAxisMacro} with storage ${ns}:temp constructRealCoordinates
+        data remove storage ${ns}:temp constructRealCoordinates
+    `;
+}
+
+constructRealCoordinatesCommands.push(`
+    scoreboard objectives add ${ns}-realmath dummy
+    scoreboard players set 0 ${ns}-realmath 0
+    scoreboard players set 1 ${ns}-realmath 1
+`);
+
+constructRealCoordinatesCommands.push(...axis.map(createConstructRealCoordinatesCommands));
+
+constructRealCoordinatesCommands.push(`
+    scoreboard objectives remove ${ns}-realmath
+`);
+
+constructRealCoordinates`${constructRealCoordinatesCommands.join('\n')}`;
 
 // Grabs size and anchor and toss them into a temporary storage place to be used in other commands. Exports data into ${ns}:temp grabsizeanchor.
 function createGrabSizeAnchorCommands({axis, i}){

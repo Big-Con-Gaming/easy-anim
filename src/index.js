@@ -4,7 +4,7 @@
 
 import mcf from './mcf.js';
 import { toolbarRightClick } from './inventory.js';
-import { select, handleDetection, handleHighlight, keepHoverSelect, removeHovers } from './selection.js';
+import { exitCamera, select, handleDetection, handleHighlight, keepHoverSelect, removeHovers } from './selection.js';
 import './menu.js';
 
 // Declare the functions you want to use
@@ -27,6 +27,7 @@ tick`
     execute as @a[scores={${ns}=1..}] run dialog show @s ${ns}:main_menu
     execute as @a[scores={${ns}=1..}] run scoreboard players reset @s ${ns}
     scoreboard players enable @a[tag=!${ns}-disable] ${ns}
+    execute as @a[tag=${ns}-camera-view] if predicate ${ns}:any_input run ${exitCamera}
 `;
 
 // These commands run when the datapack has been loaded in.
