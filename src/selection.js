@@ -2,9 +2,10 @@
 import mcf from './mcf.js';
 import { calculateLaneX } from './inventory.js';
 const folder = mcf.selection;
-export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, grabSizeAnchor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection } = folder;
+export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, anchorDifference, grabSizeAnchor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection } = folder;
 // grabAnimationData: Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
 // cleanUpNewAnimationData: Saves changes made to the new namespace within animation_data to the actual animation's data. Must be ran with storage ${ns}:animation_data new.
+// anchorDifference: Takes an input storage location and calculates the difference between that location and the anchor location from the new selection.
 // grabSizeAnchor: Throws the anchor position, selection size, and the real size (shrunk by 1) into a temporary storage space for macros.
 // updateSelection: changes size and anchor to fit in a new selection point into preexisting selection box. Selections within the box run twoPointSelection.
 // grabStrBlockPos: Grabs the structure block position of the current selection box and places it into ${ns}:temp str. Also grabs the box's size for a macro.
@@ -29,6 +30,7 @@ export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, grabSiz
 const ns = 'easy-anim';
 
 // Set up lists that will hold commands.
+const anchorDifferenceCommands = [];
 const grabSizeAnchorCommands = [];
 const selectCommands = [];
 const twoPointCommands = [];
@@ -61,6 +63,28 @@ cleanUpNewAnimationData`
     $data modify storage ${ns}:animation_data animations[{name:$(name)}].data set from storage ${ns}:animation_data new
     data remove storage ${ns}:animation_data new
 `
+
+// Takes an input storage location and calculates the difference between that location and the anchor location from the new selection.
+function createAnchorDifferenceCommands({axis, i}) {
+    return`
+       $execute store result score diff${axis} ${ns}-diffmath run data get $(input)${i}] 10000
+       execute store result score anchor${axis} ${ns}-diffmath run data get storage ${ns}:animation_data new.anchor[${i}] 10000
+       scoreboard players operation diff${axis} ${ns}-diffmath -= anchor${axis} ${ns}-diffmath
+       $execute store result $(output)${i}] double 0.0001 run scoreboard players get diff${axis} ${ns}-diffmath
+    `;
+}
+
+anchorDifferenceCommands.push(`
+    scoreboard objectives add ${ns}-diffmath dummy
+`);
+
+anchorDifferenceCommands.push(...axis.map(createAnchorDifferenceCommands));
+
+anchorDifferenceCommands.push(`
+    scoreboard objectives remove ${ns}-diffmath
+`);
+
+anchorDifference`${anchorDifferenceCommands.join('\n')}`;
 
 // Grabs size and anchor and toss them into a temporary storage place to be used in other commands. Exports data into ${ns}:temp grabsizeanchor.
 function createGrabSizeAnchorCommands({axis, i}){

@@ -1,9 +1,9 @@
 // Set up stuff
 import mcf from './mcf.js';
 import { saveInventory, loadInventory, workingHotbar, unclaimLane, calculateLaneX } from './inventory.js';
-import { grabAnimationData, grabStrBlockPos, resetCornerBlock, cleanUpNewAnimationData } from './selection.js';
+import { grabAnimationData, grabStrBlockPos, resetCornerBlock, cleanUpNewAnimationData, anchorDifference } from './selection.js';
 const folder = mcf.menu;
-export const { setName, create, exit, anonymous: a } = folder;
+export const { setName, create, camera, cameraFinish, exit, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 // Sets up the lists used to compile commands.
@@ -32,6 +32,27 @@ create`
     $data modify storage ${ns}:animation_data animations[{name:$(name)}].data.owner set from entity @s UUID
 `;
 
+// 
+camera`
+    $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
+    ${grabAnimationData} with storage ${ns}:player_data current
+    ${anchorDifference} {input:"entity @s Pos[", output:"storage ${ns}:animation_data new.camera.pos["}
+    data modify storage ${ns}:animation_data new.camera.rot set from entity @s Rotation
+    dialog show @s ${ns}:camera_info
+    ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
+    data remove storage ${ns}:player_data current
+`;
+
+//
+cameraFinish`
+    ${a`
+        $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
+    `} with entity @s
+    ${grabAnimationData} with storage ${ns}:player_data current    
+    $data modify storage ${ns}:animation_data new.camera.note set value "$(note)"
+    ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
+    data remove storage ${ns}:player_data current
+`;
 
 // This runs when the player uses the exit item in their inventory. Ran inside the editor dimension.
 exit`
