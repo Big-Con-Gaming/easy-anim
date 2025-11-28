@@ -12,7 +12,6 @@ const ns = 'easy-anim';
 setName`
     $execute if data storage ${ns}:animation_data animations[{name:$(name)}] run dialog show @s ${ns}:retry_name
     $execute unless data storage ${ns}:animation_data animations[{name:$(name)}] run ${a`
-        $data modify storage ${ns}:animation_data animations[] append value {name:$(name)}
         $data modify storage ${ns}:animation_data animations[{name:$(name)}].data set value {}
         $data modify storage ${ns}:player_data current.currentAnim set value $(name)
         $execute in ${ns}:editor run ${create} {name:$(name)}
