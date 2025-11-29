@@ -2,8 +2,7 @@
 import mcf from './mcf.js';
 import { calculateLaneX } from './inventory.js';
 const folder = mcf.selection;
-export const { anonymous: a, exitCamera, grabAnimationData, cleanUpNewAnimationData, storeArrayMacro, storeAxisMacro, anchorDifference, constructRealCoordinates, grabSizeAnchor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection } = folder;
-// exitCamera: When the player moves from being in a camera, it brings them back to creative and removes their tag.
+export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, storeArrayMacro, storeAxisMacro, anchorDifference, constructRealCoordinates, grabSizeAnchor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection } = folder;
 // grabAnimationData: Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
 // cleanUpNewAnimationData: Saves changes made to the new namespace within animation_data to the actual animation's data. Must be ran with storage ${ns}:animation_data new.
 // storeArrayMacro: places data into an output array location dependent on an iterative varible i. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
@@ -55,11 +54,6 @@ const axis = [
     {axis:"z",i:"2"}
 ];
 
-// When the player moves from being in a camera, it brings them back to creative and removes their tag.
-exitCamera`
-    gamemode creative @s
-    tag @s remove ${ns}-camera-view
-`;
 
 // Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
 grabAnimationData`
