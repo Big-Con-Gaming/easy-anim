@@ -25,7 +25,7 @@
       "width": 40,
       "action": {
         "type": "minecraft:dynamic/run_command",
-        "template": "function easy-anim:menu/set_name {name:$(name)}"
+        "template": "function easy-anim:menu/set_name {name:\"$(name)\"}"
       }
     }
   ]

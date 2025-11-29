@@ -7,6 +7,7 @@ import { toolbarRightClick } from './inventory.js';
 import { select, handleDetection, handleHighlight, keepHoverSelect, removeHovers } from './selection.js';
 import './menu.js';
 import { exitCamera } from './camera.js';
+import './util.js';
 
 // Declare the functions you want to use
 const { tick, load, menu, raycast } = mcf;

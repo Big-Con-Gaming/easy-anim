@@ -79,6 +79,8 @@ cameraHighlight`
     $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
     # Grab the camera data from the current selection.
     ${grabAnimationData} with storage ${ns}:player_data current
+    # If there is no camera data, stop.
+    execute unless data storage ${ns}:animation_data new.camera run return 0
     data merge storage ${ns}:temp {camera:{pos:[0.0d, 0.0d, 0.0d]}}
     # Turn the data above into real world coordinates.
     ${constructRealCoordinates} {arrayformat:1, input:"storage ${ns}:animation_data new.camera.pos[", output:"storage ${ns}:temp camera.pos["}

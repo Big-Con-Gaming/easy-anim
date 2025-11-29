@@ -1,0 +1,85 @@
+// Sets up basic things.
+import mcf from './mcf.js';
+const folder = mcf.util;
+export const { anonymous: a, replaceAllInString, toLowerCase } = folder;
+const { incrementIdx, recCharTest, lowerCaseMacro } = folder;
+const ns = 'easy-anim';
+
+const toLowerCaseCommands = [];
+
+// Increment idx by 1
+incrementIdx`
+    execute store result storage ${ns}:util temp.idx int 1 run scoreboard players add idx ${ns}-util-string 1
+    execute store result storage ${ns}:util temp.idxadd int 1 run scoreboard players add idxadd ${ns}-util-string 1
+`;
+
+// Takes an input string, a character to find, and a character to replace it with, and outputs the modified string, in a storage location provided.
+// input: string, find: character, replace: character, output: data location (block/entity/storage path)
+replaceAllInString`
+    # Place the input string into a temporary storage location.
+    $data modify storage ${ns}:util temp.input set value "$(input)"
+    $data modify storage ${ns}:util temp.find set value "$(find)"
+    $data modify storage ${ns}:util temp.replace set value "$(replace)"
+    data modify storage ${ns}:util temp.output set value ""
+    # separate into a new function to update context.
+    scoreboard objectives add ${ns}-util-string dummy
+    execute store result score length ${ns}-util-string run data get storage ${ns}:util temp.input
+    scoreboard players set idx ${ns}-util-string -1
+    scoreboard players set idxadd ${ns}-util-string 0
+    ${incrementIdx}
+    # For each character,
+    ${recCharTest`
+        # Pull out the next character from the input string.
+        $data modify storage ${ns}:util temp.char set string storage ${ns}:util temp.input $(idx) $(idxadd)
+        # Duplicate the character to test against.
+        data modify storage ${ns}:util temp.testchar set from storage ${ns}:util temp.char
+        # Check if it matches the find character.
+        $execute store success score test ${ns}-util-string run data modify storage ${ns}:util temp.testchar set value "$(find)"
+        # If it matches the find character, append the replace character to output,
+        $execute if score test ${ns}-util-string matches 0 run data modify storage ${ns}:util temp.output set value "$(output)$(replace)"
+        # else append the original character. Must be in separate function to update macro context.
+        ${a`
+            $execute if score test ${ns}-util-string matches 1 run data modify storage ${ns}:util temp.output set value "$(output)$(char)"
+        `} with storage ${ns}:util temp
+        # Increment idx
+        ${incrementIdx}
+        # Repeat until the entire string has been processed.
+        execute unless score idx ${ns}-util-string >= length ${ns}-util-string run ${recCharTest} with storage ${ns}:util temp
+    `} with storage ${ns}:util temp
+    # Store the final output string in the provided storage location.
+    $data modify $(output) set from storage ${ns}:util temp.output
+    # Remove temporary data.
+    scoreboard objectives remove ${ns}-util-string
+    data remove storage ${ns}:util temp
+`;
+
+
+// Takes an input string and an output data location, and converts the input string to all lowercase, storing it in the output location.
+const alphabetUpper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const alphabetLower = 'abcdefghijklmnopqrstuvwxyz';
+
+lowerCaseMacro`
+    $${replaceAllInString} {input:"$(input)", find:"$(upper)", replace:"$(lower)", output:"$(output)"}
+`;
+
+toLowerCaseCommands.push(`
+    $data modify storage ${ns}:util lowercase.input set value "$(input)"
+    data modify storage ${ns}:util lowercase.output set value "storage ${ns}:util lowercase.input"
+`);
+
+for(let i = 0; i < 26; i++) {
+    const upperChar = alphabetUpper.charAt(i);
+    const lowerChar = alphabetLower.charAt(i);
+    toLowerCaseCommands.push(`
+        data modify storage ${ns}:util lowercase.lower set value "${lowerChar}"
+        data modify storage ${ns}:util lowercase.upper set value "${upperChar}"
+        ${lowerCaseMacro} with storage ${ns}:util lowercase
+    `);
+}
+
+toLowerCaseCommands.push(`
+    $data modify $(output) set from storage ${ns}:util lowercase.input
+    data remove storage ${ns}:util lowercase
+`);
+
+toLowerCase`${toLowerCaseCommands.join('\n')}`;
