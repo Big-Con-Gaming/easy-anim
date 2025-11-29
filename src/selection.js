@@ -8,6 +8,7 @@ export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, storeAr
 // storeArrayMacro: places data into an output array location dependent on an iterative varible i. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
 // storeAxisMacro: places data into an output object location dependent on a string varible axis. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
 // anchorDifference: Takes an input storage location and calculates the difference between that location and the anchor location from the new selection.
+// constructRealCoordinates: Takes an input storage location and calculates the real world coordinates by adding the anchor coordinates from the new selection.
 // grabSizeAnchor: Throws the anchor position, selection size, and the real size (shrunk by 1) into a temporary storage space for macros.
 // updateSelection: changes size and anchor to fit in a new selection point into preexisting selection box. Selections within the box run twoPointSelection.
 // grabStrBlockPos: Grabs the structure block position of the current selection box and places it into ${ns}:temp str. Also grabs the box's size for a macro.
@@ -81,19 +82,26 @@ storeAxisMacro`
 // Takes an input storage location and calculates the difference between that location and the anchor location from the new selection.
 function createAnchorDifferenceCommands({axis, i}) {
     return`
+        # Grab the coordinates that need to be converted. They're assumed to be within an array.
         $execute store result score diff${axis} ${ns}-diffmath run data get $(input)${i}] 10000
+        # Grab the anchor coordinates.
         execute store result score anchor${axis} ${ns}-diffmath run data get storage ${ns}:animation_data new.anchor[${i}] 10000
+        # Subtract anchor from the input coordinates to get the difference.
         scoreboard players operation diff${axis} ${ns}-diffmath -= anchor${axis} ${ns}-diffmath
+        # Toss the axis, iterative variable, namespace, and output into temp storage for the macro.
         data modify storage ${ns}:temp anchorDifference.axis set value ${axis}
         data modify storage ${ns}:temp anchorDifference.i set value ${i}
         data modify storage ${ns}:temp anchorDifference.namespace set value "diff"
         $data modify storage ${ns}:temp anchorDifference.output set value "$(output)"
+        # If arrayformat is 1, use the array macro (place each coordinate into an array with a length of 3), otherwise use the axis macro (apply x, y, and z to the end of output).
         $execute if score $(arrayformat) ${ns}-diffmath matches 1 run ${storeArrayMacro} with storage ${ns}:temp anchorDifference
         $execute if score $(arrayformat) ${ns}-diffmath matches 0 run ${storeAxisMacro} with storage ${ns}:temp anchorDifference
+        # Remove temporary data.
         data remove storage ${ns}:temp anchorDifference
     `;
 }
 
+// Set up the scoreboard objective and constant values.
 anchorDifferenceCommands.push(`
     scoreboard objectives add ${ns}-diffmath dummy
     scoreboard players set 0 ${ns}-diffmath 0
@@ -102,28 +110,36 @@ anchorDifferenceCommands.push(`
 
 anchorDifferenceCommands.push(...axis.map(createAnchorDifferenceCommands));
 
+// Remove the temporary scoreboard.
 anchorDifferenceCommands.push(`
     scoreboard objectives remove ${ns}-diffmath
 `);
 
 anchorDifference`${anchorDifferenceCommands.join('\n')}`;
 
-//
+// Takes an input storage location and calculates the real world coordinates by adding the anchor coordinates from the new selection.
 function createConstructRealCoordinatesCommands({axis, i}) {
     return`
+        # Grab the coordinates that need to be converted. They're assumed to be within an array.
         $execute store result score real${axis} ${ns}-realmath run data get $(input)${i}] 10000
+        # Grab the anchor coordinates from the new selection.
         execute store result score anchor${axis} ${ns}-realmath run data get storage ${ns}:animation_data new.anchor[${i}] 10000
+        # Add the anchor coordinate to the input difference to get the real world coordinate.
         scoreboard players operation real${axis} ${ns}-realmath += anchor${axis} ${ns}-realmath
+        # Toss the axis, iterative variable, namespace, and output into temp storage for the macro.
         data modify storage ${ns}:temp constructRealCoordinates.axis set value ${axis}
         data modify storage ${ns}:temp constructRealCoordinates.i set value ${i}
         data modify storage ${ns}:temp constructRealCoordinates.namespace set value "real"
         $data modify storage ${ns}:temp constructRealCoordinates.output set value "$(output)"
+        # If arrayformat is 1, use the array macro (place each coordinate into an array with a length of 3), otherwise use the axis macro (apply x, y, and z to the end of output).
         $execute if score $(arrayformat) ${ns}-realmath matches 1 run ${storeArrayMacro} with storage ${ns}:temp constructRealCoordinates
         $execute if score $(arrayformat) ${ns}-realmath matches 0 run ${storeAxisMacro} with storage ${ns}:temp constructRealCoordinates
+        # Remove temporary data.
         data remove storage ${ns}:temp constructRealCoordinates
     `;
 }
 
+// Set up the scoreboard objective and constant values.
 constructRealCoordinatesCommands.push(`
     scoreboard objectives add ${ns}-realmath dummy
     scoreboard players set 0 ${ns}-realmath 0
@@ -132,6 +148,7 @@ constructRealCoordinatesCommands.push(`
 
 constructRealCoordinatesCommands.push(...axis.map(createConstructRealCoordinatesCommands));
 
+// Remove the temporary scoreboard.
 constructRealCoordinatesCommands.push(`
     scoreboard objectives remove ${ns}-realmath
 `);
