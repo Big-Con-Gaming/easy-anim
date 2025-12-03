@@ -118,7 +118,7 @@ exit`
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     # Remove the new selection from animation_data entirely.
     ${a`
-        $data remove storage ${ns}:animation_data animations[{name:$(currentAnim)}]
+        $execute unless storage ${ns}:animation_data animations[{name:$(currentAnim)}].data.frames run data remove storage ${ns}:animation_data animations[{name:$(currentAnim)}]
     `} with storage ${ns}:player_data current
     data remove storage ${ns}:player_data current
     # Kill the display item_display entities from the old selection.
