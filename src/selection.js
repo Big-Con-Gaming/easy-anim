@@ -49,12 +49,11 @@ const removeDocileCommands = [];
 // ALL COMMANDS FOR THE SELECT TOOL
 
 // These commands construct the bounding box for the selection tool. This is done by finding the most negative and positive corners between the anchor and the newly selected block.
-const axis = [
+export const axis = [
     {axis:"x",i:"0"},
     {axis:"y",i:"1"},
     {axis:"z",i:"2"}
 ];
-
 
 // Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
 grabAnimationData`

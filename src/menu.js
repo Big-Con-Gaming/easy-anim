@@ -1,13 +1,14 @@
 // Set up stuff
 import mcf from './mcf.js';
 import { saveInventory, loadInventory, workingHotbar, unclaimLane, calculateLaneX } from './inventory.js';
-import { grabAnimationData, grabStrBlockPos, resetCornerBlock, cleanUpNewAnimationData, handleSummon } from './selection.js';
+import { grabAnimationData, grabStrBlockPos, resetCornerBlock, cleanUpNewAnimationData, handleSummon, axis } from './selection.js';
 import { replaceAllInString, toLowerCase } from './util.js';
 const folder = mcf.menu;
-export const { setName, createSelection, createAnimation, exit, saveStructure, enterEditor, anonymous: a } = folder;
+export const { setName, createSelection, createAnimation, exit, saveStructure, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 // Sets up the lists used to compile commands.
+const exitCommands = [];
 
 // Sets up the name and base data needed for a new animation.
 setName`
@@ -40,7 +41,7 @@ createSelection`
     $data modify storage ${ns}:animation_data animations[{name:$(name)}].data.owner set from entity @s UUID
 `;
 
-//
+// This takes the current selection and turns it into frame 0 of an animation, as well as the base layer for the animation.
 createAnimation`
     # Load the player's inventory from storage.
     $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
@@ -90,13 +91,9 @@ createAnimation`
     dialog show @s ${ns}:enter_editor
 `;
 
-// Run when the player wants to enter the editor for an existing animation.
-enterEditor`
-
-`;
 
 // This runs when the player uses the exit item in their inventory. Ran inside the editor dimension.
-exit`
+exitCommands.push(`
     # Load the player's inventory from storage.
     $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
     # Set animation_data new to the player's animation
@@ -107,20 +104,42 @@ exit`
     ${grabStrBlockPos}
     ${calculateLaneX} {output:"${ns}:temp str.lanex"}
     ${resetCornerBlock} with storage ${ns}:temp str
-    # Free up the player's old lane
-    ${unclaimLane}
+    # Free up the player's old lane, if the player isn't within the editor.
+    execute unless entity @s[tag=${ns}-inEditor] run ${unclaimLane}
+    # Create temporary scoreboard for the size increasing functions below.
+    scoreboard objectives add ${ns}-exitcommands dummy
+`);
+// We need to temporarily add 2 to each size on each axis so that the target selector below only selects what we want when we kill off the handles.
+
+function createExitCommands({axis, i}) {
+    return`
+        execute store result score ${axis} ${ns}-exitcommands run data get storage ${ns}:temp str.s${axis}
+        execute store result storage ${ns}:temp str.s${axis} double 1 run scoreboard players add ${axis} ${ns}-exitcommands 2
+    `;
+}
+
+// Toss the commands specified above into the function.
+exitCommands.push(...axis.map(createExitCommands));
+
+exitCommands.push(`
+    # Remove the temporary scoreboard used above.
+    scoreboard objectives remove ${ns}-exitcommands
+    # Kill the display item_display entities from the old selection.
+    ${a`
+        $execute in $(dimension) positioned $(x) $(y) $(z) run kill @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)]
+    `} with storage ${ns}:temp str
     # Remove the temporary data locations.
     data remove storage ${ns}:temp str
     # Bring back current data to be used to remove animation data
     $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
-    # Remove the player's old player data (currently still in current)
-    $data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
+    # Remove the player's old player data (currently still in current) unless they are in the editor.
+    $execute unless entity @s[tag=${ns}-inEditor] run data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
-    # Remove the new selection from animation_data entirely.
+    # Remove the new selection from animation_data entirely, unless there are frames associated with it.
     ${a`
-        $execute unless storage ${ns}:animation_data animations[{name:$(currentAnim)}].data.frames run data remove storage ${ns}:animation_data animations[{name:$(currentAnim)}]
+        $execute unless data storage ${ns}:animation_data animations[{name:$(currentAnim)}].data.frames run data remove storage ${ns}:animation_data animations[{name:$(currentAnim)}]
     `} with storage ${ns}:player_data current
     data remove storage ${ns}:player_data current
-    # Kill the display item_display entities from the old selection.
-    kill @e[tag=${ns}-handle]
-`;
+`);
+
+exit`${exitCommands.join('\n')}`;

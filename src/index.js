@@ -8,6 +8,7 @@ import { select, handleDetection, handleHighlight, keepHoverSelect, removeHovers
 import './menu.js';
 import { exitCamera } from './camera.js';
 import './util.js';
+import './animation.js';
 
 // Declare the functions you want to use
 const { tick, load, menu, raycast } = mcf;

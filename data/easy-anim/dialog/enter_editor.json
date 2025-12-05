@@ -5,7 +5,7 @@
     "label": "Yes",
     "action": {
       "type": "minecraft:run_command",
-      "command": "function easy-anim:menu/enter_editor"
+      "command": "function easy-anim:animation/enter_editor with entity @s"
     }
   },
   "no": {
