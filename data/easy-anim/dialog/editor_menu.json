@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:multi_action",
+  "title": "Editor Menu",
+  "can_close_with_escape": true,
+  "exit_action": {
+    "label": "Cancel"
+  },
+  "actions": [
+    {
+      "label": "Exit Editor",
+      "action": {
+        "type": "minecraft:run_command",
+        "command": "function easy-anim:animation/exit"
+      }
+    }
+  ]
+}

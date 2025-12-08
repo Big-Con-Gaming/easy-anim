@@ -19,6 +19,8 @@ const ns = 'easy-anim';
 // These commands will run every tick.
 tick`
     ${toolbarRightClick}
+    # Manually added the editor menu item here.
+    execute as @a[nbt={SelectedItem:{id:"minecraft:carrot_on_a_stick", components:{"minecraft:item_model":"minecraft:test_instance_block","minecraft:item_name":{italic:false,text:"Editor Menu"}}}}, scores={${ns}-right-click=1..}] run dialog show @s ${ns}:editor_menu
     execute as @a[scores={${ns}-right-click=1..}] run scoreboard players set @s ${ns}-right-click 0
     ${select}
     ${handleDetection}

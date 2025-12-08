@@ -4,7 +4,7 @@ import { saveInventory, loadInventory, workingHotbar, unclaimLane, calculateLane
 import { grabAnimationData, grabStrBlockPos, resetCornerBlock, cleanUpNewAnimationData, handleSummon, axis } from './selection.js';
 import { replaceAllInString, toLowerCase } from './util.js';
 const folder = mcf.menu;
-export const { setName, createSelection, createAnimation, exit, saveStructure, anonymous: a } = folder;
+export const { setName, createSelection, createAnimation, exitSelection, saveStructure, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 // Sets up the lists used to compile commands.
@@ -142,4 +142,4 @@ exitCommands.push(`
     data remove storage ${ns}:player_data current
 `);
 
-exit`${exitCommands.join('\n')}`;
+exitSelection`${exitCommands.join('\n')}`;

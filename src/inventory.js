@@ -152,7 +152,7 @@ const hotbarTools = [
     {display:`minecraft:dispenser`, name:"Set Camera", slot:1, action:`camera/camera_save with entity @s`},
     {display:`minecraft:observer`, name:"Load Camera", slot:2, action:`camera/camera_load with entity @s`, on_hover:`run function ${ns}:camera/camera_highlight with entity @s`, on_not_hover:`run function ${ns}:camera/camera_remove_highlight with entity @s`},
     {display:`minecraft:paper`, name:"Create Animation", slot:7, action:`menu/create_animation with entity @s`},
-    {display:`minecraft:barrier`, name:"Exit", slot:8, action: `menu/exit with entity @s`, dimension: `easy-anim:editor`}
+    {display:`minecraft:barrier`, name:"Exit", slot:8, action: `menu/exit_selection with entity @s`, dimension: `easy-anim:editor`}
 ];
 
 // Sets up each item in the hotbar.
