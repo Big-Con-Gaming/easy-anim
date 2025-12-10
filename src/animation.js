@@ -1,7 +1,7 @@
 // Sets up basic stuff.
 import mcf from './mcf.js';
 import { calculateLaneX } from './inventory.js';
-import { grabAnimationData } from './selection.js';
+import { grabAnimationData, regroupEntities } from './selection.js';
 import { exitSelection } from './menu.js';
 const folder = mcf.animation;
 export const { enterEditor, recPlaceFrames, tpIntoEditor, clean, exit, anonymous: a } = folder;
@@ -19,14 +19,16 @@ enterEditor`
     ${calculateLaneX} {output: "${ns}:temp eemacro.x"}
     # Store a list of all of the frames within the macro.
     data modify storage ${ns}:temp eemacro.frames set from storage ${ns}:animation_data new.frames
+    # Set y to 0 so that the regrouping macro knows where to go.
+    data modify storage ${ns}:temp eemacro.y set value 1
     # Grab the x size of the first frame and store that into the macro.
     data modify storage ${ns}:temp eemacro.sx set from storage ${ns}:temp eemacro.frames[0].size[0]
     # Grab the y size of the first frame and store that into the macro.
     data modify storage ${ns}:temp eemacro.sy set from storage ${ns}:temp eemacro.frames[0].size[1]
     # Grab the z size of the first frame and store that into the macro.
     data modify storage ${ns}:temp eemacro.sz set from storage ${ns}:temp eemacro.frames[0].size[2]
-    # Set the first Z offset to 2
-    data modify storage ${ns}:temp eemacro.offset set value 2
+    # Set the first Z offset to 2.
+    data modify storage ${ns}:temp eemacro.z set value 2
     # Set i (frame #) to 0, representing the first frame:
     data modify storage ${ns}:temp eemacro.i set value 0
     # Set up a temporary scoreboard to be able to calculate offset and the iterative variable on the fly, and set its first value to 2.
@@ -34,10 +36,16 @@ enterEditor`
     scoreboard players set offset ${ns}-temp 2
     scoreboard players set i ${ns}-temp 0
     ${recPlaceFrames`
+        # Makes sure this entire animation is loaded
+        $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload add ~ ~ ~3 ~3
+        
         # Place the frame's structure in. i = frame#
-        $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(i) $(x) 1 $(offset)
+        $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(i) $(x) 1 $(z)
+        # Regroup all grouped entities
+        execute in ${ns}:editor run ${regroupEntities} with storage ${ns}:temp eemacro
+
         # Place in the frame's structure block
-        $execute in ${ns}:editor run setblock $(x) 0 $(offset) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(i)",strict:true}
+        $execute in ${ns}:editor run setblock $(x) 0 $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(i)",strict:true}
         # Store the current size along the z axis for this frame.
         execute store result score zadd ${ns}-temp run data get storage ${ns}:temp eemacro.frames[0].size[2]
         # Remove the current frame from the list.
@@ -54,11 +62,13 @@ enterEditor`
 
         # Combine the current offset with the newly found one from the size's z axis, and add 1 for more separation. Store directly into the macro storage.
         scoreboard players operation offset ${ns}-temp += zadd ${ns}-temp
-        execute store result storage ${ns}:temp eemacro.offset int 1 run scoreboard players add offset ${ns}-temp 1
+        execute store result storage ${ns}:temp eemacro.z int 1 run scoreboard players add offset ${ns}-temp 1
         # Increment i and store that as well.
         execute store result storage ${ns}:temp eemacro.i int 1 run scoreboard players add i ${ns}-temp 1
         # Execute this recursive function once more.
         ${recPlaceFrames} with storage ${ns}:temp eemacro
+        # Remove this forceloaded area
+        $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload remove ~ ~ ~3 ~3
     `} with storage ${ns}:temp eemacro
     # Tag the player with inEditor so it is easier to track.
     tag @s add ${ns}-inEditor

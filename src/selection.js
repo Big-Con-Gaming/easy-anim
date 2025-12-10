@@ -2,9 +2,10 @@
 import mcf from './mcf.js';
 import { calculateLaneX } from './inventory.js';
 const folder = mcf.selection;
-export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, storeArrayMacro, storeAxisMacro, anchorDifference, constructRealCoordinates, grabSizeAnchor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection } = folder;
+export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, regroupEntities, storeArrayMacro, storeAxisMacro, anchorDifference, constructRealCoordinates, grabSizeAnchor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection } = folder;
 // grabAnimationData: Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
 // cleanUpNewAnimationData: Saves changes made to the new namespace within animation_data to the actual animation's data. Must be ran with storage ${ns}:animation_data new.
+// regroupEntities: Must be ran with xyz and sx sy sz, where xyz represents the neg-neg-neg corner of the frame/selection and sx sy sz represent the size of the frame/selection. This goes through and puts grouped entities back together after they were split for structure saving.
 // storeArrayMacro: places data into an output array location dependent on an iterative varible i. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
 // storeAxisMacro: places data into an output object location dependent on a string varible axis. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
 // anchorDifference: Takes an input storage location and calculates the difference between that location and the anchor location from the new selection.
@@ -67,6 +68,19 @@ cleanUpNewAnimationData`
     $data modify storage ${ns}:animation_data animations[{name:$(name)}].data set from storage ${ns}:animation_data new
     data remove storage ${ns}:animation_data new
 `
+
+// Must be ran with xyz and sx sy sz, where xyz represents the neg-neg-neg corner of the frame/selection and sx sy sz represent the size of the frame/selection. This goes through and puts grouped entities back together after they were split for structure saving.
+regroupEntities`
+    $execute positioned $(x) $(y) $(z) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${a`
+        $execute if entity @s[tag=${ns}-passenger-$(easyanimgroupid)] run ride @s mount @n[tag=${ns}-vehicle-$(easyanimgroupid)]
+    `} with entity @s data
+    $execute positioned $(x) $(y) $(z) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${a`
+        $execute if entity @s[tag=${ns}-passenger-$(easyanimgroupid)] run tag @s remove ${ns}-passenger-$(easyanimgroupid)
+        $execute if entity @s[tag=${ns}-vehicle-$(easyanimgroupid)] run tag @s remove ${ns}-vehicle-$(easyanimgroupid)
+        tag @s remove ${ns}-group
+        data remove entity @s data.easy-anim-groupid
+    `} with entity @s data
+`;
 
 // places data into an output array location dependent on an iterative varible i. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
 storeArrayMacro`
@@ -630,16 +644,16 @@ selectCommands.push(`
     data modify storage ${ns}:temp docileSearch set from storage ${ns}:animation_data animations
     # Recursive, is called until temporary list docileSearch in animationData is empty. Goes through each animation and turns entities docile within each.
     ${recDocileSearch`
-        data modify storage ${ns}:animation_data new set from storage ${ns}:temp docileSearch[0].data
-        data modify storage ${ns}:animation_data new.name set from storage ${ns}:temp docileSearch[0].name
-        ${grabSizeAnchor}
-        ${targetSelectInSelection`
+        execute unless data storage ${ns}:temp docileSearch[0].data.frames run data modify storage ${ns}:animation_data new set from storage ${ns}:temp docileSearch[0].data
+        execute unless data storage ${ns}:temp docileSearch[0].data.frames run data modify storage ${ns}:animation_data new.name set from storage ${ns}:temp docileSearch[0].name
+        execute unless data storage ${ns}:temp docileSearch[0].data.frames run ${grabSizeAnchor}
+        execute unless data storage ${ns}:temp docileSearch[0].data.frames run ${targetSelectInSelection`
             $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
             data remove storage ${ns}:temp grabsizeanchor
         `} with storage ${ns}:temp grabsizeanchor
-        data remove storage ${ns}:temp grabsizeanchor
+        execute unless data storage ${ns}:temp docileSearch[0].data.frames run data remove storage ${ns}:temp grabsizeanchor
         data remove storage ${ns}:temp docileSearch[0]
-        data remove storage ${ns}:animation_data new
+        execute unless data storage ${ns}:temp docileSearch[0].data.frames run data remove storage ${ns}:animation_data new
         execute if data storage ${ns}:temp docileSearch[] run ${recDocileSearch}
     `}
     data remove storage ${ns}:temp docileSearch

@@ -1,10 +1,10 @@
 // Set up stuff
 import mcf from './mcf.js';
 import { saveInventory, loadInventory, workingHotbar, unclaimLane, calculateLaneX } from './inventory.js';
-import { grabAnimationData, grabStrBlockPos, resetCornerBlock, cleanUpNewAnimationData, handleSummon, axis } from './selection.js';
+import { grabAnimationData, grabStrBlockPos, resetCornerBlock, cleanUpNewAnimationData, handleSummon, regroupEntities, axis } from './selection.js';
 import { replaceAllInString, toLowerCase } from './util.js';
 const folder = mcf.menu;
-export const { setName, createSelection, createAnimation, exitSelection, saveStructure, anonymous: a } = folder;
+export const { setName, createSelection, createAnimation, exitSelection, saveStructure, recGroupSearch, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 // Sets up the lists used to compile commands.
@@ -57,17 +57,33 @@ createAnimation`
     scoreboard objectives add ${ns}-temp dummy
     execute store result score y-increase ${ns}-temp run data get storage ${ns}:temp str.y
     execute store result storage ${ns}:temp str.upy int 1 run scoreboard players add y-increase ${ns}-temp 1
-    scoreboard objectives remove ${ns}-temp
     data modify storage ${ns}:temp str.name set from storage ${ns}:animation_data new.name
     ${saveStructure`
         $clone $(x) $(upy) $(z) $(x) $(upy) $(z) to ${ns}:editor $(lanex) 3 0 strict
         $execute positioned $(x) $(y) $(z) run kill @n[type=minecraft:interaction,tag=${ns}-select-str-block]
         $execute positioned $(x) $(y) $(z) run kill @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)]
+        # Ungroup any grouped entities and tag them so they can find each other.
+        execute store result storage ${ns}:temp str.id int 1 run scoreboard players set groupid ${ns}-temp 0
+        ${recGroupSearch`
+            $execute positioned $(x) $(y) $(z) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group,limit=1,sort=random] if data entity @s Passengers run ${a`
+                $tag @s add ${ns}-vehicle-$(id)
+                $data modify entity @s data.easyanimgroupid set value $(id)
+                tag @s add ${ns}-group
+                $execute on passengers run tag @s add ${ns}-passenger-$(id)
+                execute on passengers run tag @s add ${ns}-group
+                $execute on passengers run data modify entity @s data.easyanimgroupid set value $(id)
+                execute on passengers run ride @s dismount
+                execute store result storage ${ns}:temp str.id int 1 run scoreboard players add groupid ${ns}-temp 1
+            `} with storage ${ns}:temp str
+            $execute positioned $(x) $(y) $(z) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group] if data entity @s Passengers run ${recGroupSearch} with storage ${ns}:temp str
+        `} with storage ${ns}:temp str
         $setblock $(x) $(upy) $(z) minecraft:redstone_block
         $setblock $(x) $(upy) $(z) minecraft:air
         $data modify block $(x) $(y) $(z) name set value "${ns}:$(name)-frame0"
         $setblock $(x) $(upy) $(z) minecraft:redstone_block
         $data modify block $(x) $(y) $(z) name set value "${ns}:$(name)-base"
+        # Regroup any grouped entities and remove their redundant tags + data. Must be separated so data that is needed to find each other isn't erased yet.
+        ${regroupEntities} with storage ${ns}:temp str
         $clone from easy-anim:editor $(lanex) 3 0 $(lanex) 3 0 $(x) $(upy) $(z) strict
         $summon minecraft:interaction $(x) $(y) $(z) {width:1.01f,height:1.01f,Tags:["${ns}-select-str-block"]}
         $execute in ${ns}:editor run setblock $(lanex) 3 0 minecraft:air
@@ -87,6 +103,7 @@ createAnimation`
     # Remove the temporary data locations.
     data remove storage ${ns}:temp str
     data remove storage ${ns}:player_data current
+    scoreboard objectives remove ${ns}-temp
     # Prompt the user to enter the editor.
     dialog show @s ${ns}:enter_editor
 `;
