@@ -1,7 +1,7 @@
 // Sets up basic stuff.
 import mcf from './mcf.js';
 import { calculateLaneX } from './inventory.js';
-import { grabAnimationData, regroupEntities } from './selection.js';
+import { grabAnimationData, regroupEntities, turnEntityDocile } from './selection.js';
 import { exitSelection } from './menu.js';
 const folder = mcf.animation;
 export const { enterEditor, recPlaceFrames, tpIntoEditor, clean, exit, anonymous: a } = folder;
@@ -43,6 +43,8 @@ enterEditor`
         $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(i) $(x) 1 $(z)
         # Regroup all grouped entities
         execute in ${ns}:editor run ${regroupEntities} with storage ${ns}:temp eemacro
+        # Turn all entities docile that were summmoned within the structure.
+        # $execute in ${ns}:editor positioned $(x) 1 $(z) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz)] run ${turnEntityDocile}
 
         # Place in the frame's structure block
         $execute in ${ns}:editor run setblock $(x) 0 $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(i)",strict:true}
@@ -70,6 +72,8 @@ enterEditor`
         # Remove this forceloaded area
         $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload remove ~ ~ ~3 ~3
     `} with storage ${ns}:temp eemacro
+    # Just in case 0 0 was unforceloaded, add it back
+    execute in ${ns}:editor run forceload add 0 0
     # Tag the player with inEditor so it is easier to track.
     tag @s add ${ns}-inEditor
     # Return the player's original inventory (in case they were coming from the selection menu). This also cleans up almost all of our extra data.

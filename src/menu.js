@@ -1,7 +1,7 @@
 // Set up stuff
 import mcf from './mcf.js';
 import { saveInventory, loadInventory, workingHotbar, unclaimLane, calculateLaneX } from './inventory.js';
-import { grabAnimationData, grabStrBlockPos, resetCornerBlock, cleanUpNewAnimationData, handleSummon, regroupEntities, axis } from './selection.js';
+import { grabAnimationData, grabStrBlockPos, resetCornerBlock, cleanUpNewAnimationData, handleSummon, regroupEntities, removeDocile, axis } from './selection.js';
 import { replaceAllInString, toLowerCase } from './util.js';
 const folder = mcf.menu;
 export const { setName, createSelection, createAnimation, exitSelection, saveStructure, recGroupSearch, anonymous: a } = folder;
@@ -39,6 +39,8 @@ createSelection`
     $${workingHotbar} {name:$(name)}
     # Add the owner to the newly created animation
     $data modify storage ${ns}:animation_data animations[{name:$(name)}].data.owner set from entity @s UUID
+    # Make the newly created animation "showing"
+    $data modify storage ${ns}:animation_data animations[{name:$(name)}].data.showing set value true
 `;
 
 // This takes the current selection and turns it into frame 0 of an animation, as well as the base layer for the animation.
@@ -76,6 +78,10 @@ createAnimation`
                 execute store result storage ${ns}:temp str.id int 1 run scoreboard players add groupid ${ns}-temp 1
             `} with storage ${ns}:temp str
             $execute positioned $(x) $(y) $(z) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group] if data entity @s Passengers run ${recGroupSearch} with storage ${ns}:temp str
+        `} with storage ${ns}:temp str
+        # Using the macro, make sure all of the entities within the selection are no longer considered docile
+        ${a`
+            $execute positioned $(x) $(y) $(z) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-entity-turned-docile] run ${removeDocile}
         `} with storage ${ns}:temp str
         $setblock $(x) $(upy) $(z) minecraft:redstone_block
         $setblock $(x) $(upy) $(z) minecraft:air
@@ -151,6 +157,8 @@ exitCommands.push(`
     $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
     # Remove the player's old player data (currently still in current) unless they are in the editor.
     $execute unless entity @s[tag=${ns}-inEditor] run data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
+    # Set the animation to no longer be showing.
+    data modify storage ${ns}:animation_data new.showing set value false
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     # Remove the new selection from animation_data entirely, unless there are frames associated with it.
     ${a`

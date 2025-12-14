@@ -638,22 +638,22 @@ selectCommands.push(`
     execute as @n[type=item_frame,tag=${ns}-edge] run kill @s
     # Tag all HoverSelect boxes for deletion
     tag @e[type=interaction, tag=${ns}-hover-select] add ${ns}-hover-select-delete
-    # Remove all docile entities
+    # Remove all docile entities.
     execute as @e[tag=${ns}-entity-turned-docile] run ${removeDocile}
     # If an entity is inside the newly created selection radius, make them docile.
     data modify storage ${ns}:temp docileSearch set from storage ${ns}:animation_data animations
     # Recursive, is called until temporary list docileSearch in animationData is empty. Goes through each animation and turns entities docile within each.
     ${recDocileSearch`
-        execute unless data storage ${ns}:temp docileSearch[0].data.frames run data modify storage ${ns}:animation_data new set from storage ${ns}:temp docileSearch[0].data
-        execute unless data storage ${ns}:temp docileSearch[0].data.frames run data modify storage ${ns}:animation_data new.name set from storage ${ns}:temp docileSearch[0].name
-        execute unless data storage ${ns}:temp docileSearch[0].data.frames run ${grabSizeAnchor}
-        execute unless data storage ${ns}:temp docileSearch[0].data.frames run ${targetSelectInSelection`
+        execute unless data storage ${ns}:temp {docileSearch:[{data:{showing:false}}]} run data modify storage ${ns}:animation_data new set from storage ${ns}:temp docileSearch[0].data
+        execute unless data storage ${ns}:temp {docileSearch:[{data:{showing:false}}]} run data modify storage ${ns}:animation_data new.name set from storage ${ns}:temp docileSearch[0].name
+        execute unless data storage ${ns}:temp {docileSearch:[{data:{showing:false}}]} run ${grabSizeAnchor}
+        execute unless data storage ${ns}:temp {docileSearch:[{data:{showing:false}}]} run ${targetSelectInSelection`
             $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
             data remove storage ${ns}:temp grabsizeanchor
         `} with storage ${ns}:temp grabsizeanchor
-        execute unless data storage ${ns}:temp docileSearch[0].data.frames run data remove storage ${ns}:temp grabsizeanchor
+        execute unless data storage ${ns}:temp {docileSearch:[{data:{showing:false}}]} run data remove storage ${ns}:temp grabsizeanchor
         data remove storage ${ns}:temp docileSearch[0]
-        execute unless data storage ${ns}:temp docileSearch[0].data.frames run data remove storage ${ns}:animation_data new
+        execute unless data storage ${ns}:temp {docileSearch:[{data:{showing:false}}]} run data remove storage ${ns}:animation_data new
         execute if data storage ${ns}:temp docileSearch[] run ${recDocileSearch}
     `}
     data remove storage ${ns}:temp docileSearch
