@@ -2,7 +2,7 @@
 import mcf from './mcf.js';
 import { calculateLaneX } from './inventory.js';
 const folder = mcf.selection;
-export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, regroupEntities, storeArrayMacro, storeAxisMacro, anchorDifference, constructRealCoordinates, grabSizeAnchor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection } = folder;
+export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, regroupEntities, storeArrayMacro, storeAxisMacro, anchorDifference, constructRealCoordinates, grabSizeAnchor, grabSizeAnchorEditor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection } = folder;
 // grabAnimationData: Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
 // cleanUpNewAnimationData: Saves changes made to the new namespace within animation_data to the actual animation's data. Must be ran with storage ${ns}:animation_data new.
 // regroupEntities: Must be ran with xyz and sx sy sz, where xyz represents the neg-neg-neg corner of the frame/selection and sx sy sz represent the size of the frame/selection. This goes through and puts grouped entities back together after they were split for structure saving.
@@ -11,6 +11,7 @@ export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, regroup
 // anchorDifference: Takes an input storage location and calculates the difference between that location and the anchor location from the new selection.
 // constructRealCoordinates: Takes an input storage location and calculates the real world coordinates by adding the anchor coordinates from the new selection.
 // grabSizeAnchor: Throws the anchor position, selection size, and the real size (shrunk by 1) into a temporary storage space for macros.
+// grabSizeAnchorEditor:
 // updateSelection: changes size and anchor to fit in a new selection point into preexisting selection box. Selections within the box run twoPointSelection.
 // grabStrBlockPos: Grabs the structure block position of the current selection box and places it into ${ns}:temp str. Also grabs the box's size for a macro.
 // handleSummon: Places arrow item entities and interaction entities at each side of the selection area.
@@ -37,6 +38,7 @@ const ns = 'easy-anim';
 const anchorDifferenceCommands = [];
 const constructRealCoordinatesCommands = [];
 const grabSizeAnchorCommands = [];
+const grabSizeAnchorEditorCommands = [];
 const selectCommands = [];
 const twoPointCommands = [];
 const displayBoxCommands = [];
@@ -190,6 +192,28 @@ grabSizeAnchorCommands.push(`
 `);
 
 grabSizeAnchor`${grabSizeAnchorCommands.join('\n')}`;
+
+// Grabs size and the coordinates within the editor for a specific frame and tosses them into a temporary storage place to be used in other commands. Exports data into ${ns}:temp grabsizeanchor.
+function createGrabSizeAnchorEditorCommands({axis, i}){
+    return`
+        
+        data modify storage ${ns}:temp grabsizeanchor.s${axis} set from storage ${ns}:animation_data new.size[${i}]
+        execute store result score s${axis} ${ns}-grabSizeAnchorEditor run data get storage ${ns}:animation_data new.size[${i}]
+        scoreboard players remove s${axis} ${ns}-grabSizeAnchorEditor 1
+        execute store result storage ${ns}:temp grabsizeanchor.sh${axis} int 1 run scoreboard players get s${axis} ${ns}-grabSizeAnchorEditor
+    `;
+}
+
+grabSizeAnchorEditorCommands.push(`
+    scoreboard objectives add ${ns}-grabSizeAnchorEditor dummy
+`);
+
+grabSizeAnchorEditorCommands.push(...axis.map(createGrabSizeAnchorEditorCommands));
+
+grabSizeAnchorEditorCommands.push(`
+    scoreboard objectives remove ${ns}-grabSizeAnchorEditor
+`);
+
 
 function createTwoPointCommands({axis, i}) {
     mcf[`selection/two_point_pos/calc_size_current_pos_${axis}`]`
@@ -644,19 +668,26 @@ selectCommands.push(`
     data modify storage ${ns}:temp docileSearch set from storage ${ns}:animation_data animations
     # Recursive, is called until temporary list docileSearch in animationData is empty. Goes through each animation and turns entities docile within each.
     ${recDocileSearch`
-        execute unless data storage ${ns}:temp {docileSearch:[{data:{showing:false}}]} run data modify storage ${ns}:animation_data new set from storage ${ns}:temp docileSearch[0].data
-        execute unless data storage ${ns}:temp {docileSearch:[{data:{showing:false}}]} run data modify storage ${ns}:animation_data new.name set from storage ${ns}:temp docileSearch[0].name
-        execute unless data storage ${ns}:temp {docileSearch:[{data:{showing:false}}]} run ${grabSizeAnchor}
-        execute unless data storage ${ns}:temp {docileSearch:[{data:{showing:false}}]} run ${targetSelectInSelection`
+        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"none"}}]} run return run ${a`
+            data remove storage ${ns}:temp docileSearch[0]
+            execute if data storage ${ns}:temp docileSearch[] run ${recDocileSearch}
+        `}
+        data modify storage ${ns}:animation_data new set from storage ${ns}:temp docileSearch[0].data
+        data modify storage ${ns}:animation_data new.name set from storage ${ns}:temp docileSearch[0].name
+        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"anchor"}}]} run ${grabSizeAnchor}
+        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} run ${grabSizeAnchorEditor}
+        ${targetSelectInSelection`
             $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
             data remove storage ${ns}:temp grabsizeanchor
         `} with storage ${ns}:temp grabsizeanchor
-        execute unless data storage ${ns}:temp {docileSearch:[{data:{showing:false}}]} run data remove storage ${ns}:temp grabsizeanchor
+        data remove storage ${ns}:temp grabsizeanchor
         data remove storage ${ns}:temp docileSearch[0]
-        execute unless data storage ${ns}:temp {docileSearch:[{data:{showing:false}}]} run data remove storage ${ns}:animation_data new
+        data remove storage ${ns}:animation_data new
         execute if data storage ${ns}:temp docileSearch[] run ${recDocileSearch}
     `}
     data remove storage ${ns}:temp docileSearch
+    # All entities in the editor that aren't players should be made docile
+    # execute as @e[type=!player] at @s if dimension ${ns}:editor run ${turnEntityDocile}
 `);
 
 export const select = selectCommands.join('\n');

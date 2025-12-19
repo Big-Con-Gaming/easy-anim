@@ -39,8 +39,8 @@ createSelection`
     $${workingHotbar} {name:$(name)}
     # Add the owner to the newly created animation
     $data modify storage ${ns}:animation_data animations[{name:$(name)}].data.owner set from entity @s UUID
-    # Make the newly created animation "showing"
-    $data modify storage ${ns}:animation_data animations[{name:$(name)}].data.showing set value true
+    # Specify that the new animation is currently at the anchor location
+    $data modify storage ${ns}:animation_data animations[{name:$(name)}].data.location set value "anchor"
 `;
 
 // This takes the current selection and turns it into frame 0 of an animation, as well as the base layer for the animation.
@@ -157,8 +157,9 @@ exitCommands.push(`
     $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
     # Remove the player's old player data (currently still in current) unless they are in the editor.
     $execute unless entity @s[tag=${ns}-inEditor] run data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
-    # Set the animation to no longer be showing.
-    data modify storage ${ns}:animation_data new.showing set value false
+    # Set the animation's location to none if we aren't in the editor, and to editor if we are.
+    execute unless entity @s[tag=${ns}-inEditor] run data modify storage ${ns}:animation_data new.location set value "none"
+    execute if entity @s[tag=${ns}-inEditor] run data modify storage ${ns}:animation_data new.location set value "editor"
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     # Remove the new selection from animation_data entirely, unless there are frames associated with it.
     ${a`

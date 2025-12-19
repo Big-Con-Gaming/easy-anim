@@ -4,8 +4,10 @@ import { calculateLaneX } from './inventory.js';
 import { grabAnimationData, regroupEntities, turnEntityDocile } from './selection.js';
 import { exitSelection } from './menu.js';
 const folder = mcf.animation;
-export const { enterEditor, recPlaceFrames, tpIntoEditor, clean, exit, anonymous: a } = folder;
+export const { enterEditor, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, exit, anonymous: a } = folder;
 const ns = 'easy-anim';
+
+const editor_menu_item = 'minecraft:carrot_on_a_stick[item_name={italic:false,text:"Editor Menu"}, item_model="minecraft:test_instance_block"]';
 
 // Run when the player wants to enter the editor for an existing animation. Must be executed with the player as context.
 enterEditor`
@@ -41,6 +43,13 @@ enterEditor`
         
         # Place the frame's structure in. i = frame#
         $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(i) $(x) 1 $(z)
+        # Toss the editor's anchor point for this frame into storage. We use a temporary marker's position to place it in.
+        $execute in ${ns}:editor positioned $(x) 1 $(z) align xyz summon marker run ${editorAnchorInData`
+            $data modify storage ${ns}:animation_data new.frames[$(i)].eanchor set from entity @s Pos
+            data modify storage ${ns}:temp Pos set from entity @s Pos
+            $tell Big_Con__ "$(i)"
+            kill @s
+        `} with storage ${ns}:temp eemacro
         # Regroup all grouped entities
         execute in ${ns}:editor run ${regroupEntities} with storage ${ns}:temp eemacro
         # Turn all entities docile that were summmoned within the structure.
@@ -76,7 +85,7 @@ enterEditor`
     execute in ${ns}:editor run forceload add 0 0
     # Tag the player with inEditor so it is easier to track.
     tag @s add ${ns}-inEditor
-    # Return the player's original inventory (in case they were coming from the selection menu). This also cleans up almost all of our extra data.
+    # Return the player's original inventory (in case they were coming from the selection menu). This also cleans up almost all of our extra data, and sets the animation's location to editor.
     ${exitSelection} with entity @s
     # Teleport the player into the editor dimension.
     ${tpIntoEditor`
@@ -85,8 +94,8 @@ enterEditor`
     # Remove temporary data.
     data remove storage ${ns}:temp eemacro
     scoreboard objectives remove ${ns}-temp
-    # Give them the quick menu item.
-    give @s minecraft:carrot_on_a_stick[item_name={italic:false,text:"Editor Menu"}, item_model="minecraft:test_instance_block"]
+    # Give them the quick menu item. This item's data is stored as a constant above.
+    execute unless items entity @s inventory.* ${editor_menu_item} unless items entity @s hotbar.* ${editor_menu_item} unless items entity @s weapon.* ${editor_menu_item} run give @s ${editor_menu_item}
 `;
 
 //
