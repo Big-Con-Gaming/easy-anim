@@ -196,9 +196,9 @@ grabSizeAnchor`${grabSizeAnchorCommands.join('\n')}`;
 // Grabs size and the coordinates within the editor for a specific frame and tosses them into a temporary storage place to be used in other commands. Exports data into ${ns}:temp grabsizeanchor.
 function createGrabSizeAnchorEditorCommands({axis, i}){
     return`
-        
+        $data modify storage ${ns}:temp grabsizeanchor.a${axis} set from storage ${ns}:animation_data new.frames[$(framenum)].eanchor[${i}]
         data modify storage ${ns}:temp grabsizeanchor.s${axis} set from storage ${ns}:animation_data new.size[${i}]
-        execute store result score s${axis} ${ns}-grabSizeAnchorEditor run data get storage ${ns}:animation_data new.size[${i}]
+        $execute store result score s${axis} ${ns}-grabSizeAnchorEditor run data get storage ${ns}:animation_data new.frames[$(framenum)].size[${i}]
         scoreboard players remove s${axis} ${ns}-grabSizeAnchorEditor 1
         execute store result storage ${ns}:temp grabsizeanchor.sh${axis} int 1 run scoreboard players get s${axis} ${ns}-grabSizeAnchorEditor
     `;
@@ -214,6 +214,7 @@ grabSizeAnchorEditorCommands.push(`
     scoreboard objectives remove ${ns}-grabSizeAnchorEditor
 `);
 
+grabSizeAnchorEditor`${grabSizeAnchorEditorCommands.join('\n')}`;
 
 function createTwoPointCommands({axis, i}) {
     mcf[`selection/two_point_pos/calc_size_current_pos_${axis}`]`
@@ -668,26 +669,50 @@ selectCommands.push(`
     data modify storage ${ns}:temp docileSearch set from storage ${ns}:animation_data animations
     # Recursive, is called until temporary list docileSearch in animationData is empty. Goes through each animation and turns entities docile within each.
     ${recDocileSearch`
+        # If this animation is not displayed anywhere, then there's no entities to be made docile. Skip to next animation.
         execute if data storage ${ns}:temp {docileSearch:[{data:{location:"none"}}]} run return run ${a`
             data remove storage ${ns}:temp docileSearch[0]
             execute if data storage ${ns}:temp docileSearch[] run ${recDocileSearch}
         `}
+        # Pull data and name into the new namespace so that functions work properly.
         data modify storage ${ns}:animation_data new set from storage ${ns}:temp docileSearch[0].data
         data modify storage ${ns}:animation_data new.name set from storage ${ns}:temp docileSearch[0].name
+        # If we are in the "real world," we can run the normal grabSizeAnchor function to grab anchor coordinates and size in a macro data space.
         execute if data storage ${ns}:temp {docileSearch:[{data:{location:"anchor"}}]} run ${grabSizeAnchor}
-        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} run ${grabSizeAnchorEditor}
+        # If we are in the editor, we need to grab the eanchor and size of the first frame, as well as setup an incrementing variable to go between frames and a max variable to know when to stop searching (framecount)
+        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} run ${a`
+            ${grabSizeAnchorEditor} {framenum:0}
+            scoreboard objectives add ${ns}-recDocile dummy
+            # framenum is set to 1 as an advanced increment so that new data is pulled immediately.
+            execute store result score framenum ${ns}-recDocile run data modify storage ${ns}:temp grabsizeanchor.framenum set value 1
+            execute store result score totalframe ${ns}-recDocile run data get storage ${ns}:animation_data new.framecount
+        `}
+        # Use the newly placed macro data in ${ns}:temp grabsizeanchor to target select the entities.
         ${targetSelectInSelection`
-            $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
-            data remove storage ${ns}:temp grabsizeanchor
+            # If we are in the "real world," just execute once on the selection and turn those entities docile.
+            $execute if data storage ${ns}:temp {docileSearch:[{data:{location:"anchor"}}]} positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
+            # If we are in the editor, we will execute within that dimension at the eanchor and specific frame size.
+            execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} run ${a`
+                $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
+                # Clear grabsizeanchor for the next frame
+                data remove storage ${ns}:temp grabsizeanchor
+                # Grab the next frame's eanchor and size (framenum is incremented by 1 in advance)
+                $${grabSizeAnchorEditor} {framenum:$(framenum)}
+                # Increase framenum by 1 in score and data.
+                execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players add framenum ${ns}-recDocile 1
+                # Unless we have passed all of the frames, execute another target selection for the next frame.
+                execute unless score framenum ${ns}-recDocile >= totalframe ${ns}-recDocile run ${targetSelectInSelection} with storage ${ns}:temp grabsizeanchor
+            `} with storage ${ns}:temp grabsizeanchor
         `} with storage ${ns}:temp grabsizeanchor
+        # Remove trailing data.
         data remove storage ${ns}:temp grabsizeanchor
+        scoreboard objectives remove ${ns}-recDocile
         data remove storage ${ns}:temp docileSearch[0]
         data remove storage ${ns}:animation_data new
+        # If we have more selections to turn docile, repeat this function.
         execute if data storage ${ns}:temp docileSearch[] run ${recDocileSearch}
     `}
     data remove storage ${ns}:temp docileSearch
-    # All entities in the editor that aren't players should be made docile
-    # execute as @e[type=!player] at @s if dimension ${ns}:editor run ${turnEntityDocile}
 `);
 
 export const select = selectCommands.join('\n');

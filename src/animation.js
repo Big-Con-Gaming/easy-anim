@@ -44,10 +44,8 @@ enterEditor`
         # Place the frame's structure in. i = frame#
         $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(i) $(x) 1 $(z)
         # Toss the editor's anchor point for this frame into storage. We use a temporary marker's position to place it in.
-        $execute in ${ns}:editor positioned $(x) 1 $(z) align xyz summon marker run ${editorAnchorInData`
-            $data modify storage ${ns}:animation_data new.frames[$(i)].eanchor set from entity @s Pos
-            data modify storage ${ns}:temp Pos set from entity @s Pos
-            $tell Big_Con__ "$(i)"
+        $execute in ${ns}:editor positioned $(x) 1 $(z) align xyz summon minecraft:marker run ${editorAnchorInData`
+            $data modify storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(i)].eanchor set from entity @s Pos
             kill @s
         `} with storage ${ns}:temp eemacro
         # Regroup all grouped entities
