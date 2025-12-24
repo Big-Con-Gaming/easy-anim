@@ -11,7 +11,7 @@ export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, regroup
 // anchorDifference: Takes an input storage location and calculates the difference between that location and the anchor location from the new selection.
 // constructRealCoordinates: Takes an input storage location and calculates the real world coordinates by adding the anchor coordinates from the new selection.
 // grabSizeAnchor: Throws the anchor position, selection size, and the real size (shrunk by 1) into a temporary storage space for macros.
-// grabSizeAnchorEditor:
+// grabSizeAnchorEditor: Grabs size and the coordinates within the editor for a specific frame and tosses them into a temporary storage place to be used in other commands. Exports data into ${ns}:temp grabsizeanchor.
 // updateSelection: changes size and anchor to fit in a new selection point into preexisting selection box. Selections within the box run twoPointSelection.
 // grabStrBlockPos: Grabs the structure block position of the current selection box and places it into ${ns}:temp str. Also grabs the box's size for a macro.
 // handleSummon: Places arrow item entities and interaction entities at each side of the selection area.
@@ -240,6 +240,8 @@ function createTwoPointCommands({axis, i}) {
         execute if score current${axis} ${ns}-twopoint > anchor${axis} ${ns}-twopoint run function ${ns}:selection/two_point_pos/calc_size_current_pos_${axis}
         # If the newly selected point on the ${axis} axis is more negative than the anchor,
         execute if score current${axis} ${ns}-twopoint < anchor${axis} ${ns}-twopoint run function ${ns}:selection/two_point_neg/calc_size_current_neg_${axis}
+        # If the new size is greater than 47 (size of 48 after next step), decrease it to exactly 47 so that we stay within the structure block's 48 block limit.
+        execute if score size${axis} ${ns}-twopoint matches 48.. run scoreboard players set size${axis} ${ns}-twopoint 47
         # Increase each axis by 1 to fully represent the full box (X1 - X2 = S - 1)
         scoreboard players add size${axis} ${ns}-twopoint 1
         execute store result storage ${ns}:animation_data new.size[${i}] double 1 run scoreboard players get size${axis} ${ns}-twopoint
@@ -259,6 +261,8 @@ twoPointSelection`${twoPointCommands.join('\n')}`;
 
 function createUpdateSelectionCommands({axis, i}) {
     mcf[`selection/update_selection/update_size_${axis}`]`
+        # If the newly calculated difference is greater than 47 (size of 48 after we add 1 in the next step,) then set it to exactly 47 (prevents passing the 48 block limit on structure blocks.)
+        execute if score diff${axis} ${ns}-math matches 48.. run scoreboard players set diff${axis} ${ns}-math 47
         # Increase the new size by 1 so it makes logical sense for a size.
         scoreboard players add diff${axis} ${ns}-math 1
         # Toss this new size into the storage.
@@ -480,9 +484,13 @@ function createHandleExecutionCommands({dir, x, y, z, anchorChange}) {
                 execute if data entity @s attack run scoreboard players operation diff ${ns}-handle-detect *= -1 ${ns}-handle-detect
                 # Change size in accordance to the calculated change above
                 scoreboard players operation size ${ns}-handle-detect += diff ${ns}-handle-detect
+                # If this change made size greater than 48, set diff to 0 so that the anchor doesn't move from the next commands.
+                execute unless score size ${ns}-handle-detect matches 49.. run scoreboard players set diff ${ns}-handle-detect 0
+                # If this change made size greater than 48, set it to 48 to prevent passing the structure block's limitation.
+                execute if score size ${ns}-handle-detect matches 49.. run scoreboard players set size ${ns}-handle-detect 48
                 # Toss size back into the data structure
                 execute store result storage ${ns}:animation_data new.size[${i}] double 1 run scoreboard players get size ${ns}-handle-detect
-                # If this direction would change the anchor position, changei t
+                # If this direction would change the anchor position, change it
                 ${executeAnchor}
             `;
             // Executes the above commands only if the current entity matches in direction
