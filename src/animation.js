@@ -1,10 +1,10 @@
 // Sets up basic stuff.
 import mcf from './mcf.js';
 import { calculateLaneX } from './inventory.js';
-import { grabAnimationData, regroupEntities, turnEntityDocile } from './selection.js';
-import { exitSelection } from './menu.js';
+import { grabAnimationData, regroupEntities, turnEntityDocile, removeDocile, grabSizeAnchorEditor } from './selection.js';
+import { exitSelection, recGroupSearch } from './menu.js';
 const folder = mcf.animation;
-export const { enterEditor, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, exit, anonymous: a } = folder;
+export const { enterEditor, findPlayerInFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame, recPlayerSearch, saveSpecificFrame, exit, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 const editor_menu_item = 'minecraft:carrot_on_a_stick[item_name={italic:false,text:"Editor Menu"}, item_model="minecraft:test_instance_block"]';
@@ -96,8 +96,86 @@ enterEditor`
     execute unless items entity @s inventory.* ${editor_menu_item} unless items entity @s hotbar.* ${editor_menu_item} unless items entity @s weapon.* ${editor_menu_item} run give @s ${editor_menu_item}
 `;
 
-//
-exit``;
+// Finds which frame the player is currently located in and executes a specified command with this information.
+// Input: UUID = player's UUID, funccall = the function call to run once the player is found, macros are provided for the latter function.
+// Macros available to the latter function: a[x, y, z] = anchor's position, s[x, y, z] = frame's size, name = animation's name, framenum = the current frame's number.
+findPlayerInFrame`
+    # Place the funccall into grabsizeanchor so it can be macroed in later on.
+    $data modify storage ${ns}:temp grabsizeanchor.funccall set value "$(funccall)"
+    # Load the player's inventory from storage.
+    $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
+    # Set animation_data new to the player's animation
+    ${grabAnimationData} with storage ${ns}:player_data current
+    # Grab the animation name
+    data modify storage ${ns}:temp grabsizeanchor.name set from storage ${ns}:animation_data new.name
+    # Set up a scoreboard for the iterative var used within the saveSpecificFrame macro
+    scoreboard objectives add ${ns}-saveCurrentFrame dummy
+    execute store result score i ${ns}-saveCurrentFrame run data modify storage ${ns}:temp grabsizeanchor.framenum set value 0
+    # Grab the framecount
+    execute store result score framecount ${ns}-saveCurrentFrame run data get storage ${ns}:animation_data new.framecount
+    # Pull specific data into the macro for the first frame.
+    ${grabSizeAnchorEditor} {framenum: 0}
+    ${recPlayerSearch`
+        # If the player is within this frame's bounding box, execute the function to save this specific frame.
+        $execute in ${ns}:editor positioned $(ax) $(ay) $(az) if entity @p[dx=$(sx), dy=$(sy), dz=$(sz)] run $(funccall) {name: $(name), frame: $(framenum), ax: $(ax), ay: $(ay), az: $(az), sx: $(sx), sy: $(sy), sz: $(sz)}
+        # Iterate framenum
+        execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players add ${ns}-saveCurrentFrame i 1
+        # Grab the next frame's data
+        ${grabSizeAnchorEditor} with storage ${ns}:temp grabsizeanchor
+        # Unless framecount is equal or greater than the iterative variable, do another recursive search.
+        execute unless score i ${ns}-saveCurrentFrame >= framecount ${ns}-saveCurrentFrame run ${recPlayerSearch} with storage ${ns}:temp grabsizeanchor
+    `} with storage ${ns}:temp grabsizeanchor
+    # Clean up remaining data
+    data remove storage ${ns}:temp grabsizeanchor
+    scoreboard objectives remove ${ns}-saveCurrentFrame
+    data remove storage ${ns}:animation_data new
+    data remove storage ${ns}:player_data current
+`;
+
+// Iterates through each frame and checks to see which one the player is within. For that frame, it will ungroup all entities, make sure they aren't docile, and then save the structure, regrouping entities afterwards using saveSpecificFrame.
+saveCurrentFrame`
+    # Store the player's UUID in a macro location.
+    data modify storage ${ns}:temp macro.UUID set from entity @s UUID
+    # Store the function execution call within a macro location.
+    data modify storage ${ns}:temp macro.funccall set value "${saveSpecificFrame}"
+    # Execute the function that will find the player within a frame using our specific frame function call.
+    ${findPlayerInFrame} with storage ${ns}:temp macro
+    # Remove trailing data
+    data remove storage ${ns}:temp macro
+`;
+
+// Saves a specific frame within the editor to the structure file. Ungroups entities beforehand and regroups them after.
+// Needs this input from a macro: a[x, y, z] = anchor coordinates, s[x, y, z] = size parameters, name = animation name, framenum = frame number. 
+saveSpecificFrame`
+    # Ungroup all of the entities within the frame, reusing functions from the create animation function within menu.
+    scoreboard objectives add ${ns}-temp dummy
+    execute store result storage ${ns}:temp str.id int 1 run scoreboard players set groupid ${ns}-temp 0
+    # All important data needs to be placed into str for the old recGroupSearch function to work. I feel like there's a better way to do this.
+    $data modify storage ${ns}:temp str.x set value $(ax)
+    $data modify storage ${ns}:temp str.y set value $(ay)
+    $data modify storage ${ns}:temp str.z set value $(az)
+    $data modify storage ${ns}:temp str.sx set value $(sx)
+    $data modify storage ${ns}:temp str.sy set value $(sy)
+    $data modify storage ${ns}:temp str.sz set value $(sz)
+    execute in ${ns}:editor run ${recGroupSearch} with storage ${ns}:temp str
+    # Remove docile for all entities within the frame. 
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-entity-turned-docile] run ${removeDocile}
+    # Make sure the frame's structure block is there.
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(frame)",strict:true}
+    # Save the frame
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~-1 ~-1 ~ minecraft:redstone_block
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~-1 ~-1 ~ minecraft:air
+    # Regroup all entities.
+    execute in ${ns}:editor run ${regroupEntities} with storage ${ns}:temp str
+    # Remove all trailing data.
+    data remove storage ${ns}:temp str
+    scoreboard objectives remove ${ns}-temp
+`;
+
+// Allows the player to exit the editor dimension.
+exit`
+    
+`;
 
 // Temporary cleanup function to help with testing
 clean`

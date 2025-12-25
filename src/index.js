@@ -18,6 +18,10 @@ const ns = 'easy-anim';
 
 // These commands will run every tick.
 tick`
+    # Forceload the main chunk in the editor dimension so the inventory barrel at the bottom of the world is always loaded and can be used.
+    execute in ${ns}:editor run forceload add 0 0
+    # Place a block at 0 2 0 in the editor to indicate it is the first lane (needed for recursive functions and to prevent forceload from being removed)
+    execute in ${ns}:editor unless block 0 2 0 minecraft:obsidian run setblock 0 2 0 minecraft:obsidian
     ${toolbarRightClick}
     # Manually added the editor menu item here.
     execute as @a[nbt={SelectedItem:{id:"minecraft:carrot_on_a_stick", components:{"minecraft:item_model":"minecraft:test_instance_block","minecraft:item_name":{italic:false,text:"Editor Menu"}}}}, scores={${ns}-right-click=1..}] run dialog show @s ${ns}:editor_menu
@@ -41,10 +45,6 @@ load`
     scoreboard objectives add ${ns}-right-click minecraft.used:minecraft.carrot_on_a_stick
     # Set up a trigger scoreboard for quick menu access
     scoreboard objectives add ${ns} trigger
-    # Forceload the main chunk in the editor dimension so the inventory barrel at the bottom of the world is always loaded and can be used.
-    execute in ${ns}:editor run forceload add 0 0
-    # Place a block at 0 2 0 in the editor to indicate it is the first lane (needed for recursive functions and to prevent forceload from being removed)
-    execute in ${ns}:editor run setblock 0 2 0 minecraft:obsidian
     # Let operators know the datapack has been loaded.
     say Easy Animations Datapack Loaded!
 `;
