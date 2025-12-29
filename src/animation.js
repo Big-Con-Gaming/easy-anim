@@ -4,7 +4,7 @@ import { calculateLaneX } from './inventory.js';
 import { grabAnimationData, regroupEntities, turnEntityDocile, removeDocile, grabSizeAnchorEditor } from './selection.js';
 import { exitSelection, recGroupSearch } from './menu.js';
 const folder = mcf.animation;
-export const { enterEditor, findPlayerInFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame, recPlayerSearch, saveSpecificFrame, exit, anonymous: a } = folder;
+export const { enterEditor, findPlayerInFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame, recPlayerSearch, saveSpecificFrame, clearCurrentFrame, clearSpecificFrame, exit, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 const editor_menu_item = 'minecraft:carrot_on_a_stick[item_name={italic:false,text:"Editor Menu"}, item_model="minecraft:test_instance_block"]';
@@ -117,7 +117,7 @@ findPlayerInFrame`
     ${grabSizeAnchorEditor} {framenum: 0}
     ${recPlayerSearch`
         # If the player is within this frame's bounding box, execute the function to save this specific frame.
-        $execute in ${ns}:editor positioned $(ax) $(ay) $(az) if entity @p[dx=$(sx), dy=$(sy), dz=$(sz)] run $(funccall) {name: $(name), frame: $(framenum), ax: $(ax), ay: $(ay), az: $(az), sx: $(sx), sy: $(sy), sz: $(sz)}
+        $execute in ${ns}:editor positioned $(ax) $(ay) $(az) if entity @p[dx=$(sx), dy=$(sy), dz=$(sz)] run $(funccall) {name: $(name), framenum: $(framenum), ax: $(ax), ay: $(ay), az: $(az), sx: $(sx), sy: $(sy), sz: $(sz)}
         # Iterate framenum
         execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players add ${ns}-saveCurrentFrame i 1
         # Grab the next frame's data
@@ -161,7 +161,7 @@ saveSpecificFrame`
     # Remove docile for all entities within the frame. 
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-entity-turned-docile] run ${removeDocile}
     # Make sure the frame's structure block is there.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(frame)",strict:true}
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
     # Save the frame
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~-1 ~-1 ~ minecraft:redstone_block
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~-1 ~-1 ~ minecraft:air
@@ -170,6 +170,68 @@ saveSpecificFrame`
     # Remove all trailing data.
     data remove storage ${ns}:temp str
     scoreboard objectives remove ${ns}-temp
+`;
+
+// Iterates through each frame and checks to see which one the player is within. For that frame, it will clear all blocks and kill all entities. This is done using clearSpecificFrame.
+clearCurrentFrame`
+    # Store the player's UUID in a macro location.
+    data modify storage ${ns}:temp macro.UUID set from entity @s UUID
+    # Store the function execution call within a macro location.
+    data modify storage ${ns}:temp macro.funccall set value "${clearSpecificFrame}"
+    # Set a value in storage so that clearSpecificFrame will remove the data from storage.
+    data modify storage ${ns}:temp csf.removeData set value true
+    # Execute the function that will find the player within a frame using our specific frame function call.
+    ${findPlayerInFrame} with storage ${ns}:temp macro
+    # Remove trailing data
+    data remove storage ${ns}:temp macro
+`;
+
+// Clears a specific frame within the editor. This removes all blocks and entities within the frame's area.
+// Needs this input from a macro: a[x, y, z] = anchor coordinates, s[x, y, z] = size parameters, name = animation name, framenum = frame number.
+clearSpecificFrame`
+    # Create a scoreboard and shrink size by 1 in each axis to be accurate for relative coordinates.
+    scoreboard objectives add ${ns}-csf dummy
+    $scoreboard players set x ${ns}-csf $(sx)
+    $scoreboard players set y ${ns}-csf $(sy)
+    $scoreboard players set z ${ns}-csf $(sz)
+    execute store result storage ${ns}:temp csf.sx int 1 run scoreboard players remove x ${ns}-csf 1
+    execute store result storage ${ns}:temp csf.sy int 1 run scoreboard players remove y ${ns}-csf 1
+    execute store result storage ${ns}:temp csf.sz int 1 run scoreboard players remove z ${ns}-csf 1
+    
+    # Place anchor into the new macro storage.
+    $data modify storage ${ns}:temp csf.ax set value $(ax)
+    $data modify storage ${ns}:temp csf.ay set value $(ay)
+    $data modify storage ${ns}:temp csf.az set value $(az)
+
+    # Fill the area with air.
+    ${a`
+        $execute in ${ns}:editor run fill $(ax) $(ay) $(az) ~$(sx) ~$(sy) ~$(sz) minecraft:air strict
+    `} with storage ${ns}:temp csf
+    
+    # Kill all entities within the area. Teleport them to the bottom of the world first, and remove their DeathLootTable to prevent item drops.
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run tp @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] 0 -63 0
+    execute in ${ns}:editor positioned 0 -63 0 as @e[distance=..1] run data modify entity @s DeathLootTable set value "minecraft:air"
+    execute in ${ns}:editor positioned 0 -63 0 run kill @e[distance=..1]
+    
+    # Remove one from the y axis on the anchor to retrieve the structure block's position.
+    $scoreboard players set y ${ns}-csf $(ay)
+    execute store result storage ${ns}:temp csf.ay int 1 run scoreboard players remove y ${ns}-csf 1
+    
+    # Remove the structure block.
+    ${a`
+        $execute in ${ns}:editor run setblock $(ax) $(ay) $(az) minecraft:air strict
+    `} with storage ${ns}:temp csf
+    
+    # If removeData is true, then remove the frame's data from storage and decrease framecount.
+    $execute if data storage ${ns}:temp {csf:{removeData:true}} run ${a`
+        $data remove storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(framenum)]
+        $execute store result score framecount ${ns}-csf run data get storage ${ns}:animation_data animations[{name:$(name)}].data.framecount
+        $execute store result storage ${ns}:animation_data animations[{name:$(name)}].data.framecount int 1 run scoreboard players remove framecount ${ns}-csf 1
+    `} {name: $(name), framenum: $(framenum)}
+
+    # Clear trailing data.
+    scoreboard objectives remove ${ns}-csf
+    data remove storage ${ns}:temp csf
 `;
 
 // Allows the player to exit the editor dimension.

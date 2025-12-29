@@ -15,6 +15,14 @@
       }
     },
     {
+      "label": "Remove Current Frame",
+      "tooltip": "You must be within the bounding region of a frame for this to work.",
+      "action": {
+        "type": "minecraft:run_command",
+        "command": "function easy-anim:animation/clear_current_frame"
+      }
+    },
+    {
       "label": "Exit Editor",
       "action": {
         "type": "minecraft:run_command",
