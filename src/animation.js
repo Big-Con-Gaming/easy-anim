@@ -4,7 +4,7 @@ import { calculateLaneX } from './inventory.js';
 import { grabAnimationData, regroupEntities, turnEntityDocile, removeDocile, grabSizeAnchorEditor } from './selection.js';
 import { exitSelection, recGroupSearch } from './menu.js';
 const folder = mcf.animation;
-export const { enterEditor, findPlayerInFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame, recPlayerSearch, saveSpecificFrame, clearCurrentFrame, clearSpecificFrame, exit, anonymous: a } = folder;
+export const { enterEditor, findPlayerInFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame, recPlayerSearch, saveSpecificFrame, clearCurrentFrame, clearSpecificFrame, loadCurrentFrame, loadSpecificFrame, exit, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 const editor_menu_item = 'minecraft:carrot_on_a_stick[item_name={italic:false,text:"Editor Menu"}, item_model="minecraft:test_instance_block"]';
@@ -50,9 +50,6 @@ enterEditor`
         `} with storage ${ns}:temp eemacro
         # Regroup all grouped entities
         execute in ${ns}:editor run ${regroupEntities} with storage ${ns}:temp eemacro
-        # Turn all entities docile that were summmoned within the structure.
-        # $execute in ${ns}:editor positioned $(x) 1 $(z) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz)] run ${turnEntityDocile}
-
         # Place in the frame's structure block
         $execute in ${ns}:editor run setblock $(x) 0 $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(i)",strict:true}
         # Store the current size along the z axis for this frame.
@@ -232,6 +229,31 @@ clearSpecificFrame`
     # Clear trailing data.
     scoreboard objectives remove ${ns}-csf
     data remove storage ${ns}:temp csf
+`;
+
+// Iterates through each frame and checks to see which one the player is within. For that frame, it will clear all blocks and kill all entities. This is done using clearSpecificFrame.
+loadCurrentFrame`
+    # Store the player's UUID in a macro location.
+    data modify storage ${ns}:temp macro.UUID set from entity @s UUID
+    # Store the function execution call within a macro location.
+    data modify storage ${ns}:temp macro.funccall set value "${loadSpecificFrame}"
+    # Execute the function that will find the player within a frame using our specific frame function call.
+    ${findPlayerInFrame} with storage ${ns}:temp macro
+    # Remove trailing data
+    data remove storage ${ns}:temp macro
+`;
+
+// Loads a specific frame within the editor. This places all blocks and entities back into the world.
+// Needs this input from a macro: a[x, y, z] = anchor coordinates, s[x, y, z] = size parameters, name = animation name, framenum = frame number.
+loadSpecificFrame`
+    # First, clear the specific frame so that there are no overlapping entities or blocks.
+    $${clearSpecificFrame} {name: $(name), framenum: $(framenum), ax: $(ax), ay: $(ay), az: $(az), sx: $(sx), sy: $(sy), sz: $(sz)}
+    # Place the frame's structure in.
+    $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(framenum) $(ax) $(ay) $(az)
+    # Place in the structure block.
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
+    # Regroup all grouped entities
+    $execute in ${ns}:editor run ${regroupEntities} {x: $(ax), y: $(ay), z: $(az), sx: $(sx), sy: $(sy), sz: $(sz)}
 `;
 
 // Allows the player to exit the editor dimension.

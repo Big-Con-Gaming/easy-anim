@@ -15,6 +15,14 @@
       }
     },
     {
+      "label": "Reload Current Frame",
+      "tooltip": "You must be within the bounding region of a frame for this to work. Reverts any changes made since the last save.",
+      "action": {
+        "type": "minecraft:run_command",
+        "command": "function easy-anim:animation/load_current_frame"
+      }
+    },
+    {
       "label": "Remove Current Frame",
       "tooltip": "You must be within the bounding region of a frame for this to work.",
       "action": {
