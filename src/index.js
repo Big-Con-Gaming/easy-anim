@@ -23,8 +23,9 @@ tick`
     # Place a block at 0 2 0 in the editor to indicate it is the first lane (needed for recursive functions and to prevent forceload from being removed)
     execute in ${ns}:editor unless block 0 2 0 minecraft:obsidian run setblock 0 2 0 minecraft:obsidian
     ${toolbarRightClick}
-    # Manually added the editor menu item here.
-    execute as @a[nbt={SelectedItem:{id:"minecraft:carrot_on_a_stick", components:{"minecraft:item_model":"minecraft:test_instance_block","minecraft:item_name":{italic:false,text:"Editor Menu"}}}}, scores={${ns}-right-click=1..}] run dialog show @s ${ns}:editor_menu
+    # Manually added the editor menu item here. Opens the editor menu within the editor, and the main menu outside of it.
+    execute as @a[nbt={SelectedItem:{id:"minecraft:carrot_on_a_stick", components:{"minecraft:item_model":"minecraft:test_instance_block","minecraft:item_name":{italic:false,text:"Editor Menu"}}}}, scores={${ns}-right-click=1..}] at @s if dimension ${ns}:editor run dialog show @s ${ns}:editor_menu
+    execute as @a[nbt={SelectedItem:{id:"minecraft:carrot_on_a_stick", components:{"minecraft:item_model":"minecraft:test_instance_block","minecraft:item_name":{italic:false,text:"Editor Menu"}}}}, scores={${ns}-right-click=1..}] at @s unless dimension ${ns}:editor run dialog show @s ${ns}:main_menu
     execute as @a[scores={${ns}-right-click=1..}] run scoreboard players set @s ${ns}-right-click 0
     ${select}
     ${handleDetection}
@@ -32,8 +33,9 @@ tick`
     execute as @e[type=interaction, tag=${ns}-handle] if data entity @s attack run data remove entity @s attack
     execute as @a at @s anchored eyes positioned ^ ^ ^ summon minecraft:interaction run ${raycast} with entity @p
     execute as @e[type=interaction, tag=${ns}-hover-select-delete] run ${removeHovers}
-    # Sets up a trigger command to access the main menu. A tag called ${ns}-disable is preconfigured so players with this tag can't access the menu, in case of survival and creative gameplay mixtures.
-    execute as @a[scores={${ns}=1..}] run dialog show @s ${ns}:main_menu
+    # Sets up a trigger command to access the main menu or editor menu within the editor. A tag called ${ns}-disable is preconfigured so players with this tag can't access the menu, in case of survival and creative gameplay mixtures.
+    execute as @a[scores={${ns}=1..}] at @s unless dimension ${ns}:editor run dialog show @s ${ns}:main_menu
+    execute as @a[scores={${ns}=1..}] at @s if dimension ${ns}:editor run dialog show @s ${ns}:editor_menu
     execute as @a[scores={${ns}=1..}] run scoreboard players reset @s ${ns}
     scoreboard players enable @a[tag=!${ns}-disable] ${ns}
     execute as @a[tag=${ns}-camera-view] if predicate ${ns}:any_input run ${exitCamera}
