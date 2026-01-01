@@ -1,16 +1,18 @@
 // Sets up basic stuff.
 import mcf from './mcf.js';
-import { calculateLaneX } from './inventory.js';
-import { grabAnimationData, regroupEntities, turnEntityDocile, removeDocile, grabSizeAnchorEditor } from './selection.js';
+import { calculateLaneX, unclaimLane } from './inventory.js';
+import { grabAnimationData, regroupEntities, turnEntityDocile, removeDocile, grabSizeAnchorEditor, cleanUpNewAnimationData } from './selection.js';
 import { exitSelection, recGroupSearch } from './menu.js';
 const folder = mcf.animation;
-export const { enterEditor, findPlayerInFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame, recPlayerSearch, saveSpecificFrame, clearCurrentFrame, clearSpecificFrame, loadCurrentFrame, loadSpecificFrame, exit, anonymous: a } = folder;
+export const { enterEditor, findPlayerInFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame, recPlayerSearch, saveSpecificFrame, clearCurrentFrame, clearSpecificFrame, loadCurrentFrame, loadSpecificFrame, exit, recRemoveFrames, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 const editor_menu_item = 'minecraft:carrot_on_a_stick[item_name={italic:false,text:"Editor Menu"}, item_model="minecraft:test_instance_block"]';
 
 // Run when the player wants to enter the editor for an existing animation. Must be executed with the player as context.
 enterEditor`
+    # Set the player's real world location into storage to be used when they exit the editor.
+    $data modify storage ${ns}:player_data players[{UUID:$(UUID)}].prevPos set from entity @s Pos
     # Load the player's inventory from storage.
     $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
     # Set animation_data new to the player's animation
@@ -202,7 +204,7 @@ clearSpecificFrame`
 
     # Fill the area with air.
     ${a`
-        $execute in ${ns}:editor run fill $(ax) $(ay) $(az) ~$(sx) ~$(sy) ~$(sz) minecraft:air strict
+        $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run fill ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) minecraft:air strict
     `} with storage ${ns}:temp csf
     
     # Kill all entities within the area. Teleport them to the bottom of the world first, and remove their DeathLootTable to prevent item drops.
@@ -258,7 +260,59 @@ loadSpecificFrame`
 
 // Allows the player to exit the editor dimension.
 exit`
-    
+    # Load the player's inventory from storage.
+    $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
+    # Set animation_data new to the player's animation
+    ${grabAnimationData} with storage ${ns}:player_data current
+    # Clone the frames list into temporary storage so we can iterate through it.
+    data modify storage ${ns}:temp exit.frames set from storage ${ns}:animation_data new.frames
+    # Grab all the info for the first frame and place it in the macro storage.
+    data modify storage ${ns}:temp exit.name set from storage ${ns}:animation_data new.name
+    data modify storage ${ns}:temp exit.ax set from storage ${ns}:temp exit.frames[0].eanchor[0]
+    data modify storage ${ns}:temp exit.ay set from storage ${ns}:temp exit.frames[0].eanchor[1]
+    data modify storage ${ns}:temp exit.az set from storage ${ns}:temp exit.frames[0].eanchor[2]
+    data modify storage ${ns}:temp exit.sx set from storage ${ns}:temp exit.frames[0].size[0]
+    data modify storage ${ns}:temp exit.sy set from storage ${ns}:temp exit.frames[0].size[1]
+    data modify storage ${ns}:temp exit.sz set from storage ${ns}:temp exit.frames[0].size[2]
+    # Add a placeholder framenum as it is only needed for removing data and we are not doing that.
+    data modify storage ${ns}:temp exit.framenum set value 0
+    ${recRemoveFrames`
+        # Remove the frame's structure from the editor.
+        ${clearSpecificFrame} with storage ${ns}:temp exit
+        # Remove the first frame from the list.
+        data remove storage ${ns}:temp exit.frames[0]
+        # If there's no more frames, return and end the recursive loop.
+        execute unless data storage ${ns}:temp exit.frames[0] run return 1
+        # Grab all the info for the next frame and place it in the macro storage.
+        data modify storage ${ns}:temp exit.ax set from storage ${ns}:temp exit.frames[0].eanchor[0]
+        data modify storage ${ns}:temp exit.ay set from storage ${ns}:temp exit.frames[0].eanchor[1]
+        data modify storage ${ns}:temp exit.az set from storage ${ns}:temp exit.frames[0].eanchor[2]
+        data modify storage ${ns}:temp exit.sx set from storage ${ns}:temp exit.frames[0].size[0]
+        data modify storage ${ns}:temp exit.sy set from storage ${ns}:temp exit.frames[0].size[1]
+        data modify storage ${ns}:temp exit.sz set from storage ${ns}:temp exit.frames[0].size[2]
+        # Loop
+        ${recRemoveFrames} with storage ${ns}:temp exit
+    `} with storage ${ns}:temp exit
+    # Remove lane bedrock
+    ${unclaimLane}
+    # Return the player to the overworld at the anchor location. Grabs dimension data and the real world anchor coordinates.
+    data modify storage ${ns}:temp exit.dimension set from storage ${ns}:animation_data new.dimension
+    $data modify storage ${ns}:temp exit.px set from storage ${ns}:player_data players[{UUID:$(UUID)}].prevPos[0]
+    $data modify storage ${ns}:temp exit.py set from storage ${ns}:player_data players[{UUID:$(UUID)}].prevPos[1]
+    $data modify storage ${ns}:temp exit.pz set from storage ${ns}:player_data players[{UUID:$(UUID)}].prevPos[2]
+    ${a`
+        $execute in $(dimension) run tp @s $(px) $(py) $(pz)
+    `} with storage ${ns}:temp exit
+    # Remove the inEditor tag.
+    tag @s remove ${ns}-inEditor
+    # Remove the editor item from their inventory.
+    clear @s ${editor_menu_item}
+    # Set the animation's location to "none".
+    data modify storage ${ns}:animation_data new.location set value "none"
+    # Save modifications made to the animation.
+    ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
+    # Remove trailing data.
+    data remove storage ${ns}:temp exit
 `;
 
 // Temporary cleanup function to help with testing

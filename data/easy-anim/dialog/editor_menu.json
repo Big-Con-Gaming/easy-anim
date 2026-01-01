@@ -34,7 +34,7 @@
       "label": "Exit Editor",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/exit"
+        "command": "function easy-anim:animation/exit with entity @s"
       }
     }
   ]

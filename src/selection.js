@@ -337,8 +337,8 @@ function calculategrabStrBlockPosCommands({axis, i}){
 // Set up temporary scoreboard
 grabStrBlockPosCommands.push(`
     scoreboard objectives add ${ns}-calculategrabStrBlockPosCommands dummy
-    # Set the dimension based on the closest player, because this command can either be executed by: the player (so @p = @s), or an item frame, which doesn't have dimension. However, the closest player will always be in the same dimension as the item frame.
-    data modify storage ${ns}:temp str.dimension set from entity @p Dimension
+    # Grab dimension from the animation data to toss into temp storage for removing the structure block later.
+    data modify storage ${ns}:temp str.dimension set from storage ${ns}:animation_data new.dimension
 `);
 // Add axis-specific commands from function above.
 grabStrBlockPosCommands.push(...axis.map(calculategrabStrBlockPosCommands));
@@ -660,8 +660,13 @@ selectCommands.push(`
             # This function finds the most negative corner to become the anchor and the most positive corner to calculate box size. It maps through each axis.
             ${twoPointSelection}
         `}
-        # If the current animation doesn't have an anchor, set the new selection position as the anchor.
+        # If the current animation doesn't have an anchor, set the selection's dimension to the current dimension.
+        execute unless data storage ${ns}:animation_data new.anchor run data modify storage ${ns}:animation_data new.dimension set from entity @p Dimension
+        # If the current animation doesn't have an anchor, set the new selection position as the anchor. Item frames don't have a dimension tag, but players do, and the nearest player will be in the same dimension as the item frame.
         execute unless data storage ${ns}:animation_data new.anchor run data modify storage ${ns}:animation_data new.anchor set from entity @s Pos
+        
+        # Reset the current display structure block.
+        
         # This function places a structure block and handles with the right size parameters to highlight the selected area.
         ${displayBox}
         kill @s
