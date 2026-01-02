@@ -55,7 +55,7 @@ createAnimation`
     execute unless data storage ${ns}:animation_data new.camera run return run tellraw @s {text:"You must set a camera position before creating this animation!",color:"red"}
     # Save the block at the neg neg neg corner (outside of region) to the editor dimension and place in a new structure block
     ${grabStrBlockPos}
-    ${calculateLaneX} {output:"${ns}:temp str.lanex"}
+    ${calculateLaneX} {output:"${ns}:temp str.lanex int"}
     scoreboard objectives add ${ns}-temp dummy
     execute store result score y-increase ${ns}-temp run data get storage ${ns}:temp str.y
     execute store result storage ${ns}:temp str.upy int 1 run scoreboard players add y-increase ${ns}-temp 1
@@ -125,7 +125,7 @@ exitCommands.push(`
     ${loadInventory}
     # Replace the structure block in the current selection with its old block from the lane
     ${grabStrBlockPos}
-    ${calculateLaneX} {output:"${ns}:temp str.lanex"}
+    ${calculateLaneX} {output:"${ns}:temp str.lanex int"}
     ${resetCornerBlock} with storage ${ns}:temp str
     # Free up the player's old lane, if the player isn't within the editor.
     execute unless entity @s[tag=${ns}-inEditor] run ${unclaimLane}

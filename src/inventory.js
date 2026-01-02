@@ -25,7 +25,7 @@ grabOwnerPlayerData`
     ${a`$data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(owner)}]`} with storage ${ns}:animation_data new
 `;
 
-// Calculates the x position from the lane value placed in the current player's data. Output is a specified path with the output macro.
+// Calculates the x position from the lane value placed in the current player's data. Output is a specified path with the output macro, and the type to save the number as.
 
 calculateLaneX`
     ${grabOwnerPlayerData}
@@ -34,7 +34,7 @@ calculateLaneX`
     execute store result score current-lane ${ns}-lane run data get storage ${ns}:player_data current.lane
     scoreboard players operation blocks ${ns}-lane = current-lane ${ns}-lane
     scoreboard players operation blocks ${ns}-lane *= 48 ${ns}-lane
-    $execute store result storage $(output) int 1 run scoreboard players get blocks ${ns}-lane
+    $execute store result storage $(output) 1 run scoreboard players get blocks ${ns}-lane
     scoreboard objectives remove ${ns}-lane
     data remove storage ${ns}:player_data current
 `;
@@ -57,7 +57,7 @@ findPlayerAxisOffset`
 // Removes a player's lane by deleting the bedrock block and by unforceloading the chunk. current.lane is used and must be provided.
 
 unclaimLane`
-    ${calculateLaneX} {output:"${ns}:temp macro_unclaim.pos"}
+    ${calculateLaneX} {output:"${ns}:temp macro_unclaim.pos int"}
     ${macroUnclaim`
         $setblock $(pos) 1 0 minecraft:air
         $execute unless block ~ 2 0 minecraft:obsidian run forceload remove $(pos) 0

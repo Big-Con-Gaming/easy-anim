@@ -175,9 +175,8 @@ function createGrabSizeAnchorCommands({axis, i}){
     return`
         data modify storage ${ns}:temp grabsizeanchor.a${axis} set from storage ${ns}:animation_data new.anchor[${i}]
         data modify storage ${ns}:temp grabsizeanchor.s${axis} set from storage ${ns}:animation_data new.size[${i}]
-        execute store result score s${axis} ${ns}-grabSizeAnchor run data get storage ${ns}:animation_data new.size[${i}]
-        scoreboard players remove s${axis} ${ns}-grabSizeAnchor 1
-        execute store result storage ${ns}:temp grabsizeanchor.sh${axis} int 1 run scoreboard players get s${axis} ${ns}-grabSizeAnchor
+        execute store result score s${axis} ${ns}-grabSizeAnchor run data get storage ${ns}:animation_data new.size[${i}] 
+        execute store result storage ${ns}:temp grabsizeanchor.sh${axis} int 1 run scoreboard players remove s${axis} ${ns}-grabSizeAnchor 1
     `;
 }
 
@@ -197,10 +196,9 @@ grabSizeAnchor`${grabSizeAnchorCommands.join('\n')}`;
 function createGrabSizeAnchorEditorCommands({axis, i}){
     return`
         $data modify storage ${ns}:temp grabsizeanchor.a${axis} set from storage ${ns}:animation_data new.frames[$(framenum)].eanchor[${i}]
-        data modify storage ${ns}:temp grabsizeanchor.s${axis} set from storage ${ns}:animation_data new.size[${i}]
+        $data modify storage ${ns}:temp grabsizeanchor.s${axis} set from storage ${ns}:animation_data new.frames[$(framenum)].size[${i}]
         $execute store result score s${axis} ${ns}-grabSizeAnchorEditor run data get storage ${ns}:animation_data new.frames[$(framenum)].size[${i}]
-        scoreboard players remove s${axis} ${ns}-grabSizeAnchorEditor 1
-        execute store result storage ${ns}:temp grabsizeanchor.sh${axis} int 1 run scoreboard players get s${axis} ${ns}-grabSizeAnchorEditor
+        execute store result storage ${ns}:temp grabsizeanchor.sh${axis} int 1 run scoreboard players remove s${axis} ${ns}-grabSizeAnchorEditor 1
     `;
 }
 
@@ -429,7 +427,7 @@ handleSummon`${handleSummonCommands.join('\n')}`;
 displayBoxCommands.push(`
     # Save the block at the neg neg neg corner (outside of region) to the editor dimension and place in a new structure block
     ${grabStrBlockPos}
-    ${calculateLaneX} {output:"${ns}:temp str.lanex"}
+    ${calculateLaneX} {output:"${ns}:temp str.lanex int"}
     data modify storage ${ns}:temp str.name set from storage ${ns}:animation_data new.name
     ${placeStructureBlock`
         $clone $(x) $(y) $(z) $(x) $(y) $(z) to ${ns}:editor $(lanex) 0 0 strict
@@ -511,7 +509,7 @@ handleExecutionCommands.push(`
     scoreboard players set 1 ${ns}-handle-detect 1
     # Reset the current display structure block.
     ${grabStrBlockPos}
-    ${calculateLaneX} {output:"${ns}:temp str.lanex"}
+    ${calculateLaneX} {output:"${ns}:temp str.lanex int"}
     ${resetCornerBlock} with storage ${ns}:temp str
     # Kill the display item_display entities from the old selection.
     kill @e[tag=${ns}-handle]
@@ -638,7 +636,7 @@ selectCommands.push(`
         execute if data storage ${ns}:animation_data new.anchor if data storage ${ns}:animation_data new.size run ${updateFullSelection`
             # Reset the current display structure block.
             ${grabStrBlockPos}
-            ${calculateLaneX} {output:"${ns}:temp str.lanex"}
+            ${calculateLaneX} {output:"${ns}:temp str.lanex int"}
             ${resetCornerBlock} with storage ${ns}:temp str
             # Kill the display item_display entities from the old selection.
             kill @e[tag=${ns}-handle]
@@ -651,7 +649,7 @@ selectCommands.push(`
         execute if data storage ${ns}:animation_data new.anchor unless data storage ${ns}:animation_data new.size run ${createTwoPointSelection`
             # Reset the current display structure block. (It's currently only highlighting the anchor.)
             ${grabStrBlockPos}
-            ${calculateLaneX} {output:"${ns}:temp str.lanex"}
+            ${calculateLaneX} {output:"${ns}:temp str.lanex int"}
             ${resetCornerBlock} with storage ${ns}:temp str
             # Kill the display item_display entities from the old selection.
             kill @e[tag=${ns}-handle]
@@ -714,7 +712,7 @@ selectCommands.push(`
                 # Increase framenum by 1 in score and data.
                 execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players add framenum ${ns}-recDocile 1
                 # Unless we have passed all of the frames, execute another target selection for the next frame.
-                execute unless score framenum ${ns}-recDocile >= totalframe ${ns}-recDocile run ${targetSelectInSelection} with storage ${ns}:temp grabsizeanchor
+                execute unless score framenum ${ns}-recDocile > totalframe ${ns}-recDocile run ${targetSelectInSelection} with storage ${ns}:temp grabsizeanchor
             `} with storage ${ns}:temp grabsizeanchor
         `} with storage ${ns}:temp grabsizeanchor
         # Remove trailing data.

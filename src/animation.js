@@ -4,7 +4,7 @@ import { calculateLaneX, unclaimLane } from './inventory.js';
 import { grabAnimationData, regroupEntities, turnEntityDocile, removeDocile, grabSizeAnchorEditor, cleanUpNewAnimationData } from './selection.js';
 import { exitSelection, recGroupSearch } from './menu.js';
 const folder = mcf.animation;
-export const { enterEditor, findPlayerInFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame, recPlayerSearch, saveSpecificFrame, clearCurrentFrame, clearSpecificFrame, loadCurrentFrame, loadSpecificFrame, exit, recRemoveFrames, anonymous: a } = folder;
+export const { enterEditor, findPlayerInFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame, recPlayerSearch, saveSpecificFrame, clearCurrentFrame, clearSpecificFrame, loadCurrentFrame, loadSpecificFrame, addBaseFrame, placeFrame, exit, recRemoveFrames, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 const editor_menu_item = 'minecraft:carrot_on_a_stick[item_name={italic:false,text:"Editor Menu"}, item_model="minecraft:test_instance_block"]';
@@ -20,7 +20,7 @@ enterEditor`
     # Toss the name of the of the animation into macro data.
     data modify storage ${ns}:temp eemacro.name set from storage ${ns}:player_data current.currentAnim
     # Grab the lane's X and store it within temporary storage for a macro.
-    ${calculateLaneX} {output: "${ns}:temp eemacro.x"}
+    ${calculateLaneX} {output: "${ns}:temp eemacro.x int"}
     # Store a list of all of the frames within the macro.
     data modify storage ${ns}:temp eemacro.frames set from storage ${ns}:animation_data new.frames
     # Set y to 0 so that the regrouping macro knows where to go.
@@ -109,16 +109,16 @@ findPlayerInFrame`
     data modify storage ${ns}:temp grabsizeanchor.name set from storage ${ns}:animation_data new.name
     # Set up a scoreboard for the iterative var used within the saveSpecificFrame macro
     scoreboard objectives add ${ns}-saveCurrentFrame dummy
-    execute store result score i ${ns}-saveCurrentFrame run data modify storage ${ns}:temp grabsizeanchor.framenum set value 0
+    execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players set i ${ns}-saveCurrentFrame 0
     # Grab the framecount
     execute store result score framecount ${ns}-saveCurrentFrame run data get storage ${ns}:animation_data new.framecount
     # Pull specific data into the macro for the first frame.
     ${grabSizeAnchorEditor} {framenum: 0}
     ${recPlayerSearch`
-        # If the player is within this frame's bounding box, execute the function to save this specific frame.
-        $execute in ${ns}:editor positioned $(ax) $(ay) $(az) if entity @p[dx=$(sx), dy=$(sy), dz=$(sz)] run $(funccall) {name: $(name), framenum: $(framenum), ax: $(ax), ay: $(ay), az: $(az), sx: $(sx), sy: $(sy), sz: $(sz)}
+        # If the player is within this frame's bounding box, execute the function to save this specific frame. Exit the loop afterwards as well.
+        $execute in ${ns}:editor positioned $(ax) $(ay) $(az) if entity @p[dx=$(sx), dy=$(sy), dz=$(sz)] run return run $(funccall) {name: $(name), framenum: $(framenum), ax: $(ax), ay: $(ay), az: $(az), sx: $(sx), sy: $(sy), sz: $(sz)}
         # Iterate framenum
-        execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players add ${ns}-saveCurrentFrame i 1
+        execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players add i ${ns}-saveCurrentFrame 1
         # Grab the next frame's data
         ${grabSizeAnchorEditor} with storage ${ns}:temp grabsizeanchor
         # Unless framecount is equal or greater than the iterative variable, do another recursive search.
@@ -183,6 +183,7 @@ clearCurrentFrame`
     ${findPlayerInFrame} with storage ${ns}:temp macro
     # Remove trailing data
     data remove storage ${ns}:temp macro
+    data remove storage ${ns}:temp csf
 `;
 
 // Clears a specific frame within the editor. This removes all blocks and entities within the frame's area.
@@ -313,6 +314,68 @@ exit`
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     # Remove trailing data.
     data remove storage ${ns}:temp exit
+`;
+
+//
+addBaseFrame`
+    # Load the player's data from storage.
+    $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
+    # Set animation_data new to the player's animation
+    ${grabAnimationData} with storage ${ns}:player_data current
+    # Create temporary scoreboard for math.
+    scoreboard objectives add ${ns}-abf dummy
+    # Get the current framecount, and store a copy for macro use.
+    execute store result score framecount ${ns}-abf store result storage ${ns}:temp abf.framenum int 1 run data get storage ${ns}:animation_data new.framecount
+    # Grab the z coordinate of the current last frame's eanchor.
+    execute store result score lastframez ${ns}-abf run data get storage ${ns}:animation_data new.frames[-1].eanchor[2]
+    # Grab the z size of the current last frame.
+    execute store result score lastframesizez ${ns}-abf run data get storage ${ns}:animation_data new.frames[-1].size[2]
+    # Copy the base frame's data into the new frame.
+    data modify storage ${ns}:animation_data new.frames append value {}
+    data modify storage ${ns}:animation_data new.frames[-1].duration set value 0.25
+    data modify storage ${ns}:animation_data new.frames[-1].camera set from storage ${ns}:animation_data new.camera
+    data modify storage ${ns}:animation_data new.frames[-1].anchor set from storage ${ns}:animation_data new.anchor
+    data modify storage ${ns}:animation_data new.frames[-1].size set from storage ${ns}:animation_data new.size
+    # Set eanchor for the new frame to a placeholder value so we can modify it easier.
+    data modify storage ${ns}:animation_data new.frames[-1].eanchor set value [0.0d, 0.0d, 0.0d]
+    # Grab the lane's X and store it within eanchor's x position.
+    ${calculateLaneX} {output: "${ns}:animation_data new.frames[-1].eanchor[0] double"}
+    # Set eanchor's y position to 1.
+    data modify storage ${ns}:animation_data new.frames[-1].eanchor[1] set value 1.0d
+    # Set eanchor's z position to the calculated value.
+    # Add eanchor and size together, plus 1 for spacing, to get the new frame's eanchor z coordinate.
+    scoreboard players operation lastframez ${ns}-abf += lastframesizez ${ns}-abf
+    execute store result storage ${ns}:animation_data new.frames[-1].eanchor[2] double 1 run scoreboard players add lastframez ${ns}-abf 1
+    # Increase framecount by 1, and store it for the macro.
+    execute store result storage ${ns}:animation_data new.framecount int 1 run scoreboard players add framecount ${ns}-abf 1
+    # Toss anchor, name and size info into macro storage.
+    data modify storage ${ns}:temp abf.name set from storage ${ns}:animation_data new.name
+    data modify storage ${ns}:temp abf.x set from storage ${ns}:animation_data new.frames[-1].eanchor[0]
+    data modify storage ${ns}:temp abf.z set from storage ${ns}:animation_data new.frames[-1].eanchor[2]
+    data modify storage ${ns}:temp abf.sx set from storage ${ns}:animation_data new.frames[-1].size[0]
+    data modify storage ${ns}:temp abf.sy set from storage ${ns}:animation_data new.frames[-1].size[1]
+    data modify storage ${ns}:temp abf.sz set from storage ${ns}:animation_data new.frames[-1].size[2]
+    # Place the base frame's structure into the editor dimension at the calculated position, and set up its structure block.
+    ${placeFrame`
+        # Makes sure this entire animation is loaded
+        $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload add ~ ~ ~3 ~3
+        # Place the frame's structure in. i = frame#
+        $execute in ${ns}:editor run place template ${ns}:$(name)-base $(x) 1 $(z)
+        # Regroup all grouped entities
+        $execute in ${ns}:editor run ${regroupEntities} {x: $(x), y: 1, z: $(z), sx: $(sx), sy: $(sy), sz: $(sz)}
+        # Place in the frame's structure block
+        $execute in ${ns}:editor run setblock $(x) 0 $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
+        # Power and unpower the structure block to save the structure.
+        $execute in ${ns}:editor positioned $(x) 0 $(z) run setblock ~1 ~ ~ minecraft:redstone_block
+        $execute in ${ns}:editor positioned $(x) 0 $(z) run setblock ~1 ~ ~ minecraft:air
+        # Remove this forceloaded area
+        $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload remove ~ ~ ~3 ~3
+    `} with storage ${ns}:temp abf
+    # Save frame changes to animation data.
+    ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
+    # Remove temporary data.
+    data remove storage ${ns}:temp abf
+    scoreboard objectives remove ${ns}-abf
 `;
 
 // Temporary cleanup function to help with testing

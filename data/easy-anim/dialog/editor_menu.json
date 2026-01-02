@@ -31,6 +31,14 @@
       }
     },
     {
+      "label": "Add New Frame",
+      "tooltip": "Adds frame to the end of the animation, based on the original selection from the overworld.",
+      "action": {
+        "type": "minecraft:run_command",
+        "command": "function easy-anim:animation/add_base_frame with entity @s"
+      }
+    },
+    {
       "label": "Exit Editor",
       "action": {
         "type": "minecraft:run_command",
