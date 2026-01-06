@@ -4,7 +4,7 @@ import { calculateLaneX, unclaimLane } from './inventory.js';
 import { grabAnimationData, regroupEntities, turnEntityDocile, removeDocile, grabSizeAnchorEditor, cleanUpNewAnimationData } from './selection.js';
 import { exitSelection, recGroupSearch } from './menu.js';
 const folder = mcf.animation;
-export const { enterEditor, findPlayerInFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame, recPlayerSearch, saveSpecificFrame, clearCurrentFrame, clearSpecificFrame, loadCurrentFrame, loadSpecificFrame, addBaseFrame, placeFrame, exit, recRemoveFrames, anonymous: a } = folder;
+export const { enterEditor, findPlayerInFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame, recPlayerSearch, saveSpecificFrame, clearCurrentFrame, clearSpecificFrame, pullNextFrameData, recPushBackFrames, loadCurrentFrame, loadSpecificFrame, addBaseFrame, placeFrame, exit, recRemoveFrames, renumberFrame, cleanKill, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 const editor_menu_item = 'minecraft:carrot_on_a_stick[item_name={italic:false,text:"Editor Menu"}, item_model="minecraft:test_instance_block"]';
@@ -41,7 +41,7 @@ enterEditor`
     scoreboard players set i ${ns}-temp 0
     ${recPlaceFrames`
         # Makes sure this entire animation is loaded
-        $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload add ~ ~ ~3 ~3
+        $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload add ~ ~ ~47 ~47
         
         # Place the frame's structure in. i = frame#
         $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(i) $(x) 1 $(z)
@@ -76,7 +76,7 @@ enterEditor`
         # Execute this recursive function once more.
         ${recPlaceFrames} with storage ${ns}:temp eemacro
         # Remove this forceloaded area
-        $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload remove ~ ~ ~3 ~3
+        $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload remove ~ ~ ~47 ~47
     `} with storage ${ns}:temp eemacro
     # Just in case 0 0 was unforceloaded, add it back
     execute in ${ns}:editor run forceload add 0 0
@@ -97,7 +97,7 @@ enterEditor`
 
 // Finds which frame the player is currently located in and executes a specified command with this information.
 // Input: UUID = player's UUID, funccall = the function call to run once the player is found, macros are provided for the latter function.
-// Macros available to the latter function: a[x, y, z] = anchor's position, s[x, y, z] = frame's size, name = animation's name, framenum = the current frame's number.
+// Macros available to the latter function: a[x, y, z] = anchor's position, s[x, y, z] = frame's size, name = animation's name, framenum = the current frame's number, framecount = total number of frames.
 findPlayerInFrame`
     # Place the funccall into grabsizeanchor so it can be macroed in later on.
     $data modify storage ${ns}:temp grabsizeanchor.funccall set value "$(funccall)"
@@ -108,25 +108,25 @@ findPlayerInFrame`
     # Grab the animation name
     data modify storage ${ns}:temp grabsizeanchor.name set from storage ${ns}:animation_data new.name
     # Set up a scoreboard for the iterative var used within the saveSpecificFrame macro
-    scoreboard objectives add ${ns}-saveCurrentFrame dummy
-    execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players set i ${ns}-saveCurrentFrame 0
+    scoreboard objectives add ${ns}-fpif dummy
+    execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players set i ${ns}-fpif 0
     # Grab the framecount
-    execute store result score framecount ${ns}-saveCurrentFrame run data get storage ${ns}:animation_data new.framecount
+    execute store result score framecount ${ns}-fpif store result storage ${ns}:temp grabsizeanchor.framecount int 1 run data get storage ${ns}:animation_data new.framecount
     # Pull specific data into the macro for the first frame.
     ${grabSizeAnchorEditor} {framenum: 0}
     ${recPlayerSearch`
         # If the player is within this frame's bounding box, execute the function to save this specific frame. Exit the loop afterwards as well.
-        $execute in ${ns}:editor positioned $(ax) $(ay) $(az) if entity @p[dx=$(sx), dy=$(sy), dz=$(sz)] run return run $(funccall) {name: $(name), framenum: $(framenum), ax: $(ax), ay: $(ay), az: $(az), sx: $(sx), sy: $(sy), sz: $(sz)}
+        $execute in ${ns}:editor positioned $(ax) $(ay) $(az) if entity @p[dx=$(sx), dy=$(sy), dz=$(sz)] run return run $(funccall) {name: $(name), framenum: $(framenum), framecount: $(framecount), ax: $(ax), ay: $(ay), az: $(az), sx: $(sx), sy: $(sy), sz: $(sz)}
         # Iterate framenum
-        execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players add i ${ns}-saveCurrentFrame 1
+        execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players add i ${ns}-fpif 1
         # Grab the next frame's data
         ${grabSizeAnchorEditor} with storage ${ns}:temp grabsizeanchor
         # Unless framecount is equal or greater than the iterative variable, do another recursive search.
-        execute unless score i ${ns}-saveCurrentFrame >= framecount ${ns}-saveCurrentFrame run ${recPlayerSearch} with storage ${ns}:temp grabsizeanchor
+        execute unless score i ${ns}-fpif >= framecount ${ns}-fpif run ${recPlayerSearch} with storage ${ns}:temp grabsizeanchor
     `} with storage ${ns}:temp grabsizeanchor
     # Clean up remaining data
     data remove storage ${ns}:temp grabsizeanchor
-    scoreboard objectives remove ${ns}-saveCurrentFrame
+    scoreboard objectives remove ${ns}-fpif
     data remove storage ${ns}:animation_data new
     data remove storage ${ns}:player_data current
 `;
@@ -179,15 +179,17 @@ clearCurrentFrame`
     data modify storage ${ns}:temp macro.funccall set value "${clearSpecificFrame}"
     # Set a value in storage so that clearSpecificFrame will remove the data from storage.
     data modify storage ${ns}:temp csf.removeData set value true
+    # Set a value in storage so that clearSpecificFrame will move each subsequent frame over.
+    data modify storage ${ns}:temp csf.shift set value true
     # Execute the function that will find the player within a frame using our specific frame function call.
     ${findPlayerInFrame} with storage ${ns}:temp macro
     # Remove trailing data
     data remove storage ${ns}:temp macro
-    data remove storage ${ns}:temp csf
+    # data remove storage ${ns}:temp csf
 `;
 
 // Clears a specific frame within the editor. This removes all blocks and entities within the frame's area.
-// Needs this input from a macro: a[x, y, z] = anchor coordinates, s[x, y, z] = size parameters, name = animation name, framenum = frame number.
+// Needs this input from a macro: a[x, y, z] = anchor coordinates, s[x, y, z] = size parameters, name = animation name, framenum = frame number, framecount = total number of frames.
 clearSpecificFrame`
     # Create a scoreboard and shrink size by 1 in each axis to be accurate for relative coordinates.
     scoreboard objectives add ${ns}-csf dummy
@@ -208,20 +210,75 @@ clearSpecificFrame`
         $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run fill ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) minecraft:air strict
     `} with storage ${ns}:temp csf
     
-    # Kill all entities within the area. Teleport them to the bottom of the world first, and remove their DeathLootTable to prevent item drops.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run tp @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] 0 -63 0
-    execute in ${ns}:editor positioned 0 -63 0 as @e[distance=..1] run data modify entity @s DeathLootTable set value "minecraft:air"
-    execute in ${ns}:editor positioned 0 -63 0 run kill @e[distance=..1]
+    # Kill all entities within the area, using cleanKill to make sure nothing is left behind.
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] run ${cleanKill}
     
-    # Remove one from the y axis on the anchor to retrieve the structure block's position.
-    $scoreboard players set y ${ns}-csf $(ay)
-    execute store result storage ${ns}:temp csf.ay int 1 run scoreboard players remove y ${ns}-csf 1
-    
+    # Place name into macro storage for future use.
+    $data modify storage ${ns}:temp csf.name set value $(name)
+
     # Remove the structure block.
-    ${a`
-        $execute in ${ns}:editor run setblock $(ax) $(ay) $(az) minecraft:air strict
-    `} with storage ${ns}:temp csf
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:air strict
     
+    # Store this frame's z size for offseting the rest of the frames.
+    execute store result score diff ${ns}-csf run data get storage ${ns}:temp csf.sz
+    execute store result storage ${ns}:temp csf.diff int 1 run scoreboard players add diff ${ns}-csf 2
+    # Grab the current frame number into scoreboard and storage.
+    $execute store result storage ${ns}:temp csf.currentframe int 1 run scoreboard players set nextframe ${ns}-csf $(framenum)
+    
+    # grab the framecount.
+    $execute store result score remainder ${ns}-csf store result score length ${ns}-csf run data get storage ${ns}:animation_data animations[{name:$(name)}].data.framecount
+    
+    # Subtract by the current frame number to see how many frames are left. We remove one since framenum starts at 0 while length starts at 1.
+    scoreboard players operation remainder ${ns}-csf -= nextframe ${ns}-csf
+    scoreboard players remove remainder ${ns}-csf 1
+
+    # Calculate the next frame.
+    execute if score remainder ${ns}-csf matches 1.. store result storage ${ns}:temp csf.nextframe int 1 run scoreboard players add nextframe ${ns}-csf 1
+
+    # Store the data for the next frame into macro storage for quick access. Used in the recursive function below as well.
+    execute if data storage ${ns}:temp {csf:{shift:true}} if score remainder ${ns}-csf matches 1.. run ${pullNextFrameData`
+        $data modify storage ${ns}:temp csf.ax set from storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].eanchor[0]
+        $data modify storage ${ns}:temp csf.ay set from storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].eanchor[1]
+        $data modify storage ${ns}:temp csf.az set from storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].eanchor[2]
+        execute store result score az ${ns}-csf run data get storage ${ns}:temp csf.az
+        $execute store result score x ${ns}-csf store result storage ${ns}:temp csf.shx int 1 run data get storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].size[0]
+        $execute store result score y ${ns}-csf store result storage ${ns}:temp csf.shy int 1 run data get storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].size[1]
+        $execute store result score z ${ns}-csf store result storage ${ns}:temp csf.shz int 1 run data get storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].size[2]
+        execute store result storage ${ns}:temp csf.sx int 1 run scoreboard players remove x ${ns}-csf 1
+        execute store result storage ${ns}:temp csf.sy int 1 run scoreboard players remove y ${ns}-csf 1
+        execute store result storage ${ns}:temp csf.sz int 1 run scoreboard players remove z ${ns}-csf 1
+        $execute store result storage ${ns}:temp csf.newz int 1 store result storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].eanchor[2] double 1 run scoreboard players operation az ${ns}-csf -= diff ${ns}-csf
+    `} with storage ${ns}:temp csf
+    # Renumber all subsequent frames recursively.
+    execute in ${ns}:editor if data storage ${ns}:temp {csf:{shift:true}} if score remainder ${ns}-csf matches 1.. run ${recPushBackFrames`
+        # Run the renumbering function for this frame.
+        $${renumberFrame} {input: $(nextframe), output: $(currentframe), name: $(name), sx: $(shx), sy: $(shy), sz: $(shz)}
+        # Add forceloads to make sure the area is loaded.
+        $execute positioned $(ax) $(ay) $(az) run forceload add ~ ~ ~47 ~47
+        execute positioned 0 0 -48 run forceload add ~ ~ ~47 ~47
+        # Remove the old structure block.
+        $execute positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:air strict
+        # Clone the frames over the difference of the size of the removed frame's z axis. Must be done twice since source and destination areas cannot overlap.
+        $execute positioned $(ax) $(ay) $(az) run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) 0 1 -48 strict masked move
+        $execute positioned 0 1 -48 run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) 0 1 $(newz) strict masked move
+        # Teleport all entities in subsequent frames backwards by the size of the removed frame's z axis.
+        $execute positioned $(ax) $(ay) $(az) as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] at @s run tp @s ~ ~ ~-$(diff)
+        # Place a new structure block with the updated frame number.
+        $execute positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~-$(diff) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(shx),sizeY:$(shy),sizeZ:$(shz),ignoreEntities:false,name:"${ns}:$(name)-frame$(currentframe)",strict:true}
+        # Remove forceloads to cleanup.
+        $execute positioned $(ax) $(ay) $(az) run forceload remove ~ ~ ~47 ~47
+        execute positioned 0 0 -48 run forceload remove ~ ~ ~47 ~47
+        # Increment currentframe and nextframe.
+        execute store result storage ${ns}:temp csf.currentframe int 1 run scoreboard players get nextframe ${ns}-csf
+        execute store result storage ${ns}:temp csf.nextframe int 1 run scoreboard players add nextframe ${ns}-csf 1
+        # Check if there's more frames to renumber.
+        execute if score nextframe ${ns}-csf >= length ${ns}-csf run return 1
+        # Pull the next frame's data into macro storage.
+        ${pullNextFrameData} with storage ${ns}:temp csf
+        # Execute this recursive function again.
+        ${recPushBackFrames} with storage ${ns}:temp csf
+    `} with storage ${ns}:temp csf
+
     # If removeData is true, then remove the frame's data from storage and decrease framecount.
     $execute if data storage ${ns}:temp {csf:{removeData:true}} run ${a`
         $data remove storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(framenum)]
@@ -230,7 +287,7 @@ clearSpecificFrame`
     `} {name: $(name), framenum: $(framenum)}
 
     # Clear trailing data.
-    scoreboard objectives remove ${ns}-csf
+    # scoreboard objectives remove ${ns}-csf
     data remove storage ${ns}:temp csf
 `;
 
@@ -316,7 +373,7 @@ exit`
     data remove storage ${ns}:temp exit
 `;
 
-//
+// Adds the base frame to the end of the animation. Needs to be executed with the player as context.
 addBaseFrame`
     # Load the player's data from storage.
     $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
@@ -358,7 +415,7 @@ addBaseFrame`
     # Place the base frame's structure into the editor dimension at the calculated position, and set up its structure block.
     ${placeFrame`
         # Makes sure this entire animation is loaded
-        $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload add ~ ~ ~3 ~3
+        $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload add ~ ~ ~47 ~47
         # Place the frame's structure in. i = frame#
         $execute in ${ns}:editor run place template ${ns}:$(name)-base $(x) 1 $(z)
         # Regroup all grouped entities
@@ -369,13 +426,40 @@ addBaseFrame`
         $execute in ${ns}:editor positioned $(x) 0 $(z) run setblock ~1 ~ ~ minecraft:redstone_block
         $execute in ${ns}:editor positioned $(x) 0 $(z) run setblock ~1 ~ ~ minecraft:air
         # Remove this forceloaded area
-        $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload remove ~ ~ ~3 ~3
+        $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload remove ~ ~ ~47 ~47
     `} with storage ${ns}:temp abf
     # Save frame changes to animation data.
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     # Remove temporary data.
     data remove storage ${ns}:temp abf
     scoreboard objectives remove ${ns}-abf
+`;
+
+// Takes an input frame number and an output frame number, and renumbers the frame's structure data accordingly. Also needs the name of the animation and the size of the output frame.
+renumberFrame`
+    # Make sure the area we're going to place the structures is forceloaded.
+    execute in ${ns}:editor positioned 0 0 -48 run forceload add ~ ~ ~47 ~47
+    # Place the structure template of the input frame.
+    $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(input) 0 1 -48
+    # Place the structure block for this frame with the output frame number.
+    $execute in ${ns}:editor run setblock 0 0 -48 minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(output)",strict:true} strict
+    # Save the structure.
+    execute in ${ns}:editor run setblock 1 0 -48 minecraft:redstone_block
+    execute in ${ns}:editor run setblock 1 0 -48 minecraft:air
+    # Remove the blocks.
+    execute in ${ns}:editor run fill 0 0 -48 48 50 0 minecraft:air strict
+    # Remove the entities.
+    execute in ${ns}:editor positioned 0 0 -48 as @e[type=!player,dx=48,dy=50,dz=48] run ${cleanKill}
+    # Remove the forceload.
+    execute in ${ns}:editor positioned 0 0 -48 run forceload remove ~ ~ ~47 ~47
+`;
+
+// Execute on an entity to kill it by teleporting it away to the editor dimension, removing it's drops so nothing is left behind.
+cleanKill`
+    execute in ${ns}:editor run tp @s 0 -63 0
+    data modify entity @s DeathLootTable set value "minecraft:air"
+    data modify entity @s Glowing set value false
+    kill @s
 `;
 
 // Temporary cleanup function to help with testing

@@ -22,6 +22,10 @@ tick`
     execute in ${ns}:editor run forceload add 0 0
     # Place a block at 0 2 0 in the editor to indicate it is the first lane (needed for recursive functions and to prevent forceload from being removed)
     execute in ${ns}:editor unless block 0 2 0 minecraft:obsidian run setblock 0 2 0 minecraft:obsidian
+    # Place a warning block inside of the editor so that the player knows not to trust the blocks and entities further north.
+    execute in ${ns}:editor unless block 0 3 0 minecraft:pale_oak_sign run setblock 0 3 0 minecraft:pale_oak_sign{back_text:{color:"black",has_glowing_text:0b,messages:["Warning: Blocks","and entities","further North","may be modified"]},components:{},front_text:{color:"black",has_glowing_text:0b,messages:["Warning: Blocks","and entities","further North","may be modified"]},id:"minecraft:sign",is_waxed:0b,x:0,y:3,z:0} strict
+    # Give players in the editor night vision in case the world is night.
+    effect give @a[tag=${ns}-ineditor] minecraft:night_vision 1 0 true
     ${toolbarRightClick}
     # Manually added the editor menu item here. Opens the editor menu within the editor, and the main menu outside of it.
     execute as @a[nbt={SelectedItem:{id:"minecraft:carrot_on_a_stick", components:{"minecraft:item_model":"minecraft:test_instance_block","minecraft:item_name":{italic:false,text:"Editor Menu"}}}}, scores={${ns}-right-click=1..}] at @s if dimension ${ns}:editor run dialog show @s ${ns}:editor_menu
