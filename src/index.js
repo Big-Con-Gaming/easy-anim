@@ -8,7 +8,9 @@ import { select, handleDetection, handleHighlight, keepHoverSelect, removeHovers
 import './menu.js';
 import { exitCamera } from './camera.js';
 import './util.js';
+import './storage.js';
 import './animation.js';
+
 
 // Declare the functions you want to use
 const { tick, load, menu, raycast } = mcf;
@@ -20,6 +22,8 @@ const ns = 'easy-anim';
 tick`
     # Forceload the main chunk in the editor dimension so the inventory barrel at the bottom of the world is always loaded and can be used.
     execute in ${ns}:editor run forceload add 0 0
+    # Forceload 3 chunks in the editor for storing and retrieving frames from storage.
+    execute in ${ns}:editor run forceload add 0 -48 48 0
     # Place a block at 0 2 0 in the editor to indicate it is the first lane (needed for recursive functions and to prevent forceload from being removed)
     execute in ${ns}:editor unless block 0 2 0 minecraft:obsidian run setblock 0 2 0 minecraft:obsidian
     # Place a warning block inside of the editor so that the player knows not to trust the blocks and entities further north.

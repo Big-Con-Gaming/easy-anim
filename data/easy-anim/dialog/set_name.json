@@ -16,13 +16,11 @@
   ],
   "can_close_with_escape": true,
   "exit_action": {
-    "label": "Cancel",
-    "width": 40
+    "label": "Cancel"
   },
   "actions": [
     {
       "label": "Submit",
-      "width": 40,
       "action": {
         "type": "minecraft:dynamic/run_command",
         "template": "function easy-anim:menu/set_name {name:\"$(name)\"}"

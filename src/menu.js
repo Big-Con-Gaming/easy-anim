@@ -2,9 +2,11 @@
 import mcf from './mcf.js';
 import { saveInventory, loadInventory, workingHotbar, unclaimLane, calculateLaneX } from './inventory.js';
 import { grabAnimationData, grabStrBlockPos, resetCornerBlock, cleanUpNewAnimationData, handleSummon, regroupEntities, removeDocile, axis } from './selection.js';
+import { allocAnimation, storeFrame } from './storage.js';
 import { replaceAllInString, toLowerCase } from './util.js';
 const folder = mcf.menu;
-export const { setName, createSelection, createAnimation, exitSelection, saveStructure, recGroupSearch, anonymous: a } = folder;
+export const { setName, createSelection, createAnimation, exitSelection, saveStructure, recGroupSearch } = folder;
+const { anonymous: a } = folder;
 const ns = 'easy-anim';
 
 // Sets up the lists used to compile commands.
@@ -60,9 +62,17 @@ createAnimation`
     execute store result score y-increase ${ns}-temp run data get storage ${ns}:temp str.y
     execute store result storage ${ns}:temp str.upy int 1 run scoreboard players add y-increase ${ns}-temp 1
     data modify storage ${ns}:temp str.name set from storage ${ns}:animation_data new.name
+    # Insert frame 0 data into the new animation. Take all data from the base selection.
+    data modify storage ${ns}:animation_data new.framecount set value 1
+    data modify storage ${ns}:animation_data new.frames set value []
+    data modify storage ${ns}:animation_data new.frames append value {}
+    data modify storage ${ns}:animation_data new.frames[0].duration set value 0.25
+    data modify storage ${ns}:animation_data new.frames[0].camera set from storage ${ns}:animation_data new.camera
+    data modify storage ${ns}:animation_data new.frames[0].anchor set from storage ${ns}:animation_data new.anchor
+    data modify storage ${ns}:animation_data new.frames[0].size set from storage ${ns}:animation_data new.size
     ${saveStructure`
         $clone $(x) $(upy) $(z) $(x) $(upy) $(z) to ${ns}:editor $(lanex) 3 0 strict
-        $execute positioned $(x) $(y) $(z) run kill @n[type=minecraft:interaction,tag=${ns}-select-str-block]
+        $execute positioned $(x) $(y) $(z) run kill @n[type=minecraft:interaction,tag=${ns}-select-str-block,distance=..1]
         $execute positioned $(x) $(y) $(z) run kill @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)]
         # Ungroup any grouped entities and tag them so they can find each other.
         execute store result storage ${ns}:temp str.id int 1 run scoreboard players set groupid ${ns}-temp 0
@@ -88,20 +98,16 @@ createAnimation`
         $data modify block $(x) $(y) $(z) name set value "${ns}:$(name)-frame0"
         $setblock $(x) $(upy) $(z) minecraft:redstone_block
         $data modify block $(x) $(y) $(z) name set value "${ns}:$(name)-base"
+        # Allocate a lane in storage for this new animation, and place base and frame 0 in there.
+        execute unless data storage ${ns}:animation_data new.storageid run ${allocAnimation}
+        $${storeFrame} {name: $(name), framenum: "base"}
+        $${storeFrame} {name: $(name), framenum: 0}
         # Regroup any grouped entities and remove their redundant tags + data. Must be separated so data that is needed to find each other isn't erased yet.
         ${regroupEntities} with storage ${ns}:temp str
         $clone from easy-anim:editor $(lanex) 3 0 $(lanex) 3 0 $(x) $(upy) $(z) strict
         $summon minecraft:interaction $(x) $(y) $(z) {width:1.01f,height:1.01f,Tags:["${ns}-select-str-block"]}
         $execute in ${ns}:editor run setblock $(lanex) 3 0 minecraft:air
     `} with storage ${ns}:temp str
-    # Insert frame 0 data into the new animation. Take all data from the base selection.
-    data modify storage ${ns}:animation_data new.framecount set value 1
-    data modify storage ${ns}:animation_data new.frames set value []
-    data modify storage ${ns}:animation_data new.frames append value {}
-    data modify storage ${ns}:animation_data new.frames[0].duration set value 0.25
-    data modify storage ${ns}:animation_data new.frames[0].camera set from storage ${ns}:animation_data new.camera
-    data modify storage ${ns}:animation_data new.frames[0].anchor set from storage ${ns}:animation_data new.anchor
-    data modify storage ${ns}:animation_data new.frames[0].size set from storage ${ns}:animation_data new.size
     # Place the previously deleted handles back.
     ${handleSummon}
     # Save modifications made to the animation.

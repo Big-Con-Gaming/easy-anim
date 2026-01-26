@@ -3,13 +3,11 @@
   "title": "Animation Main Menu",
   "inputs": [],
   "exit_action": {
-    "label": "Exit",
-    "width": 30
+    "label": "Exit"
   },
   "actions": [
     {
       "label": "Create New Animation",
-      "width": 120,
       "action": {
         "type": "minecraft:show_dialog",
         "dialog": "easy-anim:set_name"

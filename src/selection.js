@@ -2,7 +2,8 @@
 import mcf from './mcf.js';
 import { calculateLaneX } from './inventory.js';
 const folder = mcf.selection;
-export const { anonymous: a, grabAnimationData, cleanUpNewAnimationData, regroupEntities, storeArrayMacro, storeAxisMacro, anchorDifference, constructRealCoordinates, grabSizeAnchor, grabSizeAnchorEditor, updateSelection, grabStrBlockPos, handleSummon, displayBox, placeStructureBlock, handleExecution, resetCornerBlock, handleHighlight, placeGhost, keepHoverSelect, removeHovers, turnEntityDocile, removeDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection } = folder;
+export const { grabAnimationData, cleanUpNewAnimationData, regroupEntities, anchorDifference, constructRealCoordinates, grabSizeAnchor, grabSizeAnchorEditor, grabStrBlockPos, handleSummon, resetCornerBlock, handleHighlight, keepHoverSelect, removeHovers, removeDocile } = folder;
+const { storeArrayMacro, storeAxisMacro, updateSelection, displayBox, placeStructureBlock, handleExecution, placeGhost, turnEntityDocile, executeAsMarker, updateFullSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection, anonymous: a } = folder;
 // grabAnimationData: Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
 // cleanUpNewAnimationData: Saves changes made to the new namespace within animation_data to the actual animation's data. Must be ran with storage ${ns}:animation_data new.
 // regroupEntities: Must be ran with xyz and sx sy sz, where xyz represents the neg-neg-neg corner of the frame/selection and sx sy sz represent the size of the frame/selection. This goes through and puts grouped entities back together after they were split for structure saving.
@@ -483,7 +484,7 @@ function createHandleExecutionCommands({dir, x, y, z, anchorChange}) {
                 # Change size in accordance to the calculated change above
                 scoreboard players operation size ${ns}-handle-detect += diff ${ns}-handle-detect
                 # If this change made size greater than 48, set diff to 0 so that the anchor doesn't move from the next commands.
-                execute unless score size ${ns}-handle-detect matches 49.. run scoreboard players set diff ${ns}-handle-detect 0
+                execute if score size ${ns}-handle-detect matches 49.. run scoreboard players set diff ${ns}-handle-detect 0
                 # If this change made size greater than 48, set it to 48 to prevent passing the structure block's limitation.
                 execute if score size ${ns}-handle-detect matches 49.. run scoreboard players set size ${ns}-handle-detect 48
                 # Toss size back into the data structure
@@ -511,8 +512,18 @@ handleExecutionCommands.push(`
     ${grabStrBlockPos}
     ${calculateLaneX} {output:"${ns}:temp str.lanex int"}
     ${resetCornerBlock} with storage ${ns}:temp str
-    # Kill the display item_display entities from the old selection.
-    kill @e[tag=${ns}-handle]
+    # Take size s[x, y, z] and increase by 2 so the kill command below only removes handles associated with this selection.
+    execute store result score smx ${ns}-handle-detect run data get storage ${ns}:temp str.sx
+    execute store result score smy ${ns}-handle-detect run data get storage ${ns}:temp str.sy
+    execute store result score smz ${ns}-handle-detect run data get storage ${ns}:temp str.sz
+    execute store result storage ${ns}:temp str.smx double 1 run scoreboard players add smx ${ns}-handle-detect 2
+    execute store result storage ${ns}:temp str.smy double 1 run scoreboard players add smy ${ns}-handle-detect 2
+    execute store result storage ${ns}:temp str.smz double 1 run scoreboard players add smz ${ns}-handle-detect 2
+    # Kill the display item_display entities from the old selection. Placed in a new function for macros.
+    ${a`
+        $execute positioned $(x) $(y) $(z) run kill @e[tag=${ns}-handle, dx=$(smx), dy=$(smy), dz=$(smz)]
+    `} with storage ${ns}:temp str
+    
 `);
 
 handleExecutionCommands.push(...handles.map(createHandleExecutionCommands));
@@ -564,7 +575,6 @@ removeHovers`
 // All nbtdata that needs to be changed (set to true by default) to make an entity "docile".
 const entityAttributes = [
     {name:"NoAI"},
-    {name:"NoGravity"},
     {name:"Silent"},
     {name:"Glowing"},
     {name:"Invulnerable"},

@@ -3,6 +3,7 @@ import mcf from './mcf.js';
 import {grabAnimationData, cleanUpNewAnimationData, anchorDifference, constructRealCoordinates} from './selection.js';
 const folder = mcf.camera;
 export const { anonymous: a, cameraSave, cameraSaveFinish, cameraLoad, exitCamera, cameraHighlight, cameraRemoveHighlight } = folder;
+const {} = folder;
 const ns = 'easy-anim';
 
 // Takes the player's current position and rotation and saves it into the camera data for the current animation.

@@ -1,8 +1,8 @@
 // Sets up basic things.
 import mcf from './mcf.js';
 const folder = mcf.util;
-export const { anonymous: a, replaceAllInString, toLowerCase } = folder;
-const { incrementIdx, recCharTest, lowerCaseMacro } = folder;
+export const { replaceAllInString, toLowerCase, stringConcat, cleanKill } = folder;
+const { anonymous: a, incrementIdx, recCharTest, lowerCaseMacro, rawConcat } = folder;
 const ns = 'easy-anim';
 
 const toLowerCaseCommands = [];
@@ -83,3 +83,25 @@ toLowerCaseCommands.push(`
 `);
 
 toLowerCase`${toLowerCaseCommands.join('\n')}`;
+
+// Takes an output storage directory, a front string and a back string and concats these into the output directory.
+rawConcat`
+    $data modify storage $(output) set value "$(front)$(back)"
+`;
+
+// Takes an output storage directory, a front input storage directory, and a back input storage directory and macros them into rawConcat for you.
+stringConcat`
+    $data modify storage ${ns}:temp stringConcat.output set value "$(output)"
+    $data modify storage ${ns}:temp stringConcat.front set from storage $(front)
+    $data modify storage ${ns}:temp stringConcat.back set from storage $(back)
+    ${rawConcat} with storage ${ns}:temp stringConcat
+    data remove storage ${ns}:temp stringConcat
+`;
+
+// Execute on an entity to kill it by teleporting it away to the editor dimension, removing it's drops so nothing is left behind.
+cleanKill`
+    data modify entity @s DeathLootTable set value "minecraft:air"
+    data modify entity @s Glowing set value false
+    kill @s
+    execute in ${ns}:editor run tp @s 0 -30 0
+`;
