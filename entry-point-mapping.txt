@@ -1,0 +1,27 @@
+List of entry points and their sources.
+
+setName (src/menu.js): from set_name dialog
+
+createAnimation (src/menu.js): from create_animation item
+
+exitSelection (src/menu.js): from exit item | from enterEditor
+
+enterEditor (src/animation.js): from dialog enter_editor
+
+saveCurrentFrame (src/animation.js): from editor_menu dialog
+
+clearCurrentFrame (src/animation.js): from editor_menu dialog
+
+loadCurrentFrame (src/animation.js): from editor_menu dialog
+
+exit (src/animation.js): from editor_menu dialog
+
+addBaseFrame (src/animation.js): from editor_menu dialog
+
+cameraSave (src/camera.js): from hotbar set camera
+
+cameraSaveFinish (src/camera.js): from camera_info dialog
+
+cameraLoad (src/camera.js): from hotbar load camera
+
+cameraHighlight (src/camera.js): from hotbar hover camera_load item

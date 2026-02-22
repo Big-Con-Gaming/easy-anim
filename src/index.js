@@ -3,6 +3,7 @@
 // Import your mcf context and any functions you want to use.
 
 import mcf from './mcf.js';
+import * as debug from './debug.js';
 import { toolbarRightClick } from './inventory.js';
 import { select, handleDetection, handleHighlight, keepHoverSelect, removeHovers } from './selection.js';
 import './menu.js';
@@ -10,6 +11,7 @@ import { exitCamera } from './camera.js';
 import './util.js';
 import './storage.js';
 import './animation.js';
+import './debug.js';
 
 
 // Declare the functions you want to use
@@ -51,6 +53,10 @@ tick`
 
 // These commands run when the datapack has been loaded in.
 load`
+    # Import setup functions from debug.
+    ${debug.debugSetup}
+    # Log the function call
+    ${debug.run} {input: "load"}
     # Set up the scoreboard for detecting right clicks.
     scoreboard objectives add ${ns}-right-click minecraft.used:minecraft.carrot_on_a_stick
     # Set up a trigger scoreboard for quick menu access
@@ -61,6 +67,8 @@ load`
 
 // Opens the main menu dialog for whoever runs this command.
 menu`
+    # Log the function call
+    ${debug.run} {input: "menu displaying dialog: ${ns}:main_menu"}
     dialog show @s ${ns}:main_menu
 `;
 
