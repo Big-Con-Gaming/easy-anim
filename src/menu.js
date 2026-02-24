@@ -4,10 +4,10 @@ import * as debug from './debug.js';
 import { saveInventory, loadInventory, workingHotbar, unclaimLane, calculateLaneX } from './inventory.js';
 import { grabStrBlockPos, resetCornerBlock, cleanUpNewAnimationData, handleSummon, regroupEntities, removeDocile, axis, grabAnimationFromUuid } from './selection.js';
 import { allocAnimation, storeFrame } from './storage.js';
-import { replaceAllInString, toLowerCase } from './util.js';
+import { replaceAllInString, toLowerCase, stringConcat } from './util.js';
 const folder = mcf.menu;
-export const { setName, createSelection, createAnimation, exitSelection, saveStructure, recGroupSearch } = folder;
-const { anonymous: a } = folder;
+export const { setName, createSelection, createAnimation, exitSelection, saveStructure, recGroupSearch, displayAnimationsDialog } = folder;
+const { recAddAnimToList, macroDialog, editAnimationSetup, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 // Sets up the lists used to compile commands.
@@ -228,3 +228,54 @@ exitCommands.push(`
 `);
 
 exitSelection`${exitCommands.join('\n')}`;
+
+// If a dialog option needs to select an animation to perform, this function will handle that by generating a dialog with every animation as a button.
+displayAnimationsDialog`
+    # Log the entry point
+    ${debug.entry} {input:"from: main_menu dialog"}
+    # Log the function call
+    $${debug.run} {input:"displayAnimationsDialog afterwards running: $(func)"}
+    # Log the exepected function path
+    ${debug.path} {input:"-> recAddAnimToList (stringConcat) -> macroDialog"}
+    # If there are no animations available, warn, let the player know and return.
+    execute unless data storage ${ns}:animation_data animations[0] run ${debug.warn} {input:"No animations exist! Letting player know and exiting..."}
+    execute unless data storage ${ns}:animation_data animations[0] run return run tellraw @s {text:"There are no existing animations! Create one first.", color:"red"}
+    # Grab the animations list in a temporary storage location.
+    data modify storage ${ns}:temp displayanimationsdialog.list set from storage ${ns}:animation_data animations
+    # Set up a temporary storage location to hold all of the button creating dialogs
+    data modify storage ${ns}:temp displayanimationsdialog.dialogs set value ""
+    # Bring the function macro into the data of the animation.
+    $data modify storage ${ns}:temp displayanimationsdialog.list[0].func set value "$(func)"
+    # loop through this entire list
+    ${recAddAnimToList`
+        # Log function call
+        $${debug.run} {input:"Generating dialog for anim $(name)"}
+        # Store the new button dialog in a temporary location.
+        $data modify storage ${ns}:temp displayanimationsdialog.current set value ', {"label": "$(name)","action": {"type": "minecraft:run_command","command": "function $(func) {anim:$(name)}"}}'
+        # Concat it to the list of the other buttons.
+        ${stringConcat} {output:"${ns}:temp displayanimationsdialog.dialogs", front:"${ns}:temp displayanimationsdialog.dialogs", back:"${ns}:temp displayanimationsdialog.current"}
+        # Remove this animation from the temp list
+        data remove storage ${ns}:temp displayanimationsdialog.list[0]
+        # Return early if no more exist in the list.
+        execute unless data storage ${ns}:temp displayanimationsdialog.list[0] run return 1
+        # Bring the func macro to this new animation
+        $data modify storage ${ns}:temp displayanimationsdialog.list[0].func set value "$(func)"
+        # Run this function with the same context.
+        ${recAddAnimToList} with storage ${ns}:temp displayanimationsdialog.list[0]
+    `} with storage ${ns}:temp displayanimationsdialog.list[0]
+    # Trim the first 2 characters from the dialogs (it's an extra comma and space)
+    data modify storage ${ns}:temp displayanimationsdialog.dialogs set string storage ${ns}:temp displayanimationsdialog.dialogs 2
+    # Display this dialog with each button running the macroed function
+    ${macroDialog`
+        # Log the function call
+        $${debug.run} {input:'calling dialog menu with $(dialogs)'}
+        $dialog show @s {"type": "minecraft:multi_action","title": "Select Animation","actions": [$(dialogs)]}
+    `} with storage ${ns}:temp displayanimationsdialog
+    # Remove temporary data
+    data remove storage ${ns}:temp displayanimationsdialog
+`;
+
+// Runs when selecting an animation to edit.
+editAnimationSetup`
+    $say hey we can use the animation name -> $(anim) <- in the function! Is that not cool?
+`;

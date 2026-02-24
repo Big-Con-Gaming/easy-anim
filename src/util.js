@@ -104,10 +104,10 @@ toLowerCase`${toLowerCaseCommands.join('\n')}`;
 // Takes an output storage directory, a front string and a back string and concats these into the output directory.
 rawConcat`
     # Log the function call
-    $${debug.run} {input: "rawConcat creating $(front)$(back) in $(output)"}
+    $${debug.run} {input: 'rawConcat creating $(front)$(back) in $(output)'}
     # Warn if output already has data in place. Removing since this happens a lot with prefix/suffix
     # $execute if data storage $(output) run ${debug.warn} {input:"$(output) already has data! Overwriting..."}
-    $data modify storage $(output) set value "$(front)$(back)"
+    $data modify storage $(output) set value '$(front)$(back)'
 `;
 
 // Takes an output storage directory, a front input storage directory, and a back input storage directory and macros them into rawConcat for you.
