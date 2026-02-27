@@ -128,9 +128,6 @@ storeFrame`
         execute in ${ns}:editor run setblock 0 49 -48 minecraft:air
         # Remove old structure block
         execute in ${ns}:editor run setblock 0 48 -48 minecraft:air strict
-        
-        ${debug.info} {source:"storage", location:"${ns}:animation_data", path:"new.frames[1]"}
-        
         # Warn if overwriting previously set entities data.
         $execute if data storage ${ns}:animation_data new$(ref).entities run ${debug.warn} {input:"Entity data exists for new$(ref).entities! Overwriting..."}
         # Clear out previously stored entities from the animation_data

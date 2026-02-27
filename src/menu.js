@@ -1,17 +1,16 @@
 // Set up stuff
 import mcf from './mcf.js';
 import * as debug from './debug.js';
-import { saveInventory, loadInventory, workingHotbar, unclaimLane, calculateLaneX } from './inventory.js';
-import { grabStrBlockPos, resetCornerBlock, cleanUpNewAnimationData, handleSummon, regroupEntities, removeDocile, axis, grabAnimationFromUuid } from './selection.js';
+import { saveInventory, workingHotbar, calculateLaneX } from './inventory.js';
+import { grabStrBlockPos, cleanUpNewAnimationData, handleSummon, regroupEntities, removeDocile, grabAnimationFromUuid } from './selection.js';
 import { allocAnimation, storeFrame } from './storage.js';
 import { replaceAllInString, toLowerCase, stringConcat } from './util.js';
+import { enterEditor } from './animation.js';
 const folder = mcf.menu;
-export const { setName, createSelection, createAnimation, exitSelection, saveStructure, recGroupSearch, displayAnimationsDialog } = folder;
+export const { setName, createSelection, createAnimation, recGroupSearch, saveStructure, displayAnimationsDialog } = folder;
 const { recAddAnimToList, macroDialog, editAnimationSetup, anonymous: a } = folder;
 const ns = 'easy-anim';
 
-// Sets up the lists used to compile commands.
-const exitCommands = [];
 
 // Sets up the name and base data needed for a new animation.
 setName`
@@ -166,68 +165,6 @@ createAnimation`
 `;
 
 
-// This runs when the player uses the exit item in their inventory. Ran inside the editor dimension.
-exitCommands.push(`
-    # Log the entry point
-    ${debug.entry} {input: "from exit item | from enterEditor"}
-    # Log the function call
-    $${debug.run} {input: "exitSelection for $(UUID)"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> grabAnimationFromUuid -> loadInventory -> grabStrBlockPos -> calculateLaneX -> resetCornerBlock -> | unclaimLane -> kill handles -> cleanUpNewAnimationData -> | remove selection data"}
-    # Load the player's inventory from storage.
-    $${grabAnimationFromUuid} {UUID:$(UUID)}
-    # Load the items into the player's inventory
-    ${loadInventory}
-    # Replace the structure block in the current selection with its old block from the lane
-    ${grabStrBlockPos}
-    ${calculateLaneX} {output:"${ns}:temp str.lanex int"}
-    ${resetCornerBlock} with storage ${ns}:temp str
-    # Free up the player's old editor lane, if the player isn't within the editor.
-    execute unless entity @s[tag=${ns}-inEditor] run ${unclaimLane}
-    # Create temporary scoreboard for the size increasing functions below.
-    scoreboard objectives add ${ns}-exitcommands dummy
-`);
-// We need to temporarily add 2 to each size on each axis so that the target selector below only selects what we want when we kill off the handles.
-
-function createExitCommands({axis}) {
-    return`
-        # Warn if str.s${axis} doesn't exist.
-        execute unless data storage ${ns}:temp str.s${axis} run ${debug.warn} {input: "Missing size parameter s${axis} from grabStrBlockPos"}
-        execute store result score ${axis} ${ns}-exitcommands run data get storage ${ns}:temp str.s${axis}
-        execute store result storage ${ns}:temp str.s${axis} double 1 run scoreboard players add ${axis} ${ns}-exitcommands 2
-    `;
-}
-
-// Toss the commands specified above into the function.
-exitCommands.push(...axis.map(createExitCommands));
-
-exitCommands.push(`
-    # Remove the temporary scoreboard used above.
-    scoreboard objectives remove ${ns}-exitcommands
-    # Kill the display item_display entities from the old selection.
-    ${a`
-        # Log the function call
-        $${debug.run} {input: "kill off handles at $(x) $(y) $(z) within $(sx) $(sy) $(sz) located in $(dimension)"}
-        $execute in $(dimension) positioned $(x) $(y) $(z) unless entity @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)] run ${debug.warn} {input:"No handles on the selection! Skipping removal..."}
-        $execute in $(dimension) positioned $(x) $(y) $(z) run kill @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)]
-    `} with storage ${ns}:temp str
-    # Remove the temporary data locations.
-    data remove storage ${ns}:temp str
-    # Set the animation's location to none if we aren't in the editor, and to editor if we are.
-    execute unless entity @s[tag=${ns}-inEditor] run data modify storage ${ns}:animation_data new.location set value "none"
-    execute if entity @s[tag=${ns}-inEditor] run data modify storage ${ns}:animation_data new.location set value "editor"
-    ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
-    # Remove the new selection from animation_data entirely, unless there are frames associated with it.
-    $${a`
-        # Log the function call
-        $${debug.run} {input: "removing selection data for $(currentAnim)"}
-        $execute unless data storage ${ns}:animation_data animations[{name:$(currentAnim)}].data.frames run data remove storage ${ns}:animation_data animations[{name:$(currentAnim)}]
-    `} with storage ${ns}:player_data players[{UUID:$(UUID)}]
-    # Remove the player's old player data unless they are in the editor.
-    $execute unless entity @s[tag=${ns}-inEditor] run data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
-`);
-
-exitSelection`${exitCommands.join('\n')}`;
 
 // If a dialog option needs to select an animation to perform, this function will handle that by generating a dialog with every animation as a button.
 displayAnimationsDialog`
@@ -237,6 +174,8 @@ displayAnimationsDialog`
     $${debug.run} {input:"displayAnimationsDialog afterwards running: $(func)"}
     # Log the exepected function path
     ${debug.path} {input:"-> recAddAnimToList (stringConcat) -> macroDialog"}
+    # Error if not executing from a player.
+    execute unless entity @s[type=player] run return run ${debug.error} {input:"Command must run from the context of a player!"}
     # If there are no animations available, warn, let the player know and return.
     execute unless data storage ${ns}:animation_data animations[0] run ${debug.warn} {input:"No animations exist! Letting player know and exiting..."}
     execute unless data storage ${ns}:animation_data animations[0] run return run tellraw @s {text:"There are no existing animations! Create one first.", color:"red"}
@@ -246,20 +185,23 @@ displayAnimationsDialog`
     data modify storage ${ns}:temp displayanimationsdialog.dialogs set value ""
     # Bring the function macro into the data of the animation.
     $data modify storage ${ns}:temp displayanimationsdialog.list[0].func set value "$(func)"
+    # Bring the player's UUID into the data of the animation.
+    data modify storage ${ns}:temp displayanimationsdialog.list[0].UUID set from entity @s UUID
     # loop through this entire list
     ${recAddAnimToList`
         # Log function call
         $${debug.run} {input:"Generating dialog for anim $(name)"}
         # Store the new button dialog in a temporary location.
-        $data modify storage ${ns}:temp displayanimationsdialog.current set value ', {"label": "$(name)","action": {"type": "minecraft:run_command","command": "function $(func) {anim:$(name)}"}}'
+        $data modify storage ${ns}:temp displayanimationsdialog.current set value ', {"label": "$(name)","action": {"type": "minecraft:run_command","command": "function $(func) {anim:$(name), UUID:$(UUID)}"}}'
         # Concat it to the list of the other buttons.
         ${stringConcat} {output:"${ns}:temp displayanimationsdialog.dialogs", front:"${ns}:temp displayanimationsdialog.dialogs", back:"${ns}:temp displayanimationsdialog.current"}
         # Remove this animation from the temp list
         data remove storage ${ns}:temp displayanimationsdialog.list[0]
         # Return early if no more exist in the list.
         execute unless data storage ${ns}:temp displayanimationsdialog.list[0] run return 1
-        # Bring the func macro to this new animation
+        # Bring the func and UUID macro to this new animation
         $data modify storage ${ns}:temp displayanimationsdialog.list[0].func set value "$(func)"
+        $data modify storage ${ns}:temp displayanimationsdialog.list[0].UUID set value "$(UUID)"
         # Run this function with the same context.
         ${recAddAnimToList} with storage ${ns}:temp displayanimationsdialog.list[0]
     `} with storage ${ns}:temp displayanimationsdialog.list[0]
@@ -275,7 +217,29 @@ displayAnimationsDialog`
     data remove storage ${ns}:temp displayanimationsdialog
 `;
 
-// Runs when selecting an animation to edit.
+
+// Left off here. Thought about compacting stringEquals to use return types so that "execute if function" could be used.
+// Also, we have a problem since this function now references one in animation that also references one here,
+// which only should execute if entering the editor from having a selection available.
+// One side of these might need to be moved up or down to meet requirements or has to be pulled from their original file to a new one.
+
+// Runs when selecting an animation to edit. Must receive macro anim and UUID which contains the name of the animation we want to edit and the UUID of the executing player.
 editAnimationSetup`
-    $say hey we can use the animation name -> $(anim) <- in the function! Is that not cool?
+    # Log the entry point
+    ${debug.entry} {input:"from: displayAnimationsDialog specified execution from main_menu dialog"}
+    # Log the function call
+    $${debug.run} {input:"editAnimationSetup for $(UUID) editing $(anim)"}
+    # Log the expected function path
+    ${debug.path} {input: "-> enterEditor"}
+    # Error if the player already has a currentAnim
+    $execute if data storage ${ns}:player_data players[{UUID:$(UUID)}].currentAnim run return run ${debug.error} {input:"Player already has a currentAnim!"}
+    $execute unless data storage ${ns}:animation_data animations[{name:$(anim),data:{location:"none"}}] run return run ${a`
+        # If the animation is being displayed elsewhere (location != none), then return and tell the player.
+        ${debug.error} {input: "Animation is already placed somewhere else!"}
+        tellraw @s {text: "Animation is already placed somewhere else!", color: "red"}
+    `}
+    # Set this animation's name to the player's currentAnim
+    $data modify storage ${ns}:player_data players[{UUID:$(UUID)}].currentAnim set value $(anim)
+    # Execute enterEditor with the player as the macro context.
+    ${enterEditor} with entity @s
 `;

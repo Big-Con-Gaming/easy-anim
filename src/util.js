@@ -141,8 +141,8 @@ stringEquals`
     # place the input and output strings into temporary storage.
     $data modify storage ${ns}:test stringEquals.input1 set value "$(input1)"
     $data modify storage ${ns}:test stringEquals.input2 set value "$(input2)"
-    # Warn if replacing data in output
-    $execute if data $(output) run ${debug.warn} {input:"$(output) already has data! Overwriting..."}
+    # Warn if replacing data in output. Currently can't be used as output within the data subtype doesn't have subtype in its prefix...
+    # $execute if data $(output) run ${debug.warn} {input:"$(output) already has data! Overwriting..."}
     # Store a result score while setting the input to the value of output.
     $execute store result $(output) run data modify storage ${ns}:test stringEquals.input1 set from storage ${ns}:test stringEquals.input2
     # Remove temporary data

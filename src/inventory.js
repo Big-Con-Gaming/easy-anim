@@ -2,7 +2,7 @@
 import mcf from './mcf.js';
 import * as debug from './debug.js';
 const folder = mcf.inventory;
-export const { grabOwnerPlayerData, calculateLaneX, findPlayerAxisOffset, unclaimLane, saveInventory, loadInventory, workingHotbar } = folder;
+export const { grabOwnerPlayerData, cleanUpCurrentPlayerData, calculateLaneX, findPlayerAxisOffset, unclaimLane, saveInventory, loadInventory, workingHotbar } = folder;
 const { anonymous: a, recEditorSearch, macroUnclaim } = folder;
 // grabOwnerPlayerData: Using the owner tag on a selection, it pulls that player's data into current.
 // calculateLaneX: Takes the current.lane player data and multiplies by 48 to find the X coordinate. Specify an output storage position to place the number.
@@ -33,6 +33,19 @@ grabOwnerPlayerData`
     `} with storage ${ns}:animation_data new
 `;
 
+// Places all changes made to the current namespace onto the player's data
+cleanUpCurrentPlayerData`
+    # Log the function call
+    $${debug.run} {input:"cleanUpCurrentPlayerData for $(UUID)"}
+    # Error if the current namespace currently has no data
+    execute unless data storage ${ns}:player_data current run return run ${debug.error} {input: "there is no data in player_data current!"}
+    # Do the operation.
+    $data modify storage ${ns}:player_data players[{UUID:$(UUID)}] set from storage ${ns}:player_data current
+    # Remove the current data.
+    data remove storage ${ns}:player_data current
+`;
+
+
 // Calculates the x position from the lane value placed in the current player's data. Output is a specified path with the output macro, and the type to save the number as.
 
 calculateLaneX`
@@ -40,7 +53,7 @@ calculateLaneX`
     $${debug.run} {input: "calculateLaneX outputting to $(output)"}
     # Log the expected function path.
     ${debug.path} {input: "-> grabOwnerPlayerData"}
-    ${grabOwnerPlayerData}
+    execute unless data storage ${ns}:player_data current run ${grabOwnerPlayerData}
     # Error if the player doesn't have a lane.
     execute unless data storage ${ns}:player_data current.lane run return run ${debug.error} {input:"Player does not have an editor lane!"}
     scoreboard objectives add ${ns}-lane dummy
@@ -213,7 +226,7 @@ const hotbarTools = [
     {display:`minecraft:dispenser`, name:"Set Camera", slot:1, action:`camera/camera_save with entity @s`},
     {display:`minecraft:observer`, name:"Load Camera", slot:2, action:`camera/camera_load with entity @s`, on_hover:`run function ${ns}:camera/camera_highlight with entity @s`, on_not_hover:`run function ${ns}:camera/camera_remove_highlight with entity @s`},
     {display:`minecraft:paper`, name:"Create Animation", slot:7, action:`menu/create_animation with entity @s`},
-    {display:`minecraft:barrier`, name:"Exit", slot:8, action: `menu/exit_selection with entity @s`, dimension: `${ns}:editor`}
+    {display:`minecraft:barrier`, name:"Exit", slot:8, action: `selection/exit_selection with entity @s`, dimension: `${ns}:editor`}
 ];
 
 // Sets up each item in the hotbar.

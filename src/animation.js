@@ -1,14 +1,13 @@
 // Sets up basic stuff.
 import mcf from './mcf.js';
 import * as debug from './debug.js';
-import { calculateLaneX, unclaimLane } from './inventory.js';
-import { regroupEntities, removeDocile, grabSizeAnchorEditor, cleanUpNewAnimationData, grabAnimationFromUuid, grabPlayerAndAnimation } from './selection.js';
-import { exitSelection, recGroupSearch } from './menu.js';
+import { calculateLaneX, unclaimLane, findPlayerAxisOffset } from './inventory.js';
+import { recGroupSearch, regroupEntities, removeDocile, grabSizeAnchorEditor, cleanUpNewAnimationData, grabAnimationFromUuid, grabPlayerAndAnimation, exitSelection, appendAllDataChanges } from './selection.js';
 import { storeFrame, retrieveFrame, removeFrame } from './storage.js';
 import { cleanKill } from './util.js';
 const folder = mcf.animation;
 export const { enterEditor, findPlayerInFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame, recPlayerSearch, saveSpecificFrame, clearCurrentFrame, clearSpecificFrame, pullNextFrameData, recPushBackFrames, loadCurrentFrame, loadSpecificFrame, addBaseFrame, placeFrame, exit, recRemoveFrames, renumberFrame } = folder;
-const { anonymous: a } = folder;
+const { anonymous: a, cleanRemainder, newPlayerLane } = folder;
 const ns = 'easy-anim';
 
 const editor_menu_item = 'minecraft:carrot_on_a_stick[item_name={italic:false,text:"Editor Menu"}, item_model="minecraft:test_instance_block"]';
@@ -16,15 +15,21 @@ const editor_menu_item = 'minecraft:carrot_on_a_stick[item_name={italic:false,te
 // Run when the player wants to enter the editor for an existing animation. Must be executed with the player as context.
 enterEditor`
     # Log the entry point
-    ${debug.entry} {input: "from dialog enter_editor"}
+    ${debug.entry} {input: "from dialog enter_editor | from dialog main_menu editExistinAnimation"}
     # Log the function call
     $${debug.run} {input: "enterEditor for $(UUID)"}
     # Log the expected function path.
-    ${debug.path} {input: "-> grabPlayerAndAnimation -> calculateLaneX -> recPlaceFrames (retrieveFrame -> editorAnchorInData -> regroupEntities) -> exitSelection -> tpIntoEditor"}
+    ${debug.path} {input: "-> grabPlayerAndAnimation -> | newPlayerLane -> | findPlayerAxisOffset -> calculateLaneX -> recPlaceFrames (retrieveFrame -> editorAnchorInData -> regroupEntities) -> [exitSelection | cleanRemainder -> appendAllDataChanges] -> tpIntoEditor"}
     # Error if the player doesn't have a current animation.
     $execute unless data storage ${ns}:player_data players[{UUID:$(UUID)}].currentAnim run return run ${debug.error} {input: "Player has no current animation!"}
     # Load the player's and animation's data.
     $${grabPlayerAndAnimation} {UUID:$(UUID)}
+    # Warn if the player doesn't have a lane, and assign them one if so.
+    $execute unless data storage ${ns}:player_data current.lane run ${newPlayerLane`
+        ${debug.warn} {input: "Player doesn't have an editor lane! Assigning a new one..."}
+        ${findPlayerAxisOffset}
+        $data modify storage ${ns}:player_data players[{UUID:$(UUID)}].lane set from storage ${ns}:player_data current.lane
+    `} {UUID:$(UUID)}
     # Warn if the animation has no frames, but still allow them to enter the editor.
     execute unless data storage ${ns}:animation_data new.frames[0] run ${debug.warn} {input: "Player's current animation has no frames! Continuing entry..."}
     # Set the player's real world location into storage to be used when they exit the editor.
@@ -66,7 +71,7 @@ enterEditor`
         $execute in ${ns}:editor positioned $(x) 1 $(z) align xyz summon minecraft:marker run ${editorAnchorInData`
             # Log the function call
             ${debug.run} {input: "editorAnchorInData"}
-            $data modify storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(i)].eanchor set from entity @s Pos
+            $data modify storage ${ns}:animation_data new.frames[$(i)].eanchor set from entity @s Pos
             kill @s
         `} with storage ${ns}:temp eemacro
         # Regroup all grouped entities
@@ -101,10 +106,17 @@ enterEditor`
     execute in ${ns}:editor run forceload add 0 0
     # Tag the player with inEditor so it is easier to track.
     tag @s add ${ns}-inEditor
-    # Remove redundant data from animation new.
-    data remove storage ${ns}:animation_data new
-    # Return the player's original inventory (in case they were coming from the selection menu). This also cleans up almost all of our extra data, and sets the animation's location to editor.
-    ${exitSelection} with entity @s
+    # Return the player's original inventory (in case they were coming from the selection menu).
+    # This also cleans up almost all of our extra data, and sets the animation's location to editor.
+    execute if data storage ${ns}:animation_data {new:{location:"anchor"}} run ${a`
+        ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
+        ${exitSelection} with entity @s
+    `}
+    execute unless data storage ${ns}:animation_data {new:{location:"anchor"}} run ${cleanRemainder`
+        data modify storage ${ns}:animation_data new.location set value "editor"
+        ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
+    `}
+    
     # Teleport the player into the editor dimension.
     ${tpIntoEditor`
         # Log the function call
@@ -352,6 +364,11 @@ clearSpecificFrame`
         $data remove storage ${ns}:animation_data new.frames[$(framenum)]
         execute store result score framecount ${ns}-csf run data get storage ${ns}:animation_data new.framecount
         execute store result storage ${ns}:animation_data new.framecount int 1 run scoreboard players remove framecount ${ns}-csf 1
+        # If shift is true, remove the frame at the end from storage. If shift was false, remove this framenum's frame.
+        execute if data storage ${ns}:temp {csf:{shift:true}} run ${a`
+            $${removeFrame} {framenum:$(framecount)}
+        `} with storage ${ns}:animation_data new
+        $execute unless data storage ${ns}:temp {csf:{shift:true}} run ${removeFrame} {framenum:$(framenum)}
     `} {framenum: $(framenum)}
 
     # Clear trailing data.
@@ -467,6 +484,10 @@ exit`
     clear @s ${editor_menu_item}
     # Set the animation's location to "none".
     data modify storage ${ns}:animation_data new.location set value "none"
+    # Warn if the player is missing currentAnim data
+    $execute unless data storage ${ns}:player_data players[{UUID:$(UUID)}].currentAnim run ${debug.warn} {input:"Player has no currentAnim data! Skipping removal..."}
+    # Clear the player's currentAnim data
+    $data remove storage ${ns}:player_data players[{UUID:$(UUID)}].currentAnim
     # Save modifications made to the animation.
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     # Remove trailing data.
