@@ -61,6 +61,8 @@ load`
     scoreboard objectives add ${ns}-right-click minecraft.used:minecraft.carrot_on_a_stick
     # Set up a trigger scoreboard for quick menu access
     scoreboard objectives add ${ns} trigger
+    # Change the commandModificationBlockLimit to allow 48x48x48 volumes (Different name in 1.21.11!!!)
+    gamerule commandModificationBlockLimit 110592
     # Let operators know the datapack has been loaded.
     say Easy Animations Datapack Loaded!
 `;

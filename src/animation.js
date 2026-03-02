@@ -484,10 +484,10 @@ exit`
     clear @s ${editor_menu_item}
     # Set the animation's location to "none".
     data modify storage ${ns}:animation_data new.location set value "none"
-    # Warn if the player is missing currentAnim data
-    $execute unless data storage ${ns}:player_data players[{UUID:$(UUID)}].currentAnim run ${debug.warn} {input:"Player has no currentAnim data! Skipping removal..."}
-    # Clear the player's currentAnim data
-    $data remove storage ${ns}:player_data players[{UUID:$(UUID)}].currentAnim
+    # Warn if the player is missing data
+    $execute unless data storage ${ns}:player_data players[{UUID:$(UUID)}] run ${debug.warn} {input:"Player has no data at all! Skipping removal..."}
+    # Clear the remainder of the player's data (not needed if not accessing a selection or animation)
+    $data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
     # Save modifications made to the animation.
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     # Remove trailing data.
@@ -614,6 +614,7 @@ clean`
     # Warning to remove this function at somepoint
     ${debug.warn} {input: "remove clean function before release, within animation"}
     tag @s remove ${ns}-inEditor
+    function menu/delete_animation {anim:"test"}
     execute in ${ns}:editor run setblock 0 1 0 minecraft:air
     data remove storage ${ns}:animation_data animations[]
     data remove storage ${ns}:player_data players[]

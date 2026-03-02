@@ -7,8 +7,8 @@ import { allocAnimation, storeFrame } from './storage.js';
 import { replaceAllInString, toLowerCase, stringConcat } from './util.js';
 import { enterEditor } from './animation.js';
 const folder = mcf.menu;
-export const { setName, createSelection, createAnimation, recGroupSearch, saveStructure, displayAnimationsDialog } = folder;
-const { recAddAnimToList, macroDialog, editAnimationSetup, anonymous: a } = folder;
+export const { setName, createSelection, createAnimation, recGroupSearch, saveStructure, displayAnimationsDialog, deleteAnimation } = folder;
+const { recAddAnimToList, macroDialog, editAnimationSetup, recRemoveFrameData, macroRemoveAnimationStorage, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 
@@ -217,12 +217,6 @@ displayAnimationsDialog`
     data remove storage ${ns}:temp displayanimationsdialog
 `;
 
-
-// Left off here. Thought about compacting stringEquals to use return types so that "execute if function" could be used.
-// Also, we have a problem since this function now references one in animation that also references one here,
-// which only should execute if entering the editor from having a selection available.
-// One side of these might need to be moved up or down to meet requirements or has to be pulled from their original file to a new one.
-
 // Runs when selecting an animation to edit. Must receive macro anim and UUID which contains the name of the animation we want to edit and the UUID of the executing player.
 editAnimationSetup`
     # Log the entry point
@@ -233,8 +227,8 @@ editAnimationSetup`
     ${debug.path} {input: "-> enterEditor"}
     # Error if the player already has a currentAnim
     $execute if data storage ${ns}:player_data players[{UUID:$(UUID)}].currentAnim run return run ${debug.error} {input:"Player already has a currentAnim!"}
+    # If the animation is being displayed elsewhere (location != none), then return and tell the player.
     $execute unless data storage ${ns}:animation_data animations[{name:$(anim),data:{location:"none"}}] run return run ${a`
-        # If the animation is being displayed elsewhere (location != none), then return and tell the player.
         ${debug.error} {input: "Animation is already placed somewhere else!"}
         tellraw @s {text: "Animation is already placed somewhere else!", color: "red"}
     `}
@@ -242,4 +236,65 @@ editAnimationSetup`
     $data modify storage ${ns}:player_data players[{UUID:$(UUID)}].currentAnim set value $(anim)
     # Execute enterEditor with the player as the macro context.
     ${enterEditor} with entity @s
+`;
+
+// Deletes all of the data related to a specific animation. Requires macro of anim for the name of the animation.
+deleteAnimation`
+    # Log the entry point
+    ${debug.entry} {input:"from: displayAnimationsDialog specified execution from main_menu dialog"}
+    # Log the function call
+    $${debug.run} {input:"deleteAnimation for $(anim)"}
+    # Log the expected function path
+    ${debug.path} {input: "-> macroRemoveAnimationStorage -> recRemoveFrameData"}
+    # If the animation is being displayed somewhere (location != none), then return and tell the player.
+    $execute unless data storage ${ns}:animation_data animations[{name:$(anim),data:{location:"none"}}] run return run ${a`
+        ${debug.error} {input: "Animation is currently in use!"}
+        tellraw @s {text: "Animation is currently in use!", color: "red"}
+    `}
+    # Possible extension of function: If location is editor, run exit editor on owner. (In multiplayer, permission check?)
+    # Clear all of the frames from storage (removeFrame works on a one frame at a time basis)
+    # Warn if the animation has no frames
+    $execute unless data storage ${ns}:animation_data animations[{name:$(anim)}].data.frames run ${debug.warn} {input: "Animation has no frames! Skipping deletion..."}
+    # Grab all frames into a temporary location to iterate through.
+    $data modify storage ${ns}:temp deleteAnimation.frames set from storage ${ns}:animation_data animations[{name:$(anim)}].data.frames
+    # Grab the animation's storage lane X
+    $execute store result storage ${ns}:temp deleteAnimation.x int 48 run data get storage ${ns}:animation_data animations[{name:$(anim)}].data.storageid
+    # Execute the loop setup command as a macro to use the lane x value (trying to avoid repetitive macros)
+    execute in ${ns}:storage run ${macroRemoveAnimationStorage`
+        # Log the function call
+        $${debug.run} {input: "macroRemoveAnimationStorage at x: $(x)"}
+        # Clear the storage's lane
+        $execute if data storage ${ns}:temp deleteAnimation.frames[0] positioned $(x) 0 0 run ${recRemoveFrameData`
+            # Log the function call
+            ${debug.run} {input: "recRemoveFrameData"}
+            # Forceload the entire frame
+            forceload add ~ ~ ~47 ~47
+            # Fill the frame with air
+            fill ~ ~ ~ ~47 ~47 ~47 minecraft:air
+            # Unforceload the entire frame
+            forceload remove ~ ~ ~47 ~47
+            # Remove the frame from temp storage
+            data remove storage ${ns}:temp deleteAnimation.frames[0]
+            # If there's still a frame, execute at the next frame's location another fill command.
+            execute if data storage ${ns}:temp deleteAnimation.frames[0] positioned ~ ~ ~48 run ${recRemoveFrameData}
+        `}
+        # Remove the base frame
+        # Forceload the entire frame + the lane block
+        $execute positioned $(x) 0 -48 run forceload add ~ ~ ~47 ~48
+        # Fill the frame with air
+        $execute positioned $(x) 0 -48 run fill ~ ~ ~ ~47 ~47 ~47 minecraft:air
+        # Remove the bedrock block denoting the frame.
+        # Warn if this block isn't bedrock
+        $execute unless block $(x) 50 0 minecraft:bedrock run ${debug.warn} {input: "Expected bedrock to denote storage lane at $(x) 50 0! Replacing with air..."}
+        $setblock $(x) 50 0 minecraft:air
+        # Unforceload the entire frame
+        $execute positioned $(x) 0 -48 run forceload remove ~ ~ ~47 ~48
+    `} with storage ${ns}:temp deleteAnimation
+    # Remove the data from storage
+    $data remove storage ${ns}:animation_data animations[{name:$(anim)}]
+    # Possible check for error/warn: Someone has this as currentAnim, must be removed (and the rest of their data)
+    $execute if data storage ${ns}:player_data players[{currentAnim:$(anim)}] run ${debug.warn} {input: "Players have this animation as their currentAnim! Removing..."}
+    $data remove storage ${ns}:player_data players[{currentAnim:$(anim)}]
+    # Tell the player the operation was successful.
+    $tellraw @s {text:"$(anim) has been successfully deleted.", color: "green"}
 `;

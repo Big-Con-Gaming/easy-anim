@@ -24,7 +24,7 @@
       "label": "Delete Existing Animation",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:menu/display_animations_dialog {func:1}"
+        "command": "function easy-anim:menu/display_animations_dialog {func:\"easy-anim:menu/delete_animation\"}"
       }
     }
   ]

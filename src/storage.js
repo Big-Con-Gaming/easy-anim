@@ -289,5 +289,3 @@ removeFrame`
     data remove storage ${ns}:temp removeframe
     scoreboard objectives remove ${ns}-removeframe
 `;
-
-// ADD STORAGE REMOVAL SOONER THAN LATER LOL.
