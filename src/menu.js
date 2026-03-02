@@ -246,6 +246,8 @@ deleteAnimation`
     $${debug.run} {input:"deleteAnimation for $(anim)"}
     # Log the expected function path
     ${debug.path} {input: "-> macroRemoveAnimationStorage -> recRemoveFrameData"}
+    # If the animation doesn't exist, error
+    $execute unless data storage ${ns}:animation_data animations[{name:$(anim)}].data run return run ${debug.error} {input: "$(anim) doesn't exist!"}
     # If the animation is being displayed somewhere (location != none), then return and tell the player.
     $execute unless data storage ${ns}:animation_data animations[{name:$(anim),data:{location:"none"}}] run return run ${a`
         ${debug.error} {input: "Animation is currently in use!"}

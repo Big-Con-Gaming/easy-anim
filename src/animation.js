@@ -614,7 +614,7 @@ clean`
     # Warning to remove this function at somepoint
     ${debug.warn} {input: "remove clean function before release, within animation"}
     tag @s remove ${ns}-inEditor
-    function menu/delete_animation {anim:"test"}
+    function ${ns}:menu/delete_animation {anim:"test"}
     execute in ${ns}:editor run setblock 0 1 0 minecraft:air
     data remove storage ${ns}:animation_data animations[]
     data remove storage ${ns}:player_data players[]
