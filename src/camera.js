@@ -2,6 +2,7 @@
 import mcf from './mcf.js';
 import * as debug from './debug.js';
 import { cleanUpNewAnimationData, anchorDifference, constructRealCoordinates, grabAnimationFromUuid} from './selection.js';
+import { exitRender } from './render.js';
 const folder = mcf.camera;
 export const { anonymous: a, cameraSave, cameraSaveFinish, cameraLoad, exitCamera, cameraHighlight, cameraRemoveHighlight } = folder;
 const {} = folder;
@@ -86,6 +87,10 @@ exitCamera`
     # Warn if the tag is already missing.
     execute unless entity @s[tag=${ns}-camera-view] run ${debug.warn} {input: "Player is missing ${ns}-camera-view tag! Skipping..."}
     tag @s[tag=${ns}-camera-view] remove ${ns}-camera-view
+    # Check if the player is within a render, and if so, exit the render.
+    ${a`
+        $execute if data storage ${ns}:animation_data render_queue[{player: $(UUID)}] run ${exitRender} with storage ${ns}:animation_data render_queue[{player: $(UUID)}]
+    `} with entity @s
 `;
 
 // Removes the camera position highlight when no longer hovering over the load camera item.

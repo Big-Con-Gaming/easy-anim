@@ -2,13 +2,14 @@
 import mcf from './mcf.js';
 import * as debug from './debug.js';
 import { saveInventory, workingHotbar, calculateLaneX } from './inventory.js';
-import { grabStrBlockPos, cleanUpNewAnimationData, handleSummon, regroupEntities, removeDocile, grabAnimationFromUuid } from './selection.js';
+import { grabStrBlockPos, cleanUpNewAnimationData, handleSummon, regroupEntities, removeDocile, grabAnimationFromUuid, recGroupSearch } from './selection.js';
 import { allocAnimation, storeFrame } from './storage.js';
 import { replaceAllInString, toLowerCase, stringConcat } from './util.js';
 import { enterEditor } from './animation.js';
+import { startRender } from './render.js';
 const folder = mcf.menu;
-export const { setName, createSelection, createAnimation, recGroupSearch, saveStructure, displayAnimationsDialog, deleteAnimation } = folder;
-const { recAddAnimToList, macroDialog, editAnimationSetup, recRemoveFrameData, macroRemoveAnimationStorage, anonymous: a } = folder;
+export const { setName, createSelection, createAnimation, saveStructure, displayAnimationsDialog, deleteAnimation, renderAnimation } = folder;
+const { noticeAnimInUse, recAddAnimToList, macroDialog, editAnimationSetup, recRemoveFrameData, macroRemoveAnimationStorage, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 
@@ -84,8 +85,6 @@ createAnimation`
     ${grabStrBlockPos}
     ${calculateLaneX} {output:"${ns}:temp str.lanex int"}
     scoreboard objectives add ${ns}-temp dummy
-    execute store result score y-increase ${ns}-temp run data get storage ${ns}:temp str.y
-    execute store result storage ${ns}:temp str.upy int 1 run scoreboard players add y-increase ${ns}-temp 1
     data modify storage ${ns}:temp str.name set from storage ${ns}:animation_data new.name
     # Warn if the animation currently has framecount or frames.
     execute if data storage ${ns}:animation_data new.framecount run ${debug.warn} {input: "Animation has framecount! Overwriting..."}
@@ -101,7 +100,9 @@ createAnimation`
     ${saveStructure`
         # Log the function call
         $${debug.run} {input: "saveStructure at $(x) $(y) $(z) within $(sx) $(sy) $(sz) for $(name)"}
-        $clone $(x) $(upy) $(z) $(x) $(upy) $(z) to ${ns}:editor $(lanex) 3 0 strict
+        # Warn if we're replacing a non-air block
+        $execute in ${ns}:editor unless block $(lanex) 3 0 minecraft:air run ${debug.warn} {input: "Non-air block in editor at $(lanex) 3 0! Replacing..."}
+        $execute positioned $(x) $(y) $(z) run clone ~ ~1 ~ ~ ~1 ~ to ${ns}:editor $(lanex) 3 0 strict
         # Warn if no interactions or handles are present.
         $execute positioned $(x) $(y) $(z) unless entity @n[type=minecraft:interaction,tag=${ns}-select-str-block,distance=..1] run ${debug.warn} {input:"No interaction blocking the structure block! Skipping removal..."}
         $execute positioned $(x) $(y) $(z) unless entity @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)] run ${debug.warn} {input:"No handles on the selection! Skipping removal..."}
@@ -109,25 +110,7 @@ createAnimation`
         $execute positioned $(x) $(y) $(z) run kill @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)]
         # Ungroup any grouped entities and tag them so they can find each other.
         execute store result storage ${ns}:temp str.id int 1 run scoreboard players set groupid ${ns}-temp 0
-        ${recGroupSearch`
-            # Log the function call
-            $${debug.run} {input: "recGroupSearch with id $(id)"}
-            # Warn if no entities are present within the selection
-            $execute positioned $(x) $(y) $(z) unless entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group,limit=1,sort=random] run ${debug.warn} {input:"No entities can be grouped! Skipping..."}
-            $execute positioned $(x) $(y) $(z) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group,limit=1,sort=random] if data entity @s Passengers run ${a`
-                # Log the function call
-                ${debug.run} {input: "grouping an entity found within selection"}
-                $tag @s add ${ns}-vehicle-$(id)
-                $data modify entity @s data.easyanimgroupid set value $(id)
-                tag @s add ${ns}-group
-                $execute on passengers run tag @s add ${ns}-passenger-$(id)
-                execute on passengers run tag @s add ${ns}-group
-                $execute on passengers run data modify entity @s data.easyanimgroupid set value $(id)
-                execute on passengers run ride @s dismount
-                execute store result storage ${ns}:temp str.id int 1 run scoreboard players add groupid ${ns}-temp 1
-            `} with storage ${ns}:temp str
-            $execute positioned $(x) $(y) $(z) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group] if data entity @s Passengers run ${recGroupSearch} with storage ${ns}:temp str
-        `} with storage ${ns}:temp str
+        $execute positioned $(x) $(y) $(z) run ${recGroupSearch} with storage ${ns}:temp str
         # Using the macro, make sure all of the entities within the selection are no longer considered docile
         ${a`
             # Log the function call
@@ -136,10 +119,10 @@ createAnimation`
             $execute positioned $(x) $(y) $(z) if entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-entity-turned-docile] run ${debug.warn} {input: "No docile entities found! Skipping..."}
             $execute positioned $(x) $(y) $(z) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-entity-turned-docile] run ${removeDocile}
         `} with storage ${ns}:temp str
-        $setblock $(x) $(upy) $(z) minecraft:redstone_block
-        $setblock $(x) $(upy) $(z) minecraft:air
+        $execute positioned $(x) $(y) $(z) run setblock ~ ~1 ~ minecraft:redstone_block
+        $execute positioned $(x) $(y) $(z) run setblock ~ ~1 ~ minecraft:air
         $data modify block $(x) $(y) $(z) name set value "${ns}:$(name)-frame0"
-        $setblock $(x) $(upy) $(z) minecraft:redstone_block
+        $execute positioned $(x) $(y) $(z) run setblock ~ ~1 ~ minecraft:redstone_block
         $data modify block $(x) $(y) $(z) name set value "${ns}:$(name)-base"
         # Allocate a lane in storage for this new animation, and place base and frame 0 in there.
         # Warn if animation_data already has a storageid
@@ -148,8 +131,8 @@ createAnimation`
         $${storeFrame} {name: $(name), framenum: "base"}
         $${storeFrame} {name: $(name), framenum: 0}
         # Regroup any grouped entities and remove their redundant tags + data. Must be separated so data that is needed to find each other isn't erased yet.
-        ${regroupEntities} with storage ${ns}:temp str
-        $clone from easy-anim:editor $(lanex) 3 0 $(lanex) 3 0 $(x) $(upy) $(z) strict
+        $execute positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 run ${regroupEntities} with storage ${ns}:temp str
+        $execute positioned $(x) $(y) $(z) run clone from easy-anim:editor $(lanex) 3 0 $(lanex) 3 0 ~ ~1 ~ strict
         $summon minecraft:interaction $(x) $(y) $(z) {width:1.01f,height:1.01f,Tags:["${ns}-select-str-block"]}
         $execute in ${ns}:editor run setblock $(lanex) 3 0 minecraft:air
     `} with storage ${ns}:temp str
@@ -217,6 +200,12 @@ displayAnimationsDialog`
     data remove storage ${ns}:temp displayanimationsdialog
 `;
 
+// Logs and tells the player that the animation is in use elsewhere
+noticeAnimInUse`
+    ${debug.error} {input: "Animation is currently in use!"}
+    tellraw @s {text: "Animation is currently in use!", color: "red"}
+`
+
 // Runs when selecting an animation to edit. Must receive macro anim and UUID which contains the name of the animation we want to edit and the UUID of the executing player.
 editAnimationSetup`
     # Log the entry point
@@ -228,10 +217,7 @@ editAnimationSetup`
     # Error if the player already has a currentAnim
     $execute if data storage ${ns}:player_data players[{UUID:$(UUID)}].currentAnim run return run ${debug.error} {input:"Player already has a currentAnim!"}
     # If the animation is being displayed elsewhere (location != none), then return and tell the player.
-    $execute unless data storage ${ns}:animation_data animations[{name:$(anim),data:{location:"none"}}] run return run ${a`
-        ${debug.error} {input: "Animation is already placed somewhere else!"}
-        tellraw @s {text: "Animation is already placed somewhere else!", color: "red"}
-    `}
+    $execute unless data storage ${ns}:animation_data animations[{name:$(anim),data:{location:"none"}}] run return run ${noticeAnimInUse}
     # Set this animation's name to the player's currentAnim
     $data modify storage ${ns}:player_data players[{UUID:$(UUID)}].currentAnim set value $(anim)
     # Execute enterEditor with the player as the macro context.
@@ -249,10 +235,7 @@ deleteAnimation`
     # If the animation doesn't exist, error
     $execute unless data storage ${ns}:animation_data animations[{name:$(anim)}].data run return run ${debug.error} {input: "$(anim) doesn't exist!"}
     # If the animation is being displayed somewhere (location != none), then return and tell the player.
-    $execute unless data storage ${ns}:animation_data animations[{name:$(anim),data:{location:"none"}}] run return run ${a`
-        ${debug.error} {input: "Animation is currently in use!"}
-        tellraw @s {text: "Animation is currently in use!", color: "red"}
-    `}
+    $execute unless data storage ${ns}:animation_data animations[{name:$(anim),data:{location:"none"}}] run return run ${noticeAnimInUse}
     # Possible extension of function: If location is editor, run exit editor on owner. (In multiplayer, permission check?)
     # Clear all of the frames from storage (removeFrame works on a one frame at a time basis)
     # Warn if the animation has no frames
@@ -299,4 +282,24 @@ deleteAnimation`
     $data remove storage ${ns}:player_data players[{currentAnim:$(anim)}]
     # Tell the player the operation was successful.
     $tellraw @s {text:"$(anim) has been successfully deleted.", color: "green"}
+    # Remove temporary placeholder data
+    data remove storage ${ns}:temp deleteAnimation
+`;
+
+// Sets up the data required to begin a render of a specified animation.
+renderAnimation`
+    # Log the entry point
+    ${debug.entry} {input:"from: displayAnimationsDialog specified execution from main_menu dialog"}
+    # Log the function call
+    $${debug.run} {input:"renderAnimation for $(anim)"}
+    # Log the expected function path
+    ${debug.path} {input: "-> startRender"}
+    # If the animation doesn't exist, error
+    $execute unless data storage ${ns}:animation_data animations[{name:$(anim)}].data run return run ${debug.error} {input: "$(anim) doesn't exist!"}
+    # If the animation is being displayed somewhere (location != none), then return and tell the player.
+    $execute unless data storage ${ns}:animation_data animations[{name:$(anim),data:{location:"none"}}] run return run ${noticeAnimInUse}
+    # Set this player's currentAnim to this animation
+    $data modify storage ${ns}:player_data players[{UUID: $(UUID)}].currentAnim set value $(anim)
+    # Call startRender
+    ${startRender}
 `;

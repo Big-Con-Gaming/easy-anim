@@ -132,14 +132,14 @@ for (const { name, level, color, symbol, special } of debugTypes) {
     if (special == null) {
         folder[`${name}`]`
             # Display the debug message only if the debug level is high enough.
-            $execute if score .debug ${ns} matches ${level}.. run tellraw @a {text: '${ns}: (${symbol}) $(input)', color: "${color}"}
+            $execute if score #debug ${ns} matches ${level}.. run tellraw @a {text: '${ns}: (${symbol}) $(input)', color: "${color}"}
             # Store this debug message in the debug log.
             $data modify storage ${ns}:debug log append value {text: {text: '${ns}: (${symbol}) $(input)', color: "${color}"}, level: ${level}}
         `;
     } else if (special === "store_data") {
         folder[`${name}`]`
             # Display the debug message only if the debug level is high enough.
-            $execute if score .debug ${ns} matches ${level}.. run tellraw @a [{text: "${ns}: (${symbol}) ", color: "${color}"}, {type: "nbt", source: "$(source)", nbt: "$(path)", $(source): "$(location)", interpret: false}]
+            $execute if score #debug ${ns} matches ${level}.. run tellraw @a [{text: "${ns}: (${symbol}) ", color: "${color}"}, {type: "nbt", source: "$(source)", nbt: "$(path)", $(source): "$(location)", interpret: false}]
             # Store this debug message in the debug log. Grab as text to resolute value.
             $data modify storage ${ns}:debug temp set from $(source) $(location) $(path)
             ${a`

@@ -52,7 +52,7 @@ calculateLaneX`
     # Log the function call
     $${debug.run} {input: "calculateLaneX outputting to $(output)"}
     # Log the expected function path.
-    ${debug.path} {input: "-> grabOwnerPlayerData"}
+    ${debug.path} {input: "-> | grabOwnerPlayerData"}
     execute unless data storage ${ns}:player_data current run ${grabOwnerPlayerData}
     # Error if the player doesn't have a lane.
     execute unless data storage ${ns}:player_data current.lane run return run ${debug.error} {input:"Player does not have an editor lane!"}
@@ -76,7 +76,7 @@ findPlayerAxisOffset`
     # Log the expected function path.
     ${debug.path} {input: "-> recEditorSearch (^ found empty lane)"}
     # Error if the player already has a lane
-    execute if data storage ${ns}:player_data current.lane run ${debug.error} {input:"Player already has a lane!"}
+    execute if data storage ${ns}:player_data current.lane run return run ${debug.error} {input:"Player already has a lane!"}
     scoreboard objectives add ${ns}-lane dummy
     scoreboard players set current-lane ${ns}-lane 0
     execute unless data storage ${ns}:player_data current.lane in ${ns}:editor positioned 0 1 0 run ${recEditorSearch`

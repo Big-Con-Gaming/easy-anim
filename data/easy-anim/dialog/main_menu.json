@@ -21,6 +21,13 @@
       }
     },
     {
+      "label": "Render Animation",
+      "action": {
+        "type": "minecraft:run_command",
+        "command": "function easy-anim:menu/display_animations_dialog {func:\"easy-anim:menu/render_animation\"}"
+      }
+    },
+    {
       "label": "Delete Existing Animation",
       "action": {
         "type": "minecraft:run_command",

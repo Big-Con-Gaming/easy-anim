@@ -75,7 +75,7 @@ enterEditor`
             kill @s
         `} with storage ${ns}:temp eemacro
         # Regroup all grouped entities
-        execute in ${ns}:editor run ${regroupEntities} with storage ${ns}:temp eemacro
+        $execute in ${ns}:editor positioned $(x) 1 $(z) run ${regroupEntities} with storage ${ns}:temp eemacro
         # Warn if the structure block will replace a non-air block
         $execute in ${ns}:editor unless block $(x) 0 $(z) minecraft:air run ${debug.warn} {input: "Non-air block at $(x) 0 $(z)! Overwriting with structure block..."} 
         # Place in the frame's structure block
@@ -201,13 +201,10 @@ saveSpecificFrame`
     scoreboard objectives add ${ns}-temp dummy
     execute store result storage ${ns}:temp str.id int 1 run scoreboard players set groupid ${ns}-temp 0
     # All important data needs to be placed into str for the old recGroupSearch function to work. I feel like there's a better way to do this.
-    $data modify storage ${ns}:temp str.x set value $(ax)
-    $data modify storage ${ns}:temp str.y set value $(ay)
-    $data modify storage ${ns}:temp str.z set value $(az)
     $data modify storage ${ns}:temp str.sx set value $(sx)
     $data modify storage ${ns}:temp str.sy set value $(sy)
     $data modify storage ${ns}:temp str.sz set value $(sz)
-    execute in ${ns}:editor run ${recGroupSearch} with storage ${ns}:temp str
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run ${recGroupSearch} with storage ${ns}:temp str
     # Remove docile for all entities within the frame. 
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-entity-turned-docile] run ${removeDocile}
     # Warn if the structure block will replace a non-air block
@@ -222,7 +219,7 @@ saveSpecificFrame`
     # Store structure data since it changed.
     $${storeFrame} {framenum: $(framenum)}
     # Regroup all entities.
-    execute in ${ns}:editor run ${regroupEntities} with storage ${ns}:temp str
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run ${regroupEntities} with storage ${ns}:temp str
     # Remove all trailing data.
     data remove storage ${ns}:temp str
     scoreboard objectives remove ${ns}-temp
@@ -412,7 +409,7 @@ loadSpecificFrame`
     # Place in the structure block.
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
     # Regroup all grouped entities
-    $execute in ${ns}:editor run ${regroupEntities} {x: $(ax), y: $(ay), z: $(az), sx: $(sx), sy: $(sy), sz: $(sz)}
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run ${regroupEntities} {sx: $(sx), sy: $(sy), sz: $(sz)}
 `;
 
 // Allows the player to exit the editor dimension.
@@ -520,7 +517,7 @@ addBaseFrame`
     execute store result score lastframesizez ${ns}-abf run data get storage ${ns}:animation_data new.frames[-1].size[2]
     # Copy the base frame's data into the new frame.
     data modify storage ${ns}:animation_data new.frames append value {}
-    data modify storage ${ns}:animation_data new.frames[-1].duration set value 0.25
+    data modify storage ${ns}:animation_data new.frames[-1].duration set value 5
     data modify storage ${ns}:animation_data new.frames[-1].camera set from storage ${ns}:animation_data new.camera
     data modify storage ${ns}:animation_data new.frames[-1].anchor set from storage ${ns}:animation_data new.anchor
     data modify storage ${ns}:animation_data new.frames[-1].size set from storage ${ns}:animation_data new.size
@@ -561,7 +558,7 @@ addBaseFrame`
         $execute in ${ns}:editor positioned $(x) 0 $(z) run setblock ~1 ~ ~ minecraft:redstone_block
         $execute in ${ns}:editor positioned $(x) 0 $(z) run setblock ~1 ~ ~ minecraft:air
         # Regroup all grouped entities
-        $execute in ${ns}:editor run ${regroupEntities} {x: $(x), y: 1, z: $(z), sx: $(sx), sy: $(sy), sz: $(sz)}
+        $execute in ${ns}:editor positioned $(x) 1 $(z) run ${regroupEntities} with storage ${ns}:temp abf
         # Remove this forceloaded area
         $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload remove ~ ~ ~47 ~47
         # Store structure data since it changed.
