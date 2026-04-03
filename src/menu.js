@@ -93,7 +93,7 @@ createAnimation`
     data modify storage ${ns}:animation_data new.framecount set value 1
     data modify storage ${ns}:animation_data new.frames set value []
     data modify storage ${ns}:animation_data new.frames append value {}
-    data modify storage ${ns}:animation_data new.frames[0].duration set value 0.25
+    data modify storage ${ns}:animation_data new.frames[0].duration set value 20
     data modify storage ${ns}:animation_data new.frames[0].camera set from storage ${ns}:animation_data new.camera
     data modify storage ${ns}:animation_data new.frames[0].anchor set from storage ${ns}:animation_data new.anchor
     data modify storage ${ns}:animation_data new.frames[0].size set from storage ${ns}:animation_data new.size
@@ -146,8 +146,6 @@ createAnimation`
     # Prompt the user to enter the editor.
     dialog show @s ${ns}:enter_editor
 `;
-
-
 
 // If a dialog option needs to select an animation to perform, this function will handle that by generating a dialog with every animation as a button.
 displayAnimationsDialog`

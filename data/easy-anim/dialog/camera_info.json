@@ -27,7 +27,7 @@
       "label": "Submit",
       "action": {
         "type": "minecraft:dynamic/run_command",
-        "template": "function easy-anim:camera/camera_save_finish {note:$(note)}"
+        "template": "function easy-anim:camera/camera_save_finish {note:\"$(note)\"}"
       }
     }
   ]

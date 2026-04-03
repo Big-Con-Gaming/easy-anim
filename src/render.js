@@ -155,15 +155,15 @@ specificFrameRender`
     # Place the animation name into macro storage.
     data modify storage ${ns}:temp grabsizeanchor.name set from storage ${ns}:animation_data new.name
     # Place the player's UUID into macro storage.
-    $data modify storage ${ns}:temp grabsizeanchor.UUID set from storage ${ns}:animation_data render_queue[{name: $(name)}].player
+    $data modify storage ${ns}:temp grabsizeanchor.UUID set from storage ${ns}:animation_data render_queue[{name:$(name)}].player
     # Place the animation's dimension into macro storage.
     data modify storage ${ns}:temp grabsizeanchor.dimension set from storage ${ns}:animation_data new.dimension
-    # Convert camera position into real world coordinates, stored as object tags so the macro works.
-    ${constructRealCoordinates} {arrayformat:0, input:"storage ${ns}:animation_data new.camera.pos[", output:"storage ${ns}:temp grabsizeanchor.camera"}
-    # Toss in yaw, pitch, and the note into a temporary storage for macros.
+    # Toss in camera position, yaw, pitch, and the note into a temporary storage for macros.
     ${a`
         # Log the function call.
         $${debug.run} {input: "grab camera for $(framenum)"}
+        # Convert camera position into real world coordinates, stored as object tags so the macro works.
+        $${constructRealCoordinates} {arrayformat:0, input:"storage ${ns}:animation_data new.frames[$(framenum)].camera.pos[", output:"storage ${ns}:temp grabsizeanchor.camera", type: "a"}
         $data modify storage ${ns}:temp grabsizeanchor.camerayaw set from storage ${ns}:animation_data new.frames[$(framenum)].camera.rot[0]
         $data modify storage ${ns}:temp grabsizeanchor.camerapitch set from storage ${ns}:animation_data new.frames[$(framenum)].camera.rot[1]
         $data modify storage ${ns}:temp grabsizeanchor.cameranote set from storage ${ns}:animation_data new.frames[$(framenum)].camera.note

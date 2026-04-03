@@ -255,12 +255,13 @@ storeAxisMacro`
 `;
 
 // Takes an input storage location and calculates the difference between that location and the anchor location from the new selection.
+// Needs macro: $(type) = "a" or "frames[0].ea" to refer to either the animation's anchor or a frame's editor anchor.
 function createAnchorDifferenceCommands({axis, i}) {
     return`
         # Grab the coordinates that need to be converted. They're assumed to be within an array.
         $execute store result score diff${axis} ${ns}-diffmath run data get $(input)${i}] 10000
         # Grab the anchor coordinates.
-        execute store result score anchor${axis} ${ns}-diffmath run data get storage ${ns}:animation_data new.anchor[${i}] 10000
+        $execute store result score anchor${axis} ${ns}-diffmath run data get storage ${ns}:animation_data new.$(type)nchor[${i}] 10000
         # Subtract anchor from the input coordinates to get the difference.
         scoreboard players operation diff${axis} ${ns}-diffmath -= anchor${axis} ${ns}-diffmath
         # Toss the axis, iterative variable, namespace, and output into temp storage for the macro.
@@ -286,7 +287,7 @@ function createAnchorDifferenceCommands({axis, i}) {
 // Set up the scoreboard objective and constant values.
 anchorDifferenceCommands.push(`
     # Log the function call
-    $${debug.run} {input: "anchorDifference with $(input) placing into $(output) depending on arrayformat: $(arrayformat)"}
+    $${debug.run} {input: "anchorDifference with $(input) placing into $(output) depending on arrayformat: $(arrayformat), anchor from: $(type)"}
     # Log the expected function path.
     ${debug.path} {input: "-> [storeArrayMacro | storeAxisMacro] X3"}
     scoreboard objectives add ${ns}-diffmath dummy
@@ -304,12 +305,13 @@ anchorDifferenceCommands.push(`
 anchorDifference`${anchorDifferenceCommands.join('\n')}`;
 
 // Takes an input storage location and calculates the real world coordinates by adding the anchor coordinates from the new selection.
+// Needs macro: $(type) = "a" or "frames[0].ea" to refer to either the animation's anchor or a frame's editor anchor.
 function createConstructRealCoordinatesCommands({axis, i}) {
     return`
         # Grab the coordinates that need to be converted. They're assumed to be within an array.
         $execute store result score real${axis} ${ns}-realmath run data get $(input)${i}] 10000
         # Grab the anchor coordinates from the new selection.
-        execute store result score anchor${axis} ${ns}-realmath run data get storage ${ns}:animation_data new.anchor[${i}] 10000
+        $execute store result score anchor${axis} ${ns}-realmath run data get storage ${ns}:animation_data new.$(type)nchor[${i}] 10000
         # Add the anchor coordinate to the input difference to get the real world coordinate.
         scoreboard players operation real${axis} ${ns}-realmath += anchor${axis} ${ns}-realmath
         # Toss the axis, iterative variable, namespace, and output into temp storage for the macro.
@@ -335,7 +337,7 @@ function createConstructRealCoordinatesCommands({axis, i}) {
 // Set up the scoreboard objective and constant values.
 constructRealCoordinatesCommands.push(`
     # Log the function call
-    $${debug.run} {input: "constructRealCoordinates with $(input) placing into $(output) depending on arrayformat: $(arrayformat)"}
+    $${debug.run} {input: "constructRealCoordinates with $(input) placing into $(output) depending on arrayformat: $(arrayformat), anchor from: $(type)"}
     # Log the expected function path.
     ${debug.path} {input: "-> [storeArrayMacro | storeAxisMacro] X3"}
     scoreboard objectives add ${ns}-realmath dummy

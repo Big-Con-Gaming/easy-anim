@@ -4,8 +4,8 @@ import * as debug from './debug.js';
 import { cleanUpNewAnimationData, anchorDifference, constructRealCoordinates, grabAnimationFromUuid} from './selection.js';
 import { exitRender } from './render.js';
 const folder = mcf.camera;
-export const { anonymous: a, cameraSave, cameraSaveFinish, cameraLoad, exitCamera, cameraHighlight, cameraRemoveHighlight } = folder;
-const {} = folder;
+export const { anonymous: a, placeParticleEveryTick, cameraSave, cameraSaveFrame, cameraSaveFinish, cameraSaveFrameFinish, cameraLoad, cameraLoadFrame, exitCamera, cameraHighlight, cameraRemoveHighlight, toggleHighlightFrame } = folder;
+const { cameraDisplayParticles } = folder;
 const ns = 'easy-anim';
 
 // Takes the player's current position and rotation and saves it into the camera data for the current animation.
@@ -22,12 +22,43 @@ cameraSave`
     execute if data storage ${ns}:animation__data new.camera run ${debug.warn} {input: "Camera data already exists! Overwriting..."}
     # Set up default camera position and then calculate the position of the camera relative to the anchor. Store that in camera.pos.
     data modify storage ${ns}:animation_data new.camera.pos set value [0.0d, 0.0d, 0.0d]
-    ${anchorDifference} {arrayformat:1, input:"entity @s Pos[", output:"storage ${ns}:animation_data new.camera.pos["}
+    ${anchorDifference} {arrayformat:1, input:"entity @s Pos[", output:"storage ${ns}:animation_data new.camera.pos[", type:"a"}
     # Store rotation into camera.rot.
     data modify storage ${ns}:animation_data new.camera.rot set from entity @s Rotation
     # Show the dialog to enter a note for the camera.
     dialog show @s ${ns}:camera_info
     # Remove all temporary data.
+    ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
+`;
+
+// Takes the player's current position and rotation and saves it into the camera data for the current animation.
+// Needs: $(UUID) of player and $(framenum) of frame
+cameraSaveFrame`
+    # Log the entry point
+    ${debug.entry} {input: "from editor_menu set camera"}
+    # Log the function call
+    $${debug.run} {input: "cameraSaveFrame for $(UUID) frame $(framenum)"}
+    # Log the expected function path.
+    ${debug.path} {input: "-> grabAnimationFromUuid -> anchorDifference -> cleanUpNewAnimationData"}
+    # Grab the animation's data
+    $${grabAnimationFromUuid} {UUID:$(UUID)}
+    # Warn if camera data existed beforehand
+    $execute if data storage ${ns}:animation__data new.frames[$(framenum)].camera run ${debug.warn} {input: "Camera data already exists! Overwriting..."}
+    # Set up default camera position and then calculate the position of the camera relative to the anchor. Store that in camera.pos.
+    $data modify storage ${ns}:animation_data new.frames[$(framenum)].camera.pos set value [0.0d, 0.0d, 0.0d]
+    $${anchorDifference} {arrayformat:1, input:"entity @s Pos[", output:"storage ${ns}:animation_data new.frames[$(framenum)].camera.pos[", type:"frames[$(framenum)].ea"}
+    # Store rotation into camera.rot.
+    $data modify storage ${ns}:animation_data new.frames[$(framenum)].camera.rot set from entity @s Rotation
+    # Show the dialog to enter a note for the camera. Must be built on the fly due to inclusion of framenum macro.
+    data modify storage ${ns}:temp csfBuildDialog.note set value 'note:\\\\\"$(note)\\\\\"'
+    $data modify storage ${ns}:temp csfBuildDialog.framenum set value $(framenum)
+    ${a`
+        $${debug.run} {input: 'Building dialog with $(note) and framenum $(framenum)'}
+        $dialog show @s {"type": "minecraft:multi_action","title": {"text": "Camera Info:","type": "text"},"inputs": [{"type": "minecraft:text","key": "note","label": {"text": "Camera Notes (FOV, anything, etc.):"},"label_visible": true}],"can_close_with_escape": true,"exit_action": {"label": "Cancel","action": {"type": "minecraft:run_command","command": "function easy-anim:camera/camera_save_frame_finish {note:\\\"\\\", framenum: $(framenum)}"}},"actions": [{"label": "Submit","action": {"type": "minecraft:dynamic/run_command","template": "function easy-anim:camera/camera_save_frame_finish {$(note), framenum: $(framenum)}"}}]}
+    `} with storage ${ns}:temp csfBuildDialog
+    
+    # Remove all temporary data.
+    data remove storage ${ns}:temp csfBuildDialog
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
 `;
 
@@ -47,6 +78,26 @@ cameraSaveFinish`
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
 `;
 
+// Grabs the note wrote by the player in a dialog and places that into the camera's data within the animation data.
+cameraSaveFrameFinish`
+    # Log the entry point
+    ${debug.entry} {input: "from camera_info dialog"}
+    # Log the function call
+    $${debug.run} {input: "cameraSaveFinish with note $(note) for frame $(framenum)"}
+    # Log the expected function path.
+    ${debug.path} {input: "-> grabAnimationFromUuid -> cleanUpNewAnimationData"}
+    # Grab the player's animation data and insert it into new.
+    ${grabAnimationFromUuid} with entity @s
+    # Store the note into camera.note.
+    $data modify storage ${ns}:animation_data new.frames[$(framenum)].camera.note set value "$(note)"
+    # Remove all temporary data.
+    ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
+`;
+
+
+// LEFT OFF HERE, CONVERT LOAD FOR FRAME NUMS LIKE WE DID FOR SAVE
+
+
 // Takes the camera data from the animation_data and places the player at that position and rotation, along with displaying the note if there is one. Finally, puts the player into spectator mode and adds the camera view tag.
 cameraLoad`
     # Log the entry point
@@ -60,11 +111,43 @@ cameraLoad`
     # Error if no camera data exists yet.
     execute unless data storage ${ns}:animation_data new.camera run return run ${debug.error} {input: "No camera data to load!"}
     # Convert camera position into real world coordinates, stored as object tags so the macro works.
-    ${constructRealCoordinates} {arrayformat:0, input:"storage ${ns}:animation_data new.camera.pos[", output:"storage ${ns}:temp camera."}
+    ${constructRealCoordinates} {arrayformat:0, input:"storage ${ns}:animation_data new.camera.pos[", output:"storage ${ns}:temp camera.", type:"a"}
     # Toss in yaw, pitch, and the note into a temporary storage for macros.
     data modify storage ${ns}:temp camera.yaw set from storage ${ns}:animation_data new.camera.rot[0]
     data modify storage ${ns}:temp camera.pitch set from storage ${ns}:animation_data new.camera.rot[1]
     data modify storage ${ns}:temp camera.note set from storage ${ns}:animation_data new.camera.note
+    # Using a macro, teleport the player to the camera position and rotation, and display the note if there is one.
+    ${a`
+        $${debug.run} {input: "place player at camera at $(x) $(y) $(z) with rotation $(yaw) $(pitch) displaying note $(note)"}
+        $tp @s $(x) $(y) $(z) $(yaw) $(pitch)
+        $execute unless data storage ${ns}:temp {camera:{note:""}} run tellraw @s {text:"Camera Note: $(note)",bold:true}
+    `} with storage ${ns}:temp camera
+    # Remove all temporary data.
+    data remove storage ${ns}:temp camera
+    ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
+    # Place the player into spectator mode and add the camera view tag.
+    gamemode spectator @s
+    tag @s add ${ns}-camera-view
+`;
+
+// Takes the camera data from the animation_data and places the player at that position and rotation, along with displaying the note if there is one. Finally, puts the player into spectator mode and adds the camera view tag.
+cameraLoadFrame`
+    # Log the entry point
+    ${debug.entry} {input: "from editor_menu load camera"}
+    # Log the function call
+    $${debug.run} {input: "cameraLoad for $(UUID) and frame $(framenum)"}
+    # Log the expected function path.
+    ${debug.path} {input: "grabAnimationFromUuid -> constructRealCoordinates -> place player at camera -> cleanUpNewAnimationData"}
+    # Grab the player's animation data and insert it into new.
+    $${grabAnimationFromUuid} {UUID:$(UUID)}
+    # Error if no camera data exists yet.
+    $execute unless data storage ${ns}:animation_data new.frames[$(framenum)].camera run return run ${debug.error} {input: "No camera data to load!"}
+    # Convert camera position into real world coordinates, stored as object tags so the macro works.
+    $${constructRealCoordinates} {arrayformat:0, input:"storage ${ns}:animation_data new.frames[$(framenum)].camera.pos[", output:"storage ${ns}:temp camera.", type:"frames[$(framenum)].ea"}
+    # Toss in yaw, pitch, and the note into a temporary storage for macros.
+    $data modify storage ${ns}:temp camera.yaw set from storage ${ns}:animation_data new.frames[$(framenum)].camera.rot[0]
+    $data modify storage ${ns}:temp camera.pitch set from storage ${ns}:animation_data new.frames[$(framenum)].camera.rot[1]
+    $data modify storage ${ns}:temp camera.note set from storage ${ns}:animation_data new.frames[$(framenum)].camera.note
     # Using a macro, teleport the player to the camera position and rotation, and display the note if there is one.
     ${a`
         $${debug.run} {input: "place player at camera at $(x) $(y) $(z) with rotation $(yaw) $(pitch) displaying note $(note)"}
@@ -95,7 +178,22 @@ exitCamera`
 
 // Removes the camera position highlight when no longer hovering over the load camera item.
 cameraRemoveHighlight`
+    # No log since this runs every tick within overworld.
     $kill @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}]
+`;
+
+cameraDisplayParticles`
+    # Log the function call - except this will be running every tick in the editor dimension.
+    # ${debug.run} {input: "cameraDisplayParticles"}
+    particle minecraft:dust{scale:1,color:[1d,0d,0d]} ^ ^ ^0.5 0 0 0 0.01 0 force @a
+    particle minecraft:dust{scale:1,color:[0.75d,0d,0.25d]} ^ ^ ^1 0 0 0 0.01 0 force @a
+    particle minecraft:dust{scale:1,color:[0.5d,0d,0.5d]} ^ ^ ^1.5 0 0 0 0.01 0 force @a
+    particle minecraft:dust{scale:1,color:[0.25d,0d,0.75d]} ^ ^ ^2 0 0 0 0.01 0 force @a
+    particle minecraft:dust{scale:1,color:[0d,0d,1d]} ^ ^ ^2.5 0 0 0 0.01 0 force @a
+`
+
+placeParticleEveryTick`
+    $execute at @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] run ${cameraDisplayParticles}
 `;
 
 // Highlights the camera position when hovering over the load camera item.
@@ -118,7 +216,7 @@ cameraHighlight`
     `}
     data merge storage ${ns}:temp {camera:{pos:[0.0d, 0.0d, 0.0d]}}
     # Turn the data above into real world coordinates.
-    ${constructRealCoordinates} {arrayformat:1, input:"storage ${ns}:animation_data new.camera.pos[", output:"storage ${ns}:temp camera.pos["}
+    ${constructRealCoordinates} {arrayformat:1, input:"storage ${ns}:animation_data new.camera.pos[", output:"storage ${ns}:temp camera.pos[", type:"a"}
     # If a camera isn't already made, summon one and merge on all important data (position, rotation, owner).
     $execute unless entity @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] summon minecraft:item_display run ${a`
         ${debug.run} {input: "placing camera into world"}
@@ -129,13 +227,49 @@ cameraHighlight`
         execute at @s run tp @s ~ ~1.6 ~
     `}
     # Create particles in front of the camera to better indicate direction.
-    $execute at @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] run ${a`
-        particle minecraft:dust{scale:1,color:[1d,0d,0d]} ^ ^ ^0.5 0 0 0 0.01 0 force @a
-        particle minecraft:dust{scale:1,color:[0.75d,0d,0.25d]} ^ ^ ^1 0 0 0 0.01 0 force @a
-        particle minecraft:dust{scale:1,color:[0.5d,0d,0.5d]} ^ ^ ^1.5 0 0 0 0.01 0 force @a
-        particle minecraft:dust{scale:1,color:[0.25d,0d,0.75d]} ^ ^ ^2 0 0 0 0.01 0 force @a
-        particle minecraft:dust{scale:1,color:[0d,0d,1d]} ^ ^ ^2.5 0 0 0 0.01 0 force @a
+    $execute at @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] run ${cameraDisplayParticles}
+    # Remove all of the extra data generated.
+    ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
+    data remove storage ${ns}:temp camera
+`;
+
+// FINISH CHANGING THIS TO FRAME
+
+// Toggles whether or not a camera is highlighted within a frame in the editor.
+toggleHighlightFrame`
+    # Log the entry point
+    ${debug.entry} {input: "from editor_menu highlight camera"}
+    # Log the function call
+    $${debug.run} {input: "toggleHighlightFrame for $(UUID) and frame $(framenum)"}
+    # Log the expected function path.
+    ${debug.path} {input: "-> ^ if already in camera view -> grabAnimationFromUuid -> ^ exit if no camera -> constructRealCoordinates -> place camera in world -> particles -> cleanUpNewAnimationData"}
+    # If the player is already in camera view, remove the highlight and exit.
+    execute if entity @s[tag=${ns}-camera-view] run return run ${cameraRemoveHighlight} with entity @s
+    # If a camera does exist, delete the existing highlight and exit.
+    $execute if entity @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] run return run ${cameraRemoveHighlight} with entity @s
+    # Grab Animation Data from UUID
+    $${grabAnimationFromUuid} {UUID:$(UUID)}
+    # If there is no camera data, stop.
+    $execute unless data storage ${ns}:animation_data new.frames[$(framenum)].camera run return run ${a`
+        # Log the function call (in this case an error)
+        ${debug.error} {input: "No camera data to highlight for frame!"}
+        tellraw @s {text:"No camera data to highlight for this frame!",color:red}
+        data remove storage ${ns}:animation_data new
     `}
+    data merge storage ${ns}:temp {camera:{pos:[0.0d, 0.0d, 0.0d]}}
+    # Turn the data above into real world coordinates.
+    $${constructRealCoordinates} {arrayformat:1, input:"storage ${ns}:animation_data new.frames[$(framenum)].camera.pos[", output:"storage ${ns}:temp camera.pos[", type:"frames[$(framenum)].ea"}
+    # If a camera isn't already made, summon one and merge on all important data (position, rotation, owner).
+    $execute unless entity @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] summon minecraft:item_display run ${a`
+        ${debug.run} {input: "placing camera into world"}
+        data merge entity @s {item: {components: {"minecraft:profile": {id: [I; 797692767, 214648518, -2094961131, -1410769773], properties: [{name: "textures", value: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMTQ0MjJhODJjODk5YTljMTQ1NDM4NGQzMmNjNTRjNGFlN2ExYzRkNzI0MzBlNmU0NDZkNTNiOGIzODVlMzMwIn19fQ=="}]}}, count: 1, id: "minecraft:player_head"}, item_display: "ground", transformation: {left_rotation: [0.0f, 1.0f, 0.0f, 0.0f], right_rotation: [0.0f, 0.0f, 0.0f, 1.0f], scale: [1.0f, 1.0f, 1.0f], translation: [0.0f, 0.0f, 0.0f]}, Glowing:1b, Tags: ["${ns}-camera-highlight"]}
+        data modify entity @s data.owner set from storage ${ns}:animation_data new.owner
+        data modify entity @s Pos set from storage ${ns}:temp camera.pos
+        $data modify entity @s Rotation set from storage ${ns}:animation_data new.frames[$(framenum)].camera.rot
+        execute at @s run tp @s ~ ~1.6 ~
+    `} {framenum: $(framenum)}
+    # Create particles in front of the camera to better indicate direction.
+    $execute at @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] run ${cameraDisplayParticles}
     # Remove all of the extra data generated.
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     data remove storage ${ns}:temp camera
