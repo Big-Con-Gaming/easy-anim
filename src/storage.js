@@ -101,7 +101,7 @@ storeFrame`
         # Log the function call
         $${debug.run} {input: "macroPlaceFrame at $(x) 0 $(z) within $(sx) $(sy) $(sz) for $(name) $(prefix) with ref $(ref)"}
         # Place the structure inside of the editor dimension (in a forceloaded area for entities)
-        $execute in ${ns}:editor run place template ${ns}:$(name)-$(prefix) 0 0 -48
+        $execute in ${ns}:editor run place template ${ns}:$(name)-$(prefix) 0 0 -48 none none 1 1 strict
         # Place a structure block so we can save this structure without entities (for storage dimension)
         # Warn if non-air block is at this location
         execute in ${ns}:editor unless block 0 48 -48 minecraft:air run ${debug.warn} {input:"Expected air block in editor at 0 48 -48! Overwriting..."}
@@ -118,7 +118,7 @@ storeFrame`
         # Remove old blocks in case of trailing block data
         $execute in ${ns}:storage positioned $(x) 0 $(z) run fill ~ ~ ~ ~47 ~47 ~47 minecraft:air
         # Place the frame in the storage dimension
-        $execute in ${ns}:storage run place template ${ns}:$(name)-$(prefix) $(x) 0 $(z)
+        $execute in ${ns}:storage run place template ${ns}:$(name)-$(prefix) $(x) 0 $(z) none none 1 1 strict
         # Remove the forceload in the storage dimension
         $execute in ${ns}:storage positioned $(x) 0 $(z) run forceload remove ~ ~ ~47 ~47
         # Resave the structure with entities once again.
@@ -182,7 +182,7 @@ retrieveFrame`
         $${debug.run} {input: "frameExistanceCheck for $(name)-$(prefix)"}
         # Log the expected function path.
         ${debug.path} {input: "-> | cleanKill"}
-        $execute in ${ns}:editor store success score frameExistanceCheck ${ns}-retrieveframe run place template ${ns}:$(name)-$(prefix) 0 0 -48
+        $execute in ${ns}:editor store success score frameExistanceCheck ${ns}-retrieveframe run place template ${ns}:$(name)-$(prefix) 0 0 -48 none none 1 1 strict
         # Kill off any entities and clear any blocks
         execute in ${ns}:editor positioned 0 0 -48 as @e[type=!player,dx=47,dy=47,dz=47] run ${cleanKill}
         execute in ${ns}:editor run fill 0 0 -48 47 47 -1 minecraft:air strict

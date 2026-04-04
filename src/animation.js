@@ -72,7 +72,7 @@ enterEditor`
         # Retrieve structure data in case it was unloaded.
         $${retrieveFrame} {framenum: $(i)}
         # Place the frame's structure in. i = frame#
-        $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(i) $(x) 1 $(z)
+        $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(i) $(x) 1 $(z) none none 1 1 strict
         # Toss the editor's anchor point for this frame into storage. We use a temporary marker's position to place it in.
         $execute in ${ns}:editor positioned $(x) 1 $(z) align xyz summon minecraft:marker run ${editorAnchorInData`
             # Log the function call
@@ -411,7 +411,7 @@ loadSpecificFrame`
     # Retrieve structure data in case it was unloaded.
     $${retrieveFrame} {framenum: $(framenum)}
     # Place the frame's structure in.
-    $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(framenum) $(ax) $(ay) $(az)
+    $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(framenum) $(ax) $(ay) $(az) none none 1 1 strict
     # Warn if the structure block will replace a non-air block
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) unless block ~ ~-1 ~ minecraft:air run ${debug.warn} {input: "Non-air block at $(ax) ($(ay) - 1) $(az)! Overwriting with structure block..."}
     # Place in the structure block.
@@ -675,7 +675,7 @@ addBaseFrame`
         # Makes sure this entire animation is loaded
         $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload add ~ ~ ~47 ~47
         # Place the frame's structure in. i = frame#
-        $execute in ${ns}:editor run place template ${ns}:$(name)-base $(x) 1 $(z)
+        $execute in ${ns}:editor run place template ${ns}:$(name)-base $(x) 1 $(z) none none 1 1 strict
         # Warn if the structure block will replace a non-air block
         $execute in ${ns}:editor unless block $(x) 0 $(z) minecraft:air run ${debug.warn} {input: "Non-air block at $(x) 0 $(z)! Overwriting with structure block..."}
         # Place in the frame's structure block
@@ -712,7 +712,7 @@ renumberFrame`
     # Remove the old frame from storage.
     $${removeFrame} {framenum: $(input)}
     # Place the structure template of the input frame.
-    $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(input) 0 1 -48
+    $execute in ${ns}:editor run place template ${ns}:$(name)-frame$(input) 0 1 -48 none none 1 1 strict
     # Warn if the structure block will replace a non-air block
     execute in ${ns}:editor unless block 0 0 -48 minecraft:air run ${debug.warn} {input: "Non-air block at 0 0 -48! Overwriting with structure block..."}
     # Place the structure block for this frame with the output frame number.
