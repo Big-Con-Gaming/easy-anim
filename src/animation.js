@@ -13,7 +13,7 @@ export const {
     recPushBackFrames, loadCurrentFrame, loadSpecificFrame, addBaseFrame, placeFrame, loadCameraCurrentFrame,
     toggleHighlightCurrentFrame, exit, recRemoveFrames, renumberFrame, modifyCurrentFrameDuration
 } = folder;
-const { anonymous: a, cleanRemainder, newPlayerLane, modifyFrameDurationDialog, setFrameDuration } = folder;
+const { anonymous: a, cleanRemainder, newPlayerLane, modifyFrameDurationDialog, setFrameDuration, toggleSelectionState } = folder;
 const ns = 'easy-anim';
 
 const editor_menu_item = 'minecraft:carrot_on_a_stick[item_name={italic:false,text:"Editor Menu"}, item_model="minecraft:test_instance_block"]';
@@ -85,7 +85,7 @@ enterEditor`
         # Warn if the structure block will replace a non-air block
         $execute in ${ns}:editor unless block $(x) 0 $(z) minecraft:air run ${debug.warn} {input: "Non-air block at $(x) 0 $(z)! Overwriting with structure block..."} 
         # Place in the frame's structure block
-        $execute in ${ns}:editor run setblock $(x) 0 $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(i)",strict:true}
+        $execute in ${ns}:editor run setblock $(x) 0 $(z) minecraft:structure_block{mode:"LOAD",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(i)",strict:true}
         # Store the current size along the z axis for this frame.
         execute store result score zadd ${ns}-temp run data get storage ${ns}:temp eemacro.frames[0].size[2]
         # Remove the current frame from the list.
@@ -134,6 +134,15 @@ enterEditor`
     scoreboard objectives remove ${ns}-temp
     # Give them the quick menu item. This item's data is stored as a constant above.
     execute unless items entity @s inventory.* ${editor_menu_item} unless items entity @s hotbar.* ${editor_menu_item} unless items entity @s weapon.* ${editor_menu_item} run give @s ${editor_menu_item}
+`;
+
+// Toggles the selection state of the provided frame number.
+toggleSelectionState`
+    # Log the function call
+    $${debug.run} {input: "toggleSelectionState for frame $(framenum)"}
+    # Log the expected function path.
+    ${debug.path} {input: "->"}
+    # TODO - Needs to change animations[0].data.frames[0].selected from true to false or vice versa, and also needs to modify structure block's showbounding box.
 `;
 
 // Finds which frame the player is currently located in and executes a specified command with this information.
@@ -224,6 +233,8 @@ saveSpecificFrame`
     # Save the frame
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~-1 ~-1 ~ minecraft:redstone_block
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~-1 ~-1 ~ minecraft:air
+    # Place back into LOAD mode for visual bounding box toggle.
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"LOAD",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
     # Store structure data since it changed.
     $${storeFrame} {framenum: $(framenum)}
     # Regroup all entities.
@@ -344,7 +355,7 @@ clearSpecificFrame`
         # Warn if the structure block will replace a non-air block
         $execute positioned $(ax) $(ay) $(az) unless block ~ ~-1 ~-$(diff) minecraft:air run ${debug.warn} {input: "Non-air block at $(ax) ($(ay) - 1) ($(az) - $(diff))! Overwriting with structure block..."}
         # Place a new structure block with the updated frame number.
-        $execute positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~-$(diff) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(shx),sizeY:$(shy),sizeZ:$(shz),ignoreEntities:false,name:"${ns}:$(name)-frame$(currentframe)",strict:true}
+        $execute positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~-$(diff) minecraft:structure_block{mode:"LOAD",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(shx),sizeY:$(shy),sizeZ:$(shz),ignoreEntities:false,name:"${ns}:$(name)-frame$(currentframe)",strict:true}
         # Remove forceloads to cleanup.
         $execute positioned $(ax) $(ay) $(az) run forceload remove ~ ~ ~47 ~47
         execute positioned 0 0 -48 run forceload remove ~ ~ ~47 ~47
@@ -415,7 +426,7 @@ loadSpecificFrame`
     # Warn if the structure block will replace a non-air block
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) unless block ~ ~-1 ~ minecraft:air run ${debug.warn} {input: "Non-air block at $(ax) ($(ay) - 1) $(az)! Overwriting with structure block..."}
     # Place in the structure block.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"LOAD",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
     # Regroup all grouped entities
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run ${regroupEntities} {sx: $(sx), sy: $(sy), sz: $(sz)}
 `;
@@ -679,12 +690,14 @@ addBaseFrame`
         # Warn if the structure block will replace a non-air block
         $execute in ${ns}:editor unless block $(x) 0 $(z) minecraft:air run ${debug.warn} {input: "Non-air block at $(x) 0 $(z)! Overwriting with structure block..."}
         # Place in the frame's structure block
-        $execute in ${ns}:editor run setblock $(x) 0 $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
+        $execute in ${ns}:editor run setblock $(x) 0 $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
         # Warn if the powering block will replace a non-air block
         $execute in ${ns}:editor positioned $(x) 0 $(z) unless block ~1 ~ ~ minecraft:air run ${debug.warn} {input: "Non-air block at ($(x) + 1) 0 $(z)! Overwriting with powering block..."}
         # Power and unpower the structure block to save the structure.
         $execute in ${ns}:editor positioned $(x) 0 $(z) run setblock ~1 ~ ~ minecraft:redstone_block
         $execute in ${ns}:editor positioned $(x) 0 $(z) run setblock ~1 ~ ~ minecraft:air
+        # Set back into LOAD mode for visual bounding box toggle.
+        $execute in ${ns}:editor run setblock $(x) 0 $(z) minecraft:structure_block{mode:"LOAD",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
         # Regroup all grouped entities
         $execute in ${ns}:editor positioned $(x) 1 $(z) run ${regroupEntities} with storage ${ns}:temp abf
         # Remove this forceloaded area
@@ -716,7 +729,7 @@ renumberFrame`
     # Warn if the structure block will replace a non-air block
     execute in ${ns}:editor unless block 0 0 -48 minecraft:air run ${debug.warn} {input: "Non-air block at 0 0 -48! Overwriting with structure block..."}
     # Place the structure block for this frame with the output frame number.
-    $execute in ${ns}:editor run setblock 0 0 -48 minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(output)",strict:true} strict
+    $execute in ${ns}:editor run setblock 0 0 -48 minecraft:structure_block{mode:"SAVE",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(output)",strict:true} strict
     # Warn if the powering block will replace a non-air block
     execute in ${ns}:editor unless block 1 0 -48 minecraft:air run ${debug.warn} {input: "Non-air block at 1 0 -48! Overwriting with powering block..."}
     # Save the structure.

@@ -58,7 +58,7 @@ startRender`
         $execute in ${ns}:editor unless block $(lanex) 3 0 minecraft:air run ${debug.warn} {input: "Non-air block in editor at $(lanex) 3 0! Replacing..."}
         $execute in $(dimension) positioned $(x) $(y) $(z) run clone ~ ~1 ~ ~ ~1 ~ to ${ns}:editor $(lanex) 3 0 strict
         # Place the structure block to save the original 
-        $execute in $(dimension) run setblock $(x) $(y) $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:1,posY:1,posZ:1,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-original",strict:true}
+        $execute in $(dimension) run setblock $(x) $(y) $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:false,posX:1,posY:1,posZ:1,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-original",strict:true}
         # Ungroup entities
         scoreboard objectives add ${ns}-temp dummy
         execute store result storage ${ns}:temp str.id int 1 run scoreboard players set groupid ${ns}-temp 0
@@ -221,8 +221,8 @@ exitRender`
         # Clear remaining blocks and entities once again
         $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-render] run ${cleanKill}
         $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 run fill ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) minecraft:air strict
-        # Grab all of the blocks from the editor and store them into a structure (is sx-z one smaller? Is that a problem again?)
-        $execute in ${ns}:editor run setblock $(lanex) 15 0 minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-original",strict:true} strict
+        # Grab all of the blocks from the editor and store them into a structure
+        $execute in ${ns}:editor run setblock $(lanex) 15 0 minecraft:structure_block{mode:"SAVE",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-original",strict:true} strict
         # Make sure all of these entities are not docile.
         $execute in ${ns}:editor positioned $(lanex) 16 0 as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] run ${removeDocile}
         # Warn if powering this structure block is replacing a non-air block
