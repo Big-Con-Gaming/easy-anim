@@ -8,7 +8,7 @@ import { cameraSaveFrame, cameraLoadFrame, toggleHighlightFrame } from './camera
 import { cleanKill } from './util.js';
 const folder = mcf.animation;
 export const {
-    enterEditor, findPlayerInFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame,
+    enterEditor, selectInPlayerFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, saveCurrentFrame,
     saveCameraCurrentFrame, recPlayerSearch, saveSpecificFrame, clearCurrentFrame, clearSpecificFrame, pullNextFrameData,
     recPushBackFrames, loadCurrentFrame, loadSpecificFrame, addBaseFrame, placeFrame, loadCameraCurrentFrame,
     toggleHighlightCurrentFrame, exit, recRemoveFrames, renumberFrame, modifyCurrentFrameDuration
@@ -139,22 +139,29 @@ enterEditor`
 // Toggles the selection state of the provided frame number.
 toggleSelectionState`
     # Log the function call
-    $${debug.run} {input: "toggleSelectionState for frame $(framenum)"}
-    # Log the expected function path.
-    ${debug.path} {input: "->"}
-    # TODO - Needs to change animations[0].data.frames[0].selected from true to false or vice versa, and also needs to modify structure block's showbounding box.
+    $${debug.run} {input: "toggleSelectionState for frame $(framenum) within $(sx) $(sy) $(sz)"}
+    # Stores the current state and flips depending on that old state.
+    scoreboard objectives add ${ns}-tss dummy
+    $execute store result score selected ${ns}-tss run data get storage ${ns}:animation_data new.frames[$(framenum)].selected
+    $execute if score selected ${ns}-tss matches 1 run data modify storage ${ns}:animation_data new.frames[$(framenum)].selected set value false
+    $execute if score selected ${ns}-tss matches 0 run data modify storage ${ns}:animation_data new.frames[$(framenum)].selected set value true
+    # Assume that we are executed at the anchor and change the structure block to have a bounding box.
+    execute if score selected ${ns}-tss matches 1 run data modify block ~ ~-1 ~ showboundingbox set value false
+    execute if score selected ${ns}-tss matches 0 run data modify block ~ ~-1 ~ showboundingbox set value true
+    # Tag all entities within frame with a selected tag so that they glow.
+    $execute if score selected ${ns}-tss matches 1 run tag @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-selected] remove ${ns}-selected
+    $execute if score selected ${ns}-tss matches 0 run tag @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=!${ns}-selected] add ${ns}-selected
+    # Clean up trailing data
+    scoreboard objectives remove ${ns}-tss
 `;
 
-// Finds which frame the player is currently located in and executes a specified command with this information.
-// Input: UUID = player's UUID, funccall = the function call to run once the player is found, macros are provided for the latter function.
-// Macros available to the latter function: a[x, y, z] = anchor's position, s[x, y, z] = frame's size, name = animation's name, framenum = the current frame's number, framecount = total number of frames.
-findPlayerInFrame`
+// Finds which frame the player is currently located in and selects it.
+// Input: UUID = player's UUID
+selectInPlayerFrame`
     # Log the function call
-    $${debug.run} {input: "findPlayerInFrame for $(UUID) to execute $(funccall)"}
+    $${debug.run} {input: "selectInPlayerFrame for $(UUID)"}
     # Log the expected function path.
-    ${debug.path} {input: "-> grabAnimationFromUuid -> grabSizeAnchorEditor -> recPlayerSearch ({funccall} -> grabSizeAnchorEditor) -> cleanUpNewAnimationData"}
-    # Place the funccall into grabsizeanchor so it can be macroed in later on.
-    $data modify storage ${ns}:temp grabsizeanchor.funccall set value "$(funccall)"
+    ${debug.path} {input: "-> grabAnimationFromUuid -> grabSizeAnchorEditor -> recPlayerSearch (^ toggleSelectionState -> grabSizeAnchorEditor) -> cleanUpNewAnimationData"}
     # Grab animation_data using UUID
     $${grabAnimationFromUuid} {UUID:$(UUID)}
     # Error but don't return if the animation has no frames.
@@ -164,27 +171,27 @@ findPlayerInFrame`
     # Place UUID into macro
     $data modify storage ${ns}:temp grabsizeanchor.UUID set value $(UUID)
     # Set up a scoreboard for the iterative var used within the saveSpecificFrame macro
-    scoreboard objectives add ${ns}-fpif dummy
-    execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players set i ${ns}-fpif 0
+    scoreboard objectives add ${ns}-sipf dummy
+    execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players set i ${ns}-sipf 0
     # Grab the framecount
-    execute store result score framecount ${ns}-fpif store result storage ${ns}:temp grabsizeanchor.framecount int 1 run data get storage ${ns}:animation_data new.framecount
+    execute store result score framecount ${ns}-sipf store result storage ${ns}:temp grabsizeanchor.framecount int 1 run data get storage ${ns}:animation_data new.framecount
     # Pull specific data into the macro for the first frame.
-    execute if score framecount ${ns}-fpif matches 1.. run ${grabSizeAnchorEditor} {framenum: 0}
-    execute if score framecount ${ns}-fpif matches 1.. run ${recPlayerSearch`
+    execute if score framecount ${ns}-sipf matches 1.. run ${grabSizeAnchorEditor} {framenum: 0}
+    execute if score framecount ${ns}-sipf matches 1.. run ${recPlayerSearch`
         # Log the function call
         $${debug.run} {input: "recPlayerSearch at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(name) frame $(framenum) out of $(framecount) player $(UUID)"}
-        # If the player is within this frame's bounding box, execute the function to save this specific frame. Exit the loop afterwards as well.
-        $execute in ${ns}:editor positioned $(ax) $(ay) $(az) if entity @p[dx=$(sx), dy=$(sy), dz=$(sz)] run return run $(funccall) {name: $(name), framenum: $(framenum), framecount: $(framecount), ax: $(ax), ay: $(ay), az: $(az), sx: $(sx), sy: $(sy), sz: $(sz), UUID: $(UUID)}
+        # If the player is within this frame's bounding box, select it. If add is true, return, if add is false, continue.
+        $execute in ${ns}:editor positioned $(ax) $(ay) $(az) if entity @p[dx=$(sx), dy=$(sy), dz=$(sz)] run return run ${toggleSelectionState} with storage ${ns}:temp grabsizeanchor
         # Iterate framenum
-        execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players add i ${ns}-fpif 1
+        execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players add i ${ns}-sipf 1
         # Grab the next frame's data
         ${grabSizeAnchorEditor} with storage ${ns}:temp grabsizeanchor
         # Unless framecount is equal or greater than the iterative variable, do another recursive search.
-        execute unless score i ${ns}-fpif >= framecount ${ns}-fpif run ${recPlayerSearch} with storage ${ns}:temp grabsizeanchor
+        execute unless score i ${ns}-sipf >= framecount ${ns}-sipf run ${recPlayerSearch} with storage ${ns}:temp grabsizeanchor
     `} with storage ${ns}:temp grabsizeanchor
     # Clean up remaining data
     data remove storage ${ns}:temp grabsizeanchor
-    scoreboard objectives remove ${ns}-fpif
+    scoreboard objectives remove ${ns}-sipf
     # Set animation_data new to the player's animation
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
 `;
@@ -202,7 +209,7 @@ saveCurrentFrame`
     # Store the function execution call within a macro location.
     data modify storage ${ns}:temp macro.funccall set value "${saveSpecificFrame}"
     # Execute the function that will find the player within a frame using our specific frame function call.
-    ${findPlayerInFrame} with storage ${ns}:temp macro
+    # {findPlayerInFrame} with storage ${ns}:temp macro
     # Remove trailing data
     data remove storage ${ns}:temp macro
 `;
@@ -261,7 +268,7 @@ clearCurrentFrame`
     # Set a value in storage so that clearSpecificFrame will move each subsequent frame over.
     data modify storage ${ns}:temp csf.shift set value true
     # Execute the function that will find the player within a frame using our specific frame function call.
-    ${findPlayerInFrame} with storage ${ns}:temp macro
+    # {findPlayerInFrame} with storage ${ns}:temp macro
     # Remove trailing data
     data remove storage ${ns}:temp macro
     data remove storage ${ns}:temp csf
@@ -405,7 +412,7 @@ loadCurrentFrame`
     # Store the function execution call within a macro location.
     data modify storage ${ns}:temp macro.funccall set value "${loadSpecificFrame}"
     # Execute the function that will find the player within a frame using our specific frame function call.
-    ${findPlayerInFrame} with storage ${ns}:temp macro
+    # {findPlayerInFrame} with storage ${ns}:temp macro
     # Remove trailing data
     data remove storage ${ns}:temp macro
 `;
@@ -444,7 +451,7 @@ saveCameraCurrentFrame`
     # Store the function execution call within a macro location.
     data modify storage ${ns}:temp macro.funccall set value "${cameraSaveFrame}"
     # Execute the function that will find the player within a frame using our specific frame function call.
-    ${findPlayerInFrame} with storage ${ns}:temp macro
+    # {findPlayerInFrame} with storage ${ns}:temp macro
     # Remove trailing data
     data remove storage ${ns}:temp macro
 `
@@ -462,7 +469,7 @@ loadCameraCurrentFrame`
     # Store the function execution call within a macro location.
     data modify storage ${ns}:temp macro.funccall set value "${cameraLoadFrame}"
     # Execute the function that will find the player within a frame using our specific frame function call.
-    ${findPlayerInFrame} with storage ${ns}:temp macro
+    # {findPlayerInFrame} with storage ${ns}:temp macro
     # Remove trailing data
     data remove storage ${ns}:temp macro
 `
@@ -480,7 +487,7 @@ toggleHighlightCurrentFrame`
     # Store the function execution call within a macro location.
     data modify storage ${ns}:temp macro.funccall set value "${toggleHighlightFrame}"
     # Execute the function that will find the player within a frame using our specific frame function call.
-    ${findPlayerInFrame} with storage ${ns}:temp macro
+    # {findPlayerInFrame} with storage ${ns}:temp macro
     # Remove trailing data
     data remove storage ${ns}:temp macro
 `
@@ -498,7 +505,7 @@ modifyCurrentFrameDuration`
     # Store the function execution call within a macro location.
     data modify storage ${ns}:temp macro.funccall set value "${modifyFrameDurationDialog}"
     # Execute the function that will find the player within a frame using our specific frame function call.
-    ${findPlayerInFrame} with storage ${ns}:temp macro
+    # {findPlayerInFrame} with storage ${ns}:temp macro
     # Remove trailing data
     data remove storage ${ns}:temp macro
 `
