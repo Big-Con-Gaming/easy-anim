@@ -90,6 +90,8 @@ enterEditor`
         $execute in ${ns}:editor unless block $(x) 0 $(z) minecraft:air run ${debug.warn} {input: "Non-air block at $(x) 0 $(z)! Overwriting with structure block..."} 
         # Place in the frame's structure block
         $execute in ${ns}:editor run setblock $(x) 0 $(z) minecraft:structure_block{mode:"LOAD",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(i)",strict:true}
+        # If the frame is supposed to be selected, run the selectFrame command to update it so.
+        $execute in ${ns}:editor if data storage ${ns}:animation_data new.frames[$(i)].selected run ${selectFrame} {ax: $(x), ay: 1, az: $(z), sx: $(sx), sy: $(sy), sz: $(sz), framenum: $(i)}
         # Store the current size along the z axis for this frame.
         execute store result score zadd ${ns}-temp run data get storage ${ns}:temp eemacro.frames[0].size[2]
         # Remove the current frame from the list.
