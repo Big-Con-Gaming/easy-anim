@@ -2,7 +2,7 @@
 import mcf from './mcf.js';
 import * as debug from './debug.js';
 const folder = mcf.util;
-export const { replaceAllInString, toLowerCase, stringConcat, cleanKill, stringEquals, pullDataStringEquals } = folder;
+export const { replaceAllInString, toLowerCase, stringConcat, cleanKill, stringEquals, pullDataStringEquals, testIfInt } = folder;
 const { anonymous: a, incrementIdx, recCharTest, lowerCaseMacro, rawConcat } = folder;
 const ns = 'easy-anim';
 
@@ -84,7 +84,7 @@ toLowerCaseCommands.push(`
     data modify storage ${ns}:util lowercase.output set value "storage ${ns}:util lowercase.input"
 `);
 
-for(let i = 0; i < 26; i++) {
+for(let i = 0; i < alphabetLower.length; i++) {
     const upperChar = alphabetUpper.charAt(i);
     const lowerChar = alphabetLower.charAt(i);
     toLowerCaseCommands.push(`
@@ -163,4 +163,19 @@ pullDataStringEquals`
     ${stringEquals} with storage ${ns}:test pullDataStringEquals
     # Clean up temporary data
     data remove storage ${ns}:test pullDataStringEquals
+`;
+
+// Places the macroed input into a score command.
+// If the macro fails the parse, the function will fail in total, and you can store that result to test if the input is a number.
+testIfInt`
+    # Log the function call
+    $${debug.run} {input: "testIfInt with $(input) (succeeded)"}
+    # Create a temporary scoreboard.
+    scoreboard objectives add ${ns}-util-string dummy
+    # Store the input as a data string
+    $scoreboard players set test ${ns}-util-string $(input)
+    # Clear trailing data
+    scoreboard objectives remove ${ns}-util-string
+    # Return 1 to indicate success
+    return 1
 `;

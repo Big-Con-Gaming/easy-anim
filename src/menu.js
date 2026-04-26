@@ -8,8 +8,8 @@ import { replaceAllInString, toLowerCase, stringConcat } from './util.js';
 import { enterEditor } from './animation.js';
 import { startRender } from './render.js';
 const folder = mcf.menu;
-export const { setName, createSelection, createAnimation, saveStructure, displayAnimationsDialog, deleteAnimation, renderAnimation } = folder;
-const { noticeAnimInUse, recAddAnimToList, macroDialog, editAnimationSetup, recRemoveFrameData, macroRemoveAnimationStorage, anonymous: a } = folder;
+export const { setName, createSelection, createAnimation, saveStructure, displayAnimationsDialog, deleteAnimation, renderAnimation, displayModifySelectDialog } = folder;
+const { noticeAnimInUse, recAddAnimToList, macroDialog, editAnimationSetup, recRemoveFrameData, macroRemoveAnimationStorage, countSelected, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 
@@ -132,7 +132,7 @@ createAnimation`
         $${storeFrame} {name: $(name), framenum: 0}
         # Regroup any grouped entities and remove their redundant tags + data. Must be separated so data that is needed to find each other isn't erased yet.
         $execute positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 run ${regroupEntities} with storage ${ns}:temp str
-        $execute positioned $(x) $(y) $(z) run clone from easy-anim:editor $(lanex) 3 0 $(lanex) 3 0 ~ ~1 ~ strict
+        $execute positioned $(x) $(y) $(z) run clone from ${ns}:editor $(lanex) 3 0 $(lanex) 3 0 ~ ~1 ~ strict
         $summon minecraft:interaction $(x) $(y) $(z) {width:1.01f,height:1.01f,Tags:["${ns}-select-str-block"]}
         $execute in ${ns}:editor run setblock $(lanex) 3 0 minecraft:air
     `} with storage ${ns}:temp str
@@ -289,7 +289,7 @@ renderAnimation`
     # Log the entry point
     ${debug.entry} {input:"from: displayAnimationsDialog specified execution from main_menu dialog"}
     # Log the function call
-    $${debug.run} {input:"renderAnimation for $(anim)"}
+    $${debug.run} {input:"renderAnimation for $(anim) with $(UUID)"}
     # Log the expected function path
     ${debug.path} {input: "-> startRender"}
     # If the animation doesn't exist, error
@@ -300,4 +300,58 @@ renderAnimation`
     $data modify storage ${ns}:player_data players[{UUID: $(UUID)}].currentAnim set value $(anim)
     # Call startRender
     ${startRender}
+`;
+
+// Creates the modify selection dialog to display to the player running the command. Must be constructed so that frame counts are used within the sliders and such.
+displayModifySelectDialog`
+    # Log the entry point
+    ${debug.entry} {input: "from: editor_menu dialog"}
+    # Log the function call.
+    ${debug.run} {input: "displayModifySelectDialog"}
+    # Log the expected function path.
+    ${debug.path} {input: "-> (countSelected -> | appending to end)"}
+    # Grab animation data
+    ${grabAnimationFromUuid} with entity @s
+    # Create a temporary scoreboard
+    scoreboard objectives add ${ns}-dmsd dummy
+    # Grab the framecount and store it as a score.
+    execute store result score max ${ns}-dmsd run data get storage ${ns}:animation_data new.framecount
+    # Grab the maxframeindex by decreasing max by 1
+    execute store result storage ${ns}:temp dmsd.maxframe int 1 run scoreboard players remove max ${ns}-dmsd 1
+    # Set min to 0 so we iterate over every frame, setting framenum in the process.
+    execute store result storage ${ns}:temp dmsd.framenum int 1 run scoreboard players set min ${ns}-dmsd 0
+    ${countSelected`
+        # Log the function call
+        $${debug.run} {input: "countSelected with $(framenum)"}
+        # Test if this frame is selected
+        $execute store result score selected ${ns}-dmsd run data get storage ${ns}:animation_data new.frames[$(framenum)].selected
+        # If so, append it to our frame selection list. (If it's not the first one in the list, append ", " first.)
+        execute if score selected ${ns}-dmsd matches 1 if data storage ${ns}:temp dmsd.list run ${a`
+            # Separated since both commands need the precondition specified above.
+            ${debug.run} {input: "appending to end"}
+            $data modify storage ${ns}:temp dmsd.merge set value ", $(framenum)"
+            ${stringConcat} {front: "${ns}:temp dmsd.list", back: "${ns}:temp dmsd.merge", output: "${ns}:temp dmsd.list"}
+        `} with storage ${ns}:temp dmsd
+        $execute if score selected ${ns}-dmsd matches 1 unless data storage ${ns}:temp dmsd.list run data modify storage ${ns}:temp dmsd.list set value "$(framenum)"
+        # Increment framenum
+        execute store result storage ${ns}:temp dmsd.framenum int 1 run scoreboard players add min ${ns}-dmsd 1
+        # Recursively call only if we haven't reached max yet
+        execute if score min ${ns}-dmsd <= max ${ns}-dmsd run ${countSelected} with storage ${ns}:temp dmsd
+    `} with storage ${ns}:temp dmsd
+    # If the list is empty (none selected), change the list to just be "none"
+    execute unless data storage ${ns}:temp dmsd.list run data modify storage ${ns}:temp dmsd.list set value "none"
+    # Set up any "double nested" macros (macro inserting macro references for the command-end, very weird I know.)
+    ${a`
+        $data modify storage ${ns}:temp dmsd.UUID set value "UUID: $(UUID)"
+    `} with entity @s
+    data modify storage ${ns}:temp dmsd.firstselect set value 'firstselectbar: $(firstselectbar), firstselecttext: \\\\\"$(firstselecttext)\\\\\"'
+    data modify storage ${ns}:temp dmsd.secondselect set value 'secondselectbar: $(secondselectbar), secondselecttext: \\\\\"$(secondselecttext)\\\\\"'
+    # Create and show the dialog to the player.
+    ${a`
+        $dialog show @s {type:"minecraft:multi_action",title:"Modify Selection",body:{type:"minecraft:plain_message",contents:"Currently Selected (starts at 0): $(list)"},inputs:[{type:"minecraft:number_range",key:"firstselectbar",label:"Select Specific Frame",start:0,end:$(maxframe),step:1,initial:0},{type:"minecraft:text",key:"firstselecttext",label:"Or, type it here (nums only!):"},{type:"minecraft:number_range",key:"secondselectbar",label:"Range Select",start:0,end:$(maxframe),step:1,initial:0},{type:"minecraft:text",key:"secondselecttext",label:"Or, type it here (nums only!):"}],can_close_with_escape:1,after_action:"close",exit_action:{label:"Return to menu",action:{type:"minecraft:show_dialog",dialog:"${ns}:editor_menu"}},actions:[{label:"Toggle Specified Frame",tooltip:"Chooses the frame specified in the top slider or text box.",action:{type:"minecraft:dynamic/run_command",template:"function ${ns}:animation/parse_toggle_single_select_frame {$(UUID), $(firstselect)}"}},{label:"Toggle Range of Frames",tooltip:"Chooses all frames in between the two specified in the sliders or text boxes above.",action:{type:"minecraft:dynamic/run_command",template:"function ${ns}:animation/parse_toggle_range_select_frame {$(UUID), $(firstselect), $(secondselect)}"}},{label:"Toggle Current Frame",tooltip:"Toggles the selection state of the frame you are physically standing in.",action:{type:"minecraft:run_command",command:"function ${ns}:animation/select_in_player_frame with entity @s"}},{label:"Invert Selection",tooltip:"All currently selected are deselected, all non-selected frames are now selected.",action:{type:"minecraft:run_command",command:"function ${ns}:animation/toggle_all_select_frame with entity @s"}},{label:"Select All Frames",action:{type:"minecraft:run_command",command:"function ${ns}:animation/select_all_frames {$(UUID), select: 1}"}},{label:"Deselect All Frames",action:{type:"minecraft:run_command",command:"function ${ns}:animation/select_all_frames {$(UUID), select: -1}"}}]}
+    `} with storage ${ns}:temp dmsd
+    # Clear trailing data
+    data remove storage ${ns}:animation_data new
+    scoreboard objectives remove ${ns}-dmsd
+    data remove storage ${ns}:temp dmsd
 `;

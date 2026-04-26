@@ -3,9 +3,16 @@
   "title": "Editor Menu",
   "can_close_with_escape": true,
   "exit_action": {
-    "label": "Cancel"
+    "label": "Close"
   },
   "actions": [
+    {
+      "label": "Modify Selection",
+      "action": {
+        "type": "minecraft:run_command",
+        "command": "function easy-anim:menu/display_modify_select_dialog"
+      }
+    },
     {
       "label": "Save Current Frame",
       "tooltip": "You must be within the bounding region of a frame for this to work.",

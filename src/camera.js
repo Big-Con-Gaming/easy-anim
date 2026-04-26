@@ -233,8 +233,6 @@ cameraHighlight`
     data remove storage ${ns}:temp camera
 `;
 
-// FINISH CHANGING THIS TO FRAME
-
 // Toggles whether or not a camera is highlighted within a frame in the editor.
 toggleHighlightFrame`
     # Log the entry point
