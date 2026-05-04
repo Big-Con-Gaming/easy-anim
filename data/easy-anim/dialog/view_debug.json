@@ -34,7 +34,7 @@
   ],
   "actions": [
     {
-      "label": "View Log",
+      "label": "👁 View Log",
       "tooltip": "Outputs to chat. Set # of lines to 0 for max.",
       "width": 200,
       "action": {

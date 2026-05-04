@@ -3,82 +3,82 @@
   "title": "Editor Menu",
   "can_close_with_escape": true,
   "exit_action": {
-    "label": "Close"
+    "label": "❌ Close"
   },
   "actions": [
     {
-      "label": "Modify Selection",
+      "label": "✔ Modify Selection",
       "action": {
         "type": "minecraft:run_command",
         "command": "function easy-anim:menu/display_modify_select_dialog"
       }
     },
     {
-      "label": "Save Current Frame",
-      "tooltip": "You must be within the bounding region of a frame for this to work.",
+      "label": "💾 Save Frames",
+      "tooltip": "Operates on all selected frames.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/save_current_frame with entity @s"
+        "command": "function easy-anim:animation/operation_on_selected_frames {mode: save}"
       }
     },
     {
-      "label": "Reload Current Frame",
-      "tooltip": "You must be within the bounding region of a frame for this to work. Reverts any changes made since the last save.",
+      "label": "♻ Reload Frames",
+      "tooltip": "Operates on all selected frames.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/load_current_frame with entity @s"
+        "command": "function easy-anim:animation/operation_on_selected_frames {mode: load}"
       }
     },
     {
-      "label": "Remove Current Frame",
-      "tooltip": "You must be within the bounding region of a frame for this to work.",
+      "label": "🗑 Remove Frames",
+      "tooltip": "Operates on all selected frames.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/clear_current_frame with entity @s"
+        "command": "function easy-anim:animation/operation_on_selected_frames {mode: clear}"
       }
     },
     {
-      "label": "Add New Frame",
+      "label": "➕ Add New Frame",
       "tooltip": "Adds frame to the end of the animation, based on the original selection from the overworld.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/add_base_frame with entity @s"
+        "command": "function easy-anim:animation/add_base_frame"
       }
     },
     {
-      "label": "Save Camera for Current Frame",
-      "tooltip": "You must be within the bounding region of a frame for this to work.",
+      "label": "📸 Save Camera for Frames",
+      "tooltip": "Operates on all selected frames, saves relative to your closest selected frame.",
+      "action": {
+        "type": "minecraft:show_dialog",
+        "dialog": "easy-anim:camera_info_frame"
+      }
+    },
+    {
+      "label": "🎞 Load Camera for Frames",
+      "tooltip": "Operates on all selected frames, shows you a preview of those frames with their durations.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/save_camera_current_frame with entity @s"
+        "command": "function easy-anim:animation/operation_on_selected_frames {mode: loadCamera}"
       }
     },
     {
-      "label": "Load Camera for Current Frame",
-      "tooltip": "You must be within the bounding region of a frame for this to work.",
+      "label": "👁 Highlight Cam For Frames",
+      "tooltip": "Operates on all selected frames, shows where their cameras are located.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/load_camera_current_frame with entity @s"
+        "command": "function easy-anim:animation/operation_on_selected_frames {mode: highlightCamera}"
       }
     },
     {
-      "label": "Toggle Highlight for Current Frame",
-      "tooltip": "You must be within the bounding region of a frame for this to work.",
+      "label": "⌛ Set Frames Duration",
+      "tooltip": "Operates on all selected frames.",
       "action": {
-        "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/toggle_highlight_current_frame with entity @s"
+        "type": "minecraft:show_dialog",
+        "dialog": "easy-anim:frame_duration"
       }
     },
     {
-      "label": "Set Current Frame Duration",
-      "tooltip": "You must be within the bounding region of a frame for this to work.",
-      "action": {
-        "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/modify_current_frame_duration with entity @s"
-      }
-    },
-    {
-      "label": "Exit Editor",
+      "label": "🚶 Exit Editor",
       "action": {
         "type": "minecraft:run_command",
         "command": "function easy-anim:animation/exit with entity @s"

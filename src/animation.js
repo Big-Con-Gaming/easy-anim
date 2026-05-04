@@ -4,19 +4,20 @@ import * as debug from './debug.js';
 import { calculateLaneX, unclaimLane, findPlayerAxisOffset } from './inventory.js';
 import { recGroupSearch, regroupEntities, removeDocile, grabSizeAnchorEditor, cleanUpNewAnimationData, grabAnimationFromUuid, grabPlayerAndAnimation, exitSelection, appendAllDataChanges } from './selection.js';
 import { storeFrame, retrieveFrame, removeFrame } from './storage.js';
-import { cameraSaveFrame, cameraLoadFrame, toggleHighlightFrame } from './camera.js';
-import { cleanKill, testIfInt } from './util.js';
+import { cameraSaveFrame, cameraLoadQueueFrame, toggleHighlightFrame, cameraClosest } from './camera.js';
+import { cleanKill, testIfInt, stringEquals } from './util.js';
 const folder = mcf.animation;
 export const {
     enterEditor, selectInPlayerFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, parseToggleSingleSelectFrame,
-    parseToggleRangeSelectFrame, saveCurrentFrame, saveCameraCurrentFrame, recPlayerSearch, saveSpecificFrame, clearCurrentFrame,
-    toggleAllSelectFrame, clearSpecificFrame, pullNextFrameData, recPushBackFrames, loadCurrentFrame, loadSpecificFrame,
+    parseToggleRangeSelectFrame, saveCameraCurrentFrame, recPlayerSearch, saveSpecificFrame,
+    toggleAllSelectFrame, clearSpecificFrame, pullNextFrameData, recPushBackFrames, loadSpecificFrame,
     selectAllFrames, addBaseFrame, placeFrame, loadCameraCurrentFrame, toggleHighlightCurrentFrame, exit, recRemoveFrames,
-    renumberFrame, modifyCurrentFrameDuration
+    renumberFrame, modifyCurrentFrameDuration, operationOnSelectedFrames, cameraSaveFrameEnterIterate
 } = folder;
 const {
     anonymous: a, cleanRemainder, newPlayerLane, modifyFrameDurationDialog, setFrameDuration,
-    toggleSelectionState, removeQuoteMacroInsertScore, recToggle, recSelectAll, selectFrame, deselectFrame
+    toggleSelectionState, removeQuoteMacroInsertScore, recToggle, recSelectAll, selectFrame, deselectFrame,
+    recSelectCheck, recOperate
 } = folder;
 const ns = 'easy-anim';
 
@@ -406,24 +407,6 @@ selectAllFrames`
     dialog show @s ${ns}:editor_menu
 `
 
-// Iterates through each frame and checks to see which one the player is within. For that frame, it will ungroup all entities, make sure they aren't docile, and then save the structure, regrouping entities afterwards using saveSpecificFrame.
-saveCurrentFrame`
-    # Log the entry point
-    ${debug.entry} {input: "from editor_menu dialog"}
-    # Log the function call
-    ${debug.run} {input: "saveCurrentFrame"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> findPlayerInFrame -> | saveSpecificFrame"}
-    # Store the player's UUID in a macro location.
-    data modify storage ${ns}:temp macro.UUID set from entity @s UUID
-    # Store the function execution call within a macro location.
-    data modify storage ${ns}:temp macro.funccall set value "${saveSpecificFrame}"
-    # Execute the function that will find the player within a frame using our specific frame function call.
-    # {findPlayerInFrame} with storage ${ns}:temp macro
-    # Remove trailing data
-    data remove storage ${ns}:temp macro
-`;
-
 // Saves a specific frame within the editor to the structure file. Ungroups entities beforehand and regroups them after.
 // Needs this input from a macro: a[x, y, z] = anchor coordinates, s[x, y, z] = size parameters, name = animation name, framenum = frame number. 
 saveSpecificFrame`
@@ -432,14 +415,14 @@ saveSpecificFrame`
     # Log the expected function path.
     ${debug.path} {input: "-> recGroupSearch -> removeDocile -> storeFrame -> regroupEntities"}
     # Ungroup all of the entities within the frame, reusing functions from the create animation function within menu.
-    scoreboard objectives add ${ns}-temp dummy
-    execute store result storage ${ns}:temp str.id int 1 run scoreboard players set groupid ${ns}-temp 0
+    data modify storage ${ns}:temp str.id set value 0
     # All important data needs to be placed into str for the old recGroupSearch function to work. I feel like there's a better way to do this.
     $data modify storage ${ns}:temp str.sx set value $(sx)
     $data modify storage ${ns}:temp str.sy set value $(sy)
     $data modify storage ${ns}:temp str.sz set value $(sz)
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run ${recGroupSearch} with storage ${ns}:temp str
-    # Remove docile for all entities within the frame. 
+    # Untag them from selected and remove docile for all entities within the frame.
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-selected] remove ${ns}-selected
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-entity-turned-docile] run ${removeDocile}
     # Warn if the structure block will replace a non-air block
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) unless block ~ ~-1 ~ minecraft:air unless block ~ ~-1 ~ minecraft:structure_block run ${debug.warn} {input: "Non-air and Non-structure block at $(ax) ($(ay) - 1) $(az)! Overwriting with structure block..."}
@@ -454,34 +437,12 @@ saveSpecificFrame`
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"LOAD",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
     # Store structure data since it changed.
     $${storeFrame} {framenum: $(framenum)}
+    # Tag them all again with selected.
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-selected] add ${ns}-selected
     # Regroup all entities.
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run ${regroupEntities} with storage ${ns}:temp str
     # Remove all trailing data.
     data remove storage ${ns}:temp str
-    scoreboard objectives remove ${ns}-temp
-`;
-
-// Iterates through each frame and checks to see which one the player is within. For that frame, it will clear all blocks and kill all entities. This is done using clearSpecificFrame.
-clearCurrentFrame`
-    # Log the entry point
-    ${debug.entry} {input: "from editor_menu dialog"}
-    # Log the function call
-    ${debug.run} {input: "clearCurrentFrame"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> findPlayerInFrame -> | clearSpecificFrame"}
-    # Store the player's UUID in a macro location.
-    data modify storage ${ns}:temp macro.UUID set from entity @s UUID
-    # Store the function execution call within a macro location.
-    data modify storage ${ns}:temp macro.funccall set value "${clearSpecificFrame}"
-    # Set a value in storage so that clearSpecificFrame will remove the data from storage.
-    data modify storage ${ns}:temp csf.removeData set value true
-    # Set a value in storage so that clearSpecificFrame will move each subsequent frame over.
-    data modify storage ${ns}:temp csf.shift set value true
-    # Execute the function that will find the player within a frame using our specific frame function call.
-    # {findPlayerInFrame} with storage ${ns}:temp macro
-    # Remove trailing data
-    data remove storage ${ns}:temp macro
-    data remove storage ${ns}:temp csf
 `;
 
 // Clears a specific frame within the editor. This removes all blocks and entities within the frame's area.
@@ -490,7 +451,7 @@ clearSpecificFrame`
     # Log the function call
     $${debug.run} {input: "clearSpecificFrame at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(name) frame $(framenum)"}
     # Log the expected function path.
-    ${debug.path} {input: "-> /fill air -> cleanKill -> | pullNextFrameData -> | recPushBackFrames (renumberFrame -> pullNextFrameData) -> | removeFrameData"}
+    ${debug.path} {input: "-> /fill air -> cleanKill -> | pullNextFrameData -> | recPushBackFrames (renumberFrame -> recGroupSearch -> regroupEntities -> pullNextFrameData) -> | removeFrameData"}
     # Create a scoreboard and shrink size by 1 in each axis to be accurate for relative coordinates.
     scoreboard objectives add ${ns}-csf dummy
     $scoreboard players set x ${ns}-csf $(sx)
@@ -567,8 +528,13 @@ clearSpecificFrame`
         # Clone the frames over the difference of the size of the removed frame's z axis. Must be done twice since source and destination areas cannot overlap.
         $execute positioned $(ax) $(ay) $(az) run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) 0 1 -48 strict masked move
         $execute positioned 0 1 -48 run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) 0 1 $(newz) strict masked move
+        # Ungroup all entities so that teleporting them doesn't erase who goes with who
+        data modify storage ${ns}:temp csf.id set value 0
+        $execute positioned $(ax) $(ay) $(az) run ${recGroupSearch} with storage ${ns}:temp csf
         # Teleport all entities in subsequent frames backwards by the size of the removed frame's z axis.
         $execute positioned $(ax) $(ay) $(az) as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] at @s run tp @s ~ ~ ~-$(diff)
+        # Regroup all entities.
+        $execute positioned $(ax) $(ay) $(az) positioned ~ ~ ~-$(diff) run ${regroupEntities} with storage ${ns}:temp csf
         # Warn if the structure block will replace a non-air block
         $execute positioned $(ax) $(ay) $(az) unless block ~ ~-1 ~-$(diff) minecraft:air run ${debug.warn} {input: "Non-air block at $(ax) ($(ay) - 1) ($(az) - $(diff))! Overwriting with structure block..."}
         # Place a new structure block with the updated frame number.
@@ -609,24 +575,6 @@ clearSpecificFrame`
     data remove storage ${ns}:temp csf
 `;
 
-// Iterates through each frame and checks to see which one the player is within. For that frame, it will clear all blocks and kill all entities. This is done using clearSpecificFrame.
-loadCurrentFrame`
-    # Log the entry point
-    ${debug.entry} {input: "from editor_menu dialog"}
-    # Log the function call
-    ${debug.run} {input: "loadCurrentFrame"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> findPlayerInFrame -> | loadSpecificFrame"}
-    # Store the player's UUID in a macro location.
-    data modify storage ${ns}:temp macro.UUID set from entity @s UUID
-    # Store the function execution call within a macro location.
-    data modify storage ${ns}:temp macro.funccall set value "${loadSpecificFrame}"
-    # Execute the function that will find the player within a frame using our specific frame function call.
-    # {findPlayerInFrame} with storage ${ns}:temp macro
-    # Remove trailing data
-    data remove storage ${ns}:temp macro
-`;
-
 // Loads a specific frame within the editor. This places all blocks and entities back into the world.
 // Needs this input from a macro: a[x, y, z] = anchor coordinates, s[x, y, z] = size parameters, name = animation name, framenum = frame number.
 loadSpecificFrame`
@@ -644,131 +592,173 @@ loadSpecificFrame`
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) unless block ~ ~-1 ~ minecraft:air run ${debug.warn} {input: "Non-air block at $(ax) ($(ay) - 1) $(az)! Overwriting with structure block..."}
     # Place in the structure block.
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"LOAD",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
+    # Tag all of the entities with selected.
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-selected] add ${ns}-selected
     # Regroup all grouped entities
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run ${regroupEntities} {sx: $(sx), sy: $(sy), sz: $(sz)}
 `;
 
-// Saves the camera position of the player within whichever frame they're in
-saveCameraCurrentFrame`
-    # Log the entry point
-    ${debug.entry} {input: "from editor_menu dialog"}
-    # Log the function call
-    ${debug.run} {input: "saveCameraCurrentFrame"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> findPlayerInFrame-> | cameraSaveFrame"}
-    # Store the player's UUID in a macro location.
-    data modify storage ${ns}:temp macro.UUID set from entity @s UUID
-    # Store the function execution call within a macro location.
-    data modify storage ${ns}:temp macro.funccall set value "${cameraSaveFrame}"
-    # Execute the function that will find the player within a frame using our specific frame function call.
-    # {findPlayerInFrame} with storage ${ns}:temp macro
-    # Remove trailing data
-    data remove storage ${ns}:temp macro
-`
-
-// Loads the camera position of the player within whichever frame they're in
-loadCameraCurrentFrame`
-    # Log the entry point
-    ${debug.entry} {input: "from editor_menu dialog"}
-    # Log the function call
-    ${debug.run} {input: "loadCameraCurrentFrame"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> findPlayerInFrame-> | cameraLoadFrame"}
-    # Store the player's UUID in a macro location.
-    data modify storage ${ns}:temp macro.UUID set from entity @s UUID
-    # Store the function execution call within a macro location.
-    data modify storage ${ns}:temp macro.funccall set value "${cameraLoadFrame}"
-    # Execute the function that will find the player within a frame using our specific frame function call.
-    # {findPlayerInFrame} with storage ${ns}:temp macro
-    # Remove trailing data
-    data remove storage ${ns}:temp macro
-`
-
-// Highlights the camera of the current frame the player is in
-toggleHighlightCurrentFrame`
-    # Log the entry point
-    ${debug.entry} {input: "from editor_menu dialog"}
-    # Log the function call
-    ${debug.run} {input: "highlightCameraCurrentFrame"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> findPlayerInFrame -> | toggleHighlightFrame"}
-    # Store the player's UUID in a macro location.
-    data modify storage ${ns}:temp macro.UUID set from entity @s UUID
-    # Store the function execution call within a macro location.
-    data modify storage ${ns}:temp macro.funccall set value "${toggleHighlightFrame}"
-    # Execute the function that will find the player within a frame using our specific frame function call.
-    # {findPlayerInFrame} with storage ${ns}:temp macro
-    # Remove trailing data
-    data remove storage ${ns}:temp macro
-`
-
-// Shows the dialog for modifying the frame's duration that the player is in.
-modifyCurrentFrameDuration`
-    # Log the entry point
-    ${debug.entry} {input: "from editor_menu dialog"}
-    # Log the function call
-    ${debug.run} {input: "modifyCurrentFrameDuration"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> findPlayerInFrame -> | modifyFrameDurationDialog"}
-    # Store the player's UUID in a macro location.
-    data modify storage ${ns}:temp macro.UUID set from entity @s UUID
-    # Store the function execution call within a macro location.
-    data modify storage ${ns}:temp macro.funccall set value "${modifyFrameDurationDialog}"
-    # Execute the function that will find the player within a frame using our specific frame function call.
-    # {findPlayerInFrame} with storage ${ns}:temp macro
-    # Remove trailing data
-    data remove storage ${ns}:temp macro
-`
-
-// Creates a dialog for modifying an animation's frame's duration.
+// Checks the output from the duration dialog and stores the correct duration into storage.
 modifyFrameDurationDialog`
+    # Log the entry point
+    ${debug.entry} {input: "from: frame_duration dialog"}
     # Log the function call
-    $${debug.run} {input: "modifyFrameDurationDialog for $(name) frame $(framenum)"}
+    $${debug.run} {input: "modifyFrameDurationDialog setting to either $(slider) or $(text) if valid"}
+    # Log the expected function path.
+    ${debug.path} {input: "-> | testIfInt -> operationOnSelectedFrames"}
     # Create temporary scoreboard
-    scoreboard objectives add ${ns}-temp-mfdd dummy
-    # Set up certain macro elements that are within the dynamic command but aren't keys within the dialog.
-    $data modify storage ${ns}:temp ddialog.name set value $(name)
-    $data modify storage ${ns}:temp ddialog.framenum set value $(framenum)
-    # Check if this frame has a duration, and if it doesn't, set it to 20 ticks by default. (oops directly modified animation_data, sue me)
-    $execute unless data storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(framenum)].duration run ${debug.warn} {input: "No duration currently set for this frame! Defaulting to 20 ticks..."}
-    $execute unless data storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(framenum)].duration run data modify storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(framenum)].camera.duration set value 20
-    # Initial is used for the slider, so it has to be capped at 600 ticks (30 seconds) or if negative, set to default 20 ticks.
-    $execute store result score initial ${ns}-temp-mfdd run data get storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(framenum)].duration
-    $execute if score initial ${ns}-temp-mfdd matches 0..600 run data modify storage ${ns}:temp ddialog.initial set from storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(framenum)].duration
-    execute if score initial ${ns}-temp-mfdd matches 601.. run data modify storage ${ns}:temp ddialog.initial set value 600
-    execute if score initial ${ns}-temp-mfdd matches ..-1 run ${debug.warn} {input: "Negative duration for this frame! Defaulting to 20 ticks..."}
-    execute if score initial ${ns}-temp-mfdd matches ..-1 run data modify storage ${ns}:temp ddialog.initial set value 20
-    # To allow for duration to be a key, it'll be parsed in as a macro, while it is text to be macroed in later.
-    data modify storage ${ns}:temp ddialog.forcekey set value "$(duration)"
-    data modify storage ${ns}:temp ddialog.forcekey2 set value "$(duration2)"
-    # Show dialog, it's within a macro so we retrieve macros set above.
-    ${a`
-        $dialog show @s {type:"minecraft:multi_action",title:"Set frame $(framenum)'s duration",external_title:"Set frame's duration",body:{type:"minecraft:plain_message",contents:"Choose a length with the slider, or input a number into the text field (supercedes slider). To help with conversion: 1 tick is 0.05 seconds, or 20 ticks is 1 second."},inputs:[{type:"minecraft:number_range",key:"duration",label:"length (in ticks)",start:1,end:600,step:1,initial:$(initial)},{type:"minecraft:text",key:"duration2",initial:"0",label:"Positive Integer (in ticks):"}],actions:[{label:"Set",action:{type:"minecraft:dynamic/run_command",template:"/function ${ns}:animation/set_frame_duration {name: $(name), framenum: $(framenum), duration: $(forcekey), duration2: $(forcekey2)}"}}]}
-    `} with storage ${ns}:temp ddialog
-    # clean up remaining data
-    scoreboard objectives remove ${ns}-temp-mfdd
-    data remove storage ${ns}:temp ddialog
+    scoreboard objectives add ${ns}-mfdd dummy
+    # Set a player within the objective to the value of the text input. If the text input is empty or invalid, it will be set to 0.
+    $execute store result score check ${ns}-mfdd run ${testIfInt} {input: '$(text)'}
+    # If score is 0, use slider to set duration
+    $execute if score check ${ns}-mfdd matches 0 run data modify storage ${ns}:temp carryover.duration set value $(slider)
+    # If score is 1, use text to set duration
+    $execute if score check ${ns}-mfdd matches 1 run data modify storage ${ns}:temp carryover.duration set value '$(text)'
+    # Run operationOnSelectedFrames with the given carryover data setting frame duration
+    ${operationOnSelectedFrames} {mode: "duration"}
+    # Clear carryover data / trailing data
+    data remove storage ${ns}:temp carryover
+    scoreboard objectives remove ${ns}-mfdd
 `;
 
-// Performs the action of the duration dialog generated above. Either sets it to the value of the slider or the value of the text input if one exists.
+// Sets the duration for every given frame (typically selected) based on the duration specified in the carryover information (${ns}:temp carryover.duration)
 setFrameDuration`
-    # Log the entry point
-    ${debug.entry} {input: "from modifyFrameDurationDialog"}
     # Log the function call
-    $${debug.run} {input: "setFrameDuration for $(name) frame $(framenum) to $(duration) or $(duration2) ticks, if latter is set"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> testIfInt"}
-    # Create temporary scoreboard
-    scoreboard objectives add ${ns}-temp-sfd dummy
-    # Set a player within the objective to the value of the text input. If the text input is empty or invalid, it will be set to 0.
-    $execute store result score check ${ns}-temp-sfd run ${testIfInt} {input: '$(duration2)'}
-    # Set the frame's duration to the slider's value if check is 0.
-    $execute if score check ${ns}-temp-sfd matches 0 run data modify storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(framenum)].duration set value $(duration)
-    # Set the frame's duration to the text input's value if check is greater than 0.
-    $execute if score check ${ns}-temp-sfd matches 1 run data modify storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(framenum)].duration set value '$(duration2)'
-    # Clean up scoreboard
-    scoreboard objectives remove ${ns}-temp-sfd
+    $${debug.run} {input: "setFrameDuration for $(name) frame $(framenum)"}
+    # Set duration based on carryover information
+    $data modify storage ${ns}:animation_data new.frames[$(framenum)].duration set from storage ${ns}:temp carryover.duration
 `
+
+// Loops through all selected frames, finds the closest one to the player, saves the camera relative to that frame, and then applies it to all other frames.
+// Requires an input of the camera note.
+cameraSaveFrameEnterIterate`
+    # Log the entry point
+    ${debug.entry} {input: "from camera_info_frame dialog"}
+    # Log the function call
+    $${debug.run} {input: "cameraSaveFrameEnterIterate with note $(note)"}
+    # Log the expected function path.
+    ${debug.path} {input: "operationOnSelectedFrames -> grabAnimationFromUuid -> cameraSaveFrame -> cleanUpNewAnimationData -> operationOnSelectedFrames"}
+    # Create a temporary scoreboard and store -1 for later.
+    scoreboard objectives add ${ns}-camclose dummy
+    scoreboard players set -1 ${ns}-camclose -1
+    # Calculate which of the selected frames is closest to the player or contains the player.
+    ${operationOnSelectedFrames} {mode: "cameraClosest"}
+    # Store the note into a special location just for the closest camera save.
+    $data modify storage ${ns}:temp csf.note set value "$(note)"
+    # Run cameraSaveFrame for the closest frame.
+    ${grabAnimationFromUuid} with entity @s
+    ${cameraSaveFrame} with storage ${ns}:temp csf
+    # Save changes.
+    ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
+    # Operate on the rest of the selected frames to add the carryover camera data.
+    ${operationOnSelectedFrames} {mode: "saveCamera"}
+    # Remove the temporary scoreboard and other trailing data.
+    data remove storage ${ns}:temp csf
+    scoreboard objectives remove ${ns}-camclose
+`
+
+// Used in operationOnSelectedFrames
+// Input: mode: which function to execute, based on this map:
+
+ const operateCommands = [];
+
+const operationMap = [
+    {mode: "save", command: `${saveSpecificFrame}`},
+    {mode: "clear", command: `${clearSpecificFrame}`},
+    {mode: "load", command: `${loadSpecificFrame}`},
+    {mode: "saveCamera", command: `${cameraSaveFrame}`},
+    {mode: "cameraClosest", command: `${cameraClosest}`},
+    {mode: "loadCamera", command: `${cameraLoadQueueFrame}`},
+    {mode: "highlightCamera", command: `${toggleHighlightFrame}`},
+    {mode: "duration", command: `${setFrameDuration}`}
+];
+
+function createOperateCommands({mode, command}) {
+    return `
+        # Check if mode equals ${mode}, if so execute that command with macro context.
+        scoreboard players set modecheck ${ns}-operation 1
+        $${stringEquals} {input1: "${mode}", input2: "$(mode)", output: "score modecheck ${ns}-operation"}
+        execute if score modecheck ${ns}-operation matches 0 run ${command} with storage ${ns}:temp grabsizeanchor
+    `
+}
+
+operateCommands.push(...operationMap.map(createOperateCommands));
+
+// Performs a specified operation on all selected frames, in reverse order.
+operationOnSelectedFrames`
+    # Log the entry point
+    ${debug.entry} {input: "from editor_menu dialog, multiple options"}
+    # Log the function call
+    $${debug.run} {input: "operationOnSelectedFrames executing $(mode)"}
+    # Log the expected function path.
+    $${debug.path} {input: "-> grabAnimationFromUuid -> | (recSelectCheck) -> | grabSizeAnchorEditor -> (recOperate -> | $(mode) -> ^ grabSizeAnchorEditor)"}
+    # Create a temporary score
+    scoreboard objectives add ${ns}-operation dummy
+    # Load animation data.
+    ${grabAnimationFromUuid} with entity @s
+    # Add some data to grabsizeanchor that we need.
+    data modify storage ${ns}:temp selectedframes.name set from storage ${ns}:animation_data new.name
+    data modify storage ${ns}:temp grabsizeanchor.name set from storage ${ns}:temp selectedframes.name
+    data modify storage ${ns}:temp grabsizeanchor.UUID set from entity @s UUID
+    $data modify storage ${ns}:temp selectedframes.mode set value "$(mode)"
+    # First we have to iterate through every frame within the animation and add selected ones to an array. (framenums)
+    data modify storage ${ns}:temp selectedframes.framenums set value []
+    execute store result score maxframe ${ns}-operation run data get storage ${ns}:animation_data new.framecount
+    execute store result storage ${ns}:temp selectedframes.maxframe int 1 run scoreboard players remove maxframe ${ns}-operation 1
+    # Warn if there are no frames to go through.
+    execute unless data storage ${ns}:animation_data new.frames[0] run ${debug.warn} {input: "No frames in this animation! Exiting..."}
+    execute if data storage ${ns}:animation_data new.frames[0] run ${recSelectCheck`
+        # Log the function call
+        $${debug.run} {input: "Select Check with $(maxframe)"}
+        # Check if this frame is selected, and if so, add it to the list of frames to operate on.
+        $execute if data storage ${ns}:animation_data new.frames[$(maxframe)].selected run data modify storage ${ns}:temp selectedframes.framenums append value $(maxframe)
+        # Decrease max frame
+        execute store result storage ${ns}:temp selectedframes.maxframe int 1 run scoreboard players remove maxframe ${ns}-operation 1
+        # Loop
+        execute if score maxframe ${ns}-operation matches 0.. run ${recSelectCheck} with storage ${ns}:temp selectedframes
+    `} with storage ${ns}:temp selectedframes
+    # Warn if there are no selected frames to operate on. Let the user know as well.
+    execute unless data storage ${ns}:temp selectedframes.framenums[0] run ${debug.warn} {input: "No selected frames to operate on! Exiting..."}
+    execute unless data storage ${ns}:temp selectedframes.framenums[0] run tellraw @s {text:"Select some frames first!", color: "red"}
+    # Grab the first framenum from storage. (If we have frames to iterate on)
+    execute if data storage ${ns}:temp selectedframes.framenums[0] run data modify storage ${ns}:temp grabsizeanchor.framenum set from storage ${ns}:temp selectedframes.framenums[0]
+    # Grab selectedframes for this frame (If we have frames to iterate on).
+    execute if data storage ${ns}:temp grabsizeanchor.framenum run ${grabSizeAnchorEditor} with storage ${ns}:temp grabsizeanchor
+    # Iterate over the selected frames.
+    execute if data storage ${ns}:temp grabsizeanchor.framenum run ${recOperate`
+        # If mode equals clear, we need to add some extra data to grabsizeanchor for the clearSpecificFrame function.
+        scoreboard players set clearcheck ${ns}-operation 1
+        $${stringEquals} {input1: "clear", input2: "$(mode)", output: "score clearcheck ${ns}-operation"}
+        execute if score clearcheck ${ns}-operation matches 0 run data merge storage ${ns}:temp {csf:{removeData:true, shift:true}}
+        # Run the specified operation (passed in as a macro, automatically uses grabsizeanchor data)
+        ${operateCommands.join("\n")}
+        # Apply all animation changes made by the above operation.
+        ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
+        # Remove this frame from the list.
+        data remove storage ${ns}:temp selectedframes.framenums[0]
+        # Clear grabsizeanchor for the next frame.
+        data remove storage ${ns}:temp grabsizeanchor
+        # If there's no more frames, return.
+        execute unless data storage ${ns}:temp selectedframes.framenums[0] run return 1
+        # Load animation data once again since the loop continues.
+        ${grabAnimationFromUuid} with entity @s
+        # Grab the next frame number.
+        data modify storage ${ns}:temp grabsizeanchor.framenum set from storage ${ns}:temp selectedframes.framenums[0]
+        # Pull the animation name
+        data modify storage ${ns}:temp grabsizeanchor.name set from storage ${ns}:temp selectedframes.name
+        # Pull the UUID
+        data modify storage ${ns}:temp grabsizeanchor.UUID set from entity @s UUID
+        # Grab the rest of the data from grabsizeanchor.
+        ${grabSizeAnchorEditor} with storage ${ns}:temp grabsizeanchor
+        # Loop
+        ${recOperate} with storage ${ns}:temp selectedframes
+    `} with storage ${ns}:temp selectedframes
+    # Clean up trailing data
+    scoreboard objectives remove ${ns}-operation
+    data remove storage ${ns}:temp grabsizeanchor
+    data remove storage ${ns}:temp selectedframes
+    data remove storage ${ns}:temp carryover
+`;
 
 // Allows the player to exit the editor dimension.
 exit`
@@ -854,11 +844,11 @@ addBaseFrame`
     # Log the entry point
     ${debug.entry} {input: "from editor_menu dialog"}
     # Log the function call
-    $${debug.run} {input: "addBaseFrame for $(UUID)"}
+    ${debug.run} {input: "addBaseFrame"}
     # Log the expected function path.
     ${debug.path} {input: "-> grabAnimationFromUuid -> retrieveFrame -> calculateLaneX -> placeFrame -> regroupEntities -> storeFrame -> cleanUpNewAnimationData"}
     # Set animation_data new from UUID
-    $${grabAnimationFromUuid} {UUID:$(UUID)}
+    ${grabAnimationFromUuid} with entity @s
     # Error if the animation is missing base frame data.
     execute unless data storage ${ns}:animation_data new.anchor run return run ${debug.error} {input: "No anchor data for animation!"}
     execute unless data storage ${ns}:animation_data new.camera run return run ${debug.error} {input: "No camera data for animation!"}

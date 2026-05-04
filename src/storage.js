@@ -138,8 +138,8 @@ storeFrame`
         execute in ${ns}:editor positioned 0 0 -48 as @e[type=!player,dx=47,dy=47,dz=47] at @s run ${a`
             # Log the function call
             ${debug.run} {input: "storing an entity into animation data"}
-            # Store the entity's Z into scoreboard
-            execute store result score entz ${ns}-storeframe run data get entity @s Pos[2]
+            # Store the entity's Z into scoreboard (scaled up to preserve 2 decimal places)
+            execute store result score entz ${ns}-storeframe run data get entity @s Pos[2] 100
             # Ride a block display so that ID is in the entity's data
             execute at @s summon minecraft:block_display run tag @s add ${ns}-temp
             # Hop on the block display
@@ -149,7 +149,7 @@ storeFrame`
             # Remove the UUID
             $data remove storage ${ns}:animation_data new$(ref).entities[-1].UUID
             # Add 48 to Z so that the coordinates represent relative coordinates to the anchor. Store this in the Pos tag that is already in entity data.
-            $execute store result storage ${ns}:animation_data new$(ref).entities[-1].Pos[2] double 1 run scoreboard players add entz ${ns}-storeframe 48
+            $execute store result storage ${ns}:animation_data new$(ref).entities[-1].Pos[2] double 0.01 run scoreboard players add entz ${ns}-storeframe 4800
             # Kill off the vehicle.
             execute on vehicle run ${cleanKill}
             # Kill off the entity.

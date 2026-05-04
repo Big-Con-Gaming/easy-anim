@@ -130,9 +130,16 @@ appendAllDataChanges`
     $${cleanUpCurrentPlayerData} {UUID: $(owner)}
 `
 
+// Separates groups within a selection/frame using tags so that they can be recreated after a structure block loads.
 recGroupSearch`
     # Log the function call
-    $${debug.run} {input: "recGroupSearch with id $(id)"}
+    $${debug.run} {input: "recGroupSearch with id $(id) within $(sx) $(sy) $(sz)"}
+    # Create the objective used to count groupid if it doesn't already exist.
+    scoreboard objectives add ${ns}-rgs dummy
+    $execute store result storage ${ns}:temp rgs.id int 1 run scoreboard players set groupid ${ns}-rgs $(id)
+    $data modify storage ${ns}:temp rgs.sx set value $(sx)
+    $data modify storage ${ns}:temp rgs.sy set value $(sy)
+    $data modify storage ${ns}:temp rgs.sz set value $(sz)
     # Warn if no entities are present within the selection
     $execute unless entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group,limit=1,sort=random] run ${debug.warn} {input:"No entities can be grouped! Skipping..."}
     $execute as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group,limit=1,sort=random] if data entity @s Passengers run ${a`
@@ -145,9 +152,12 @@ recGroupSearch`
         execute on passengers run tag @s add ${ns}-group
         $execute on passengers run data modify entity @s data.easyanimgroupid set value $(id)
         execute on passengers run ride @s dismount
-        execute store result storage ${ns}:temp str.id int 1 run scoreboard players add groupid ${ns}-temp 1
-    `} with storage ${ns}:temp str
-    $execute as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group] if data entity @s Passengers run ${recGroupSearch} with storage ${ns}:temp str
+        execute store result storage ${ns}:temp rgs.id int 1 run scoreboard players add groupid ${ns}-rgs 1
+    `} with storage ${ns}:temp rgs
+    $execute as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group] if data entity @s Passengers run ${recGroupSearch} with storage ${ns}:temp rgs
+    # Remove the created objective.
+    scoreboard objectives remove ${ns}-rgs
+    data remove storage ${ns}:temp rgs
 `
 
 // Must be ran with xyz and sx sy sz, where xyz represents the neg-neg-neg corner of the frame/selection and sx sy sz represent the size of the frame/selection. This goes through and puts grouped entities back together after they were split for structure saving.

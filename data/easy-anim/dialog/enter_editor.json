@@ -2,13 +2,13 @@
   "type": "minecraft:confirmation",
   "title": "Enter the Editor for the First Frame?",
   "yes": {
-    "label": "Yes",
+    "label": "✔ Yes",
     "action": {
       "type": "minecraft:run_command",
       "command": "function easy-anim:animation/enter_editor with entity @s"
     }
   },
   "no": {
-    "label": "No"
+    "label": "❌ No"
   }
 }

@@ -7,7 +7,7 @@ import * as debug from './debug.js';
 import { toolbarRightClick } from './inventory.js';
 import { select, handleDetection, handleHighlight, keepHoverSelect, removeHovers } from './selection.js';
 import './menu.js';
-import { placeParticleEveryTick, exitCamera } from './camera.js';
+import { placeParticleEveryTick, exitCamera, cameraLoadFrame } from './camera.js';
 import './util.js';
 import './storage.js';
 import './animation.js';
@@ -31,9 +31,11 @@ tick`
     # Place a warning block inside of the editor so that the player knows not to trust the blocks and entities further north.
     execute in ${ns}:editor unless block 0 3 0 minecraft:pale_oak_sign run setblock 0 3 0 minecraft:pale_oak_sign{back_text:{color:"black",has_glowing_text:0b,messages:["Warning: Blocks","and entities","further North","may be modified"]},components:{},front_text:{color:"black",has_glowing_text:0b,messages:["Warning: Blocks","and entities","further North","may be modified"]},id:"minecraft:sign",is_waxed:0b,x:0,y:3,z:0} strict
     # Give players in the editor night vision in case the world is night.
-    effect give @a[tag=${ns}-inEditor] minecraft:night_vision 1 0 true
+    effect give @a[tag=${ns}-inEditor] minecraft:night_vision 5 0 true
     # Checks through all animations in the render_queue to update to the next frame if ready. Also decreases all of their durations.
     ${renderCheck}
+    # Similar to rendercheck, cameraLoadFrame will update the player's position in the editor to the next frame accurately, while also decreasing durations.
+    ${cameraLoadFrame}
     # Checks if the player has right-clicked with any of the selection items, and executes commands based on that.
     ${toolbarRightClick}
     # Manually added the editor menu item here. Opens the editor menu within the editor, and the main menu outside of it.

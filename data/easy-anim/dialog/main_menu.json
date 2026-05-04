@@ -3,32 +3,32 @@
   "title": "Animation Manager",
   "inputs": [],
   "exit_action": {
-    "label": "Exit"
+    "label": "❌ Close"
   },
   "actions": [
     {
-      "label": "Create New Animation",
+      "label": "➕ Create New Animation",
       "action": {
         "type": "minecraft:show_dialog",
         "dialog": "easy-anim:set_name"
       }
     },
     {
-      "label": "Edit Existing Animation",
+      "label": "📝 Edit Existing Animation",
       "action": {
         "type": "minecraft:run_command",
         "command": "function easy-anim:menu/display_animations_dialog {func:\"easy-anim:menu/edit_animation_setup\"}"
       }
     },
     {
-      "label": "Render Animation",
+      "label": "👁 Render Animation",
       "action": {
         "type": "minecraft:run_command",
         "command": "function easy-anim:menu/display_animations_dialog {func:\"easy-anim:menu/render_animation\"}"
       }
     },
     {
-      "label": "Delete Existing Animation",
+      "label": "🗑 Delete Existing Animation",
       "action": {
         "type": "minecraft:run_command",
         "command": "function easy-anim:menu/display_animations_dialog {func:\"easy-anim:menu/delete_animation\"}"

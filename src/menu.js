@@ -84,7 +84,6 @@ createAnimation`
     # Save the block at the neg neg neg corner (outside of region) to the editor dimension and place in a new structure block
     ${grabStrBlockPos}
     ${calculateLaneX} {output:"${ns}:temp str.lanex int"}
-    scoreboard objectives add ${ns}-temp dummy
     data modify storage ${ns}:temp str.name set from storage ${ns}:animation_data new.name
     # Warn if the animation currently has framecount or frames.
     execute if data storage ${ns}:animation_data new.framecount run ${debug.warn} {input: "Animation has framecount! Overwriting..."}
@@ -109,7 +108,7 @@ createAnimation`
         $execute positioned $(x) $(y) $(z) run kill @n[type=minecraft:interaction,tag=${ns}-select-str-block,distance=..1]
         $execute positioned $(x) $(y) $(z) run kill @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)]
         # Ungroup any grouped entities and tag them so they can find each other.
-        execute store result storage ${ns}:temp str.id int 1 run scoreboard players set groupid ${ns}-temp 0
+        data modify storage ${ns}:temp str.id set value 0
         $execute positioned $(x) $(y) $(z) run ${recGroupSearch} with storage ${ns}:temp str
         # Using the macro, make sure all of the entities within the selection are no longer considered docile
         ${a`
@@ -142,7 +141,6 @@ createAnimation`
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     # Remove the temporary data locations.
     data remove storage ${ns}:temp str
-    scoreboard objectives remove ${ns}-temp
     # Prompt the user to enter the editor.
     dialog show @s ${ns}:enter_editor
 `;
@@ -348,7 +346,7 @@ displayModifySelectDialog`
     data modify storage ${ns}:temp dmsd.secondselect set value 'secondselectbar: $(secondselectbar), secondselecttext: \\\\\"$(secondselecttext)\\\\\"'
     # Create and show the dialog to the player.
     ${a`
-        $dialog show @s {type:"minecraft:multi_action",title:"Modify Selection",body:{type:"minecraft:plain_message",contents:"Currently Selected (starts at 0): $(list)"},inputs:[{type:"minecraft:number_range",key:"firstselectbar",label:"Select Specific Frame",start:0,end:$(maxframe),step:1,initial:0},{type:"minecraft:text",key:"firstselecttext",label:"Or, type it here (nums only!):"},{type:"minecraft:number_range",key:"secondselectbar",label:"Range Select",start:0,end:$(maxframe),step:1,initial:0},{type:"minecraft:text",key:"secondselecttext",label:"Or, type it here (nums only!):"}],can_close_with_escape:1,after_action:"close",exit_action:{label:"Return to menu",action:{type:"minecraft:show_dialog",dialog:"${ns}:editor_menu"}},actions:[{label:"Toggle Specified Frame",tooltip:"Chooses the frame specified in the top slider or text box.",action:{type:"minecraft:dynamic/run_command",template:"function ${ns}:animation/parse_toggle_single_select_frame {$(UUID), $(firstselect)}"}},{label:"Toggle Range of Frames",tooltip:"Chooses all frames in between the two specified in the sliders or text boxes above.",action:{type:"minecraft:dynamic/run_command",template:"function ${ns}:animation/parse_toggle_range_select_frame {$(UUID), $(firstselect), $(secondselect)}"}},{label:"Toggle Current Frame",tooltip:"Toggles the selection state of the frame you are physically standing in.",action:{type:"minecraft:run_command",command:"function ${ns}:animation/select_in_player_frame with entity @s"}},{label:"Invert Selection",tooltip:"All currently selected are deselected, all non-selected frames are now selected.",action:{type:"minecraft:run_command",command:"function ${ns}:animation/toggle_all_select_frame with entity @s"}},{label:"Select All Frames",action:{type:"minecraft:run_command",command:"function ${ns}:animation/select_all_frames {$(UUID), select: 1}"}},{label:"Deselect All Frames",action:{type:"minecraft:run_command",command:"function ${ns}:animation/select_all_frames {$(UUID), select: -1}"}}]}
+        $dialog show @s {type:"minecraft:multi_action",title:"Modify Selection",body:{type:"minecraft:plain_message",contents:"Currently Selected (starts at 0): $(list)"},inputs:[{type:"minecraft:number_range",key:"firstselectbar",label:"Select Specific Frame",start:0,end:$(maxframe),step:1,initial:0},{type:"minecraft:text",key:"firstselecttext",label:"Or, type it here (nums only!):"},{type:"minecraft:number_range",key:"secondselectbar",label:"Range Select",start:0,end:$(maxframe),step:1,initial:0},{type:"minecraft:text",key:"secondselecttext",label:"Or, type it here (nums only!):"}],can_close_with_escape:1,after_action:"close",exit_action:{label:"⬅ Return to Editor Menu",action:{type:"minecraft:show_dialog",dialog:"${ns}:editor_menu"}},actions:[{label:"🎯 Toggle Specified Frame",tooltip:"Chooses the frame specified in the top slider or text box.",action:{type:"minecraft:dynamic/run_command",template:"function ${ns}:animation/parse_toggle_single_select_frame {$(UUID), $(firstselect)}"}},{label:"↔ Toggle Range of Frames",tooltip:"Chooses all frames in between the two specified in the sliders or text boxes above.",action:{type:"minecraft:dynamic/run_command",template:"function ${ns}:animation/parse_toggle_range_select_frame {$(UUID), $(firstselect), $(secondselect)}"}},{label:"📥 Toggle Current Frame",tooltip:"Toggles the selection state of the frame you are physically standing in.",action:{type:"minecraft:run_command",command:"function ${ns}:animation/select_in_player_frame with entity @s"}},{label:"☯ Invert Selection",tooltip:"All currently selected are deselected, all non-selected frames are now selected.",action:{type:"minecraft:run_command",command:"function ${ns}:animation/toggle_all_select_frame with entity @s"}},{label:"✔ Select All Frames",action:{type:"minecraft:run_command",command:"function ${ns}:animation/select_all_frames {$(UUID), select: 1}"}},{label:"❌ Deselect All Frames",action:{type:"minecraft:run_command",command:"function ${ns}:animation/select_all_frames {$(UUID), select: -1}"}}]}
     `} with storage ${ns}:temp dmsd
     # Clear trailing data
     data remove storage ${ns}:animation_data new

@@ -60,8 +60,7 @@ startRender`
         # Place the structure block to save the original 
         $execute in $(dimension) run setblock $(x) $(y) $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:false,posX:1,posY:1,posZ:1,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-original",strict:true}
         # Ungroup entities
-        scoreboard objectives add ${ns}-temp dummy
-        execute store result storage ${ns}:temp str.id int 1 run scoreboard players set groupid ${ns}-temp 0
+        data modify storage ${ns}:temp str.id set value 0
         $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 run ${recGroupSearch} with storage ${ns}:temp str
         # Save the frame
         $execute in $(dimension) positioned $(x) $(y) $(z) run setblock ~ ~1 ~ minecraft:redstone_block
@@ -88,7 +87,6 @@ startRender`
     # Clean up data and save all changes
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     data remove storage ${ns}:temp str
-    scoreboard objectives remove ${ns}-temp
 `;
 
 // Checks through the render_queue to see which animations need to render their next frames, and executes those if so.
@@ -107,9 +105,9 @@ renderCheck`
     data modify storage ${ns}:temp rendercheck.name set from storage ${ns}:temp rendercheck.queue[0].name
     ${recCheck`
         # Check if duration is 0, if so, specificFrameRender
-        $execute if score #$(name)_duration ${ns} matches 0 run ${specificFrameRender} {name: $(name)}
+        $execute if score #$(name)_render_duration ${ns} matches 0 run ${specificFrameRender} {name: $(name)}
         # If not, decrease duration by 1 (these represent ticks)
-        $execute if score #$(name)_duration ${ns} matches 1.. run scoreboard players remove #$(name)_duration ${ns} 1
+        $execute if score #$(name)_render_duration ${ns} matches 1.. run scoreboard players remove #$(name)_render_duration ${ns} 1
         # Remove this animation from temporary queue
         data remove storage ${ns}:temp rendercheck.queue[0]
         # If there's no more, exit
@@ -190,7 +188,9 @@ specificFrameRender`
         $gamemode spectator @a[nbt={UUID: $(UUID)}]
         $tag @a[nbt={UUID: $(UUID)}] add ${ns}-camera-view
         # Set the duration scoreboard to this frame's duration.
-        $execute store result score #$(name)_duration ${ns} run data get storage ${ns}:animation_data new.frames[$(framenum)].duration
+        $execute store result score #$(name)_render_duration ${ns} run data get storage ${ns}:animation_data new.frames[$(framenum)].duration
+        # Increase this score by 1 since the same function call that runs this will decrease it by 1 same frame.
+        $scoreboard players add #$(name)_render_duration ${ns} 1
     `} with storage ${ns}:temp grabsizeanchor
     # Remove temporary data
     data remove storage ${ns}:animation_data new
@@ -254,7 +254,7 @@ exitRender`
     # Remove animation from render_queue and any related scoreboards
     $data remove storage ${ns}:animation_data render_queue[{name: $(name)}]
     $scoreboard players reset #$(name)_frame ${ns}
-    $scoreboard players reset #$(name)_duration ${ns}
+    $scoreboard players reset #$(name)_render_duration ${ns}
     # Save data changes and remove temporary data
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     data remove storage ${ns}:temp str
