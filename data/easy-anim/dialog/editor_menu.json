@@ -39,10 +39,10 @@
     },
     {
       "label": "➕ Add New Frame",
-      "tooltip": "Adds frame to the end of the animation, based on the original selection from the overworld.",
+      "tooltip": "Adds a frame inserted at the frames selected, and defaults to the end of the animation if none are selected.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/add_base_frame"
+        "command": "function easy-anim:animation/operation_on_selected_frames {mode: addBase}"
       }
     },
     {

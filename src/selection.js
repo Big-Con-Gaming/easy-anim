@@ -4,8 +4,8 @@ import * as debug from './debug.js';
 import { calculateLaneX, loadInventory, unclaimLane, cleanUpCurrentPlayerData } from './inventory.js';
 import { pullDataStringEquals } from './util.js';
 const folder = mcf.selection;
-export const { grabPlayerData, grabAnimationData, grabPlayerAndAnimation, grabAnimationFromUuid, exitSelection, cleanUpNewAnimationData, appendAllDataChanges, recGroupSearch, regroupEntities, anchorDifference, constructRealCoordinates, grabSizeAnchor, grabSizeAnchorEditor, grabStrBlockPos, handleSummon, resetCornerBlock, handleHighlight, keepHoverSelect, removeHovers, removeDocile } = folder;
-const { storeArrayMacro, storeAxisMacro, updateSelection, displayBox, placeStructureBlock, handleExecution, placeGhost, turnEntityDocile, executeAsMarker, removeOldSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection, anonymous: a } = folder;
+export const { turnEntityDocile, grabPlayerData, grabAnimationData, grabPlayerAndAnimation, grabAnimationFromUuid, exitSelection, cleanUpNewAnimationData, appendAllDataChanges, recGroupSearch, regroupEntities, anchorDifference, constructRealCoordinates, grabSizeAnchor, grabSizeAnchorEditor, grabStrBlockPos, handleSummon, resetCornerBlock, handleHighlight, keepHoverSelect, removeHovers, removeDocile } = folder;
+const { skipDocile, storeArrayMacro, storeAxisMacro, updateSelection, displayBox, placeStructureBlock, handleExecution, placeGhost, executeAsMarker, removeOldSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection, anonymous: a } = folder;
 
 // grabPlayerData: grabs the player's data and places it into the current namespace. Might be moved out into a player file.
 // grabAnimationData: Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
@@ -951,6 +951,11 @@ removeDocileCommands.push(`
 turnEntityDocile`${turnEntityDocileCommands.join('\n')}`;
 removeDocile`${removeDocileCommands.join('\n')}`;
 
+// Helper function to skip a frame in docile check
+skipDocile`
+    data remove storage ${ns}:temp docileSearch[0]
+    execute if data storage ${ns}:temp docileSearch[0] run ${recDocileSearch}
+`
 
 // This function is extremely inefficient. It is ran every frame, with some of the code only executing if the player places a new selection item frame. This part is fine.
 // The issue is that afterwards, a lot of commands execute that aren't needed (like cleaning up new changes from the selections, etc.) These should be consolidated.
@@ -996,16 +1001,15 @@ selectCommands.push(`
     # Recursive, is called until temporary list docileSearch in animationData is empty. Goes through each animation and turns entities docile within each.
     ${recDocileSearch`
         # If this animation is not displayed anywhere, then there's no entities to be made docile. Skip to next animation.
-        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"none"}}]} run return run ${a`
-            data remove storage ${ns}:temp docileSearch[0]
-            execute if data storage ${ns}:temp docileSearch[0] run ${recDocileSearch}
-        `}
+        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"none"}}]} run return run ${skipDocile}
         # Pull data and name into the new namespace so that functions work properly.
         data modify storage ${ns}:animation_data new set from storage ${ns}:temp docileSearch[0].data
         data modify storage ${ns}:animation_data new.name set from storage ${ns}:temp docileSearch[0].name
         # If we are in the "real world," we can run the normal grabSizeAnchor function to grab anchor coordinates and size in a macro data space.
         execute if data storage ${ns}:temp {docileSearch:[{data:{location:"anchor"}}]} run ${grabSizeAnchor}
         # If we are in the editor, we need to grab the eanchor and size of the first frame, as well as setup an incrementing variable to go between frames and a max variable to know when to stop searching (framecount)
+        # return early and remove this frame from the search if location is editor but there's no frames in the animation.
+        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} unless data storage ${ns}:temp docileSearch[0].data.frames[0] run return run ${skipDocile}
         execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} run ${a`
             ${grabSizeAnchorEditor} {framenum:0}
             scoreboard objectives add ${ns}-recDocile dummy
