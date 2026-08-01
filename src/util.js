@@ -2,7 +2,7 @@
 import mcf from './mcf.js';
 import * as debug from './debug.js';
 const folder = mcf.util;
-export const { replaceAllInString, toLowerCase, stringConcat, cleanKill, stringEquals, pullDataStringEquals, testIfInt } = folder;
+export const { replaceAllInString, toLowerCase, stringConcat, cleanKill, stringEquals, pullDataStringEquals, testIfInt, arrayMoveEntry } = folder;
 const { anonymous: a, incrementIdx, recCharTest, lowerCaseMacro, rawConcat } = folder;
 const ns = 'easy-anim';
 
@@ -179,3 +179,13 @@ testIfInt`
     # Return 1 to indicate success
     return 1
 `;
+
+// Takes an input array from storage, a source position and a target position, and moves the source to the target position.
+arrayMoveEntry`
+    # Log the function call
+    $${debug.run} {input: "arrayMoveEntry with $(array) placing $(source) at $(target)"}
+    # Insert the new entry at target position
+    $data modify storage $(array) insert $(target) from storage $(array)[$(source)]
+    # Remove the original entry
+    $data remove storage $(array)[$(source)]
+`

@@ -39,10 +39,18 @@
     },
     {
       "label": "➕ Add New Frame",
-      "tooltip": "Adds a frame inserted at the frames selected, and defaults to the end of the animation if none are selected.",
+      "tooltip": "Adds a frame inserted at the frames selected, and defaults to the end of the animation if none are selected. Consecutive frames are treated as groups.",
       "action": {
         "type": "minecraft:run_command",
         "command": "function easy-anim:animation/operation_on_selected_frames {mode: addBase}"
+      }
+    },
+    {
+      "label": "🗐 Duplicate Frames",
+      "tooltip": "Inserts a duplicate frame at each selected frame, retaining the order of consecutive frames.",
+      "action": {
+        "type": "minecraft:run_command",
+        "command": "function easy-anim:animation/operation_on_selected_frames {mode: duplicate}"
       }
     },
     {
