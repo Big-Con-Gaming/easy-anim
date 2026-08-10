@@ -11,13 +11,13 @@ export const {
     enterEditor, selectInPlayerFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, parseToggleSingleSelectFrame,
     parseToggleRangeSelectFrame, saveCameraCurrentFrame, recPlayerSearch, saveSpecificFrame, addNewFrame,
     toggleAllSelectFrame, clearSpecificFrame, pullNextFrameData, recMoveFrames, loadSpecificFrame, moveFrame,
-    selectAllFrames, placeFrame, loadCameraCurrentFrame, toggleHighlightCurrentFrame, exit, recRemoveFrames, moveAllSelectedFrames,
+    selectAllFrames, placeFrame, loadCameraCurrentFrame, toggleHighlightCurrentFrame, exit, recRemoveFrames, moveFramesShowDialog,
     renumberFrame, modifyCurrentFrameDuration, operationOnSelectedFrames, cameraSaveFrameEnterIterate, insertSpace, duplicateFrame
 } = folder;
 const {
     anonymous: a, cleanRemainder, newPlayerLane, modifyFrameDurationDialog, setFrameDuration,
     toggleSelectionState, removeQuoteMacroInsertScore, recToggle, recSelectAll, selectFrame, deselectFrame,
-    recSelectCheck, recOperate, grabFromRef, calculateSelectedFrameBounds
+    recSelectCheck, recOperate, grabFromRef, calculateSelectedFrameBounds, grabOffsetAndOperate
 } = folder;
 const ns = 'easy-anim';
 
@@ -923,7 +923,7 @@ duplicateFrame`
     scoreboard objectives remove ${ns}-df
 `;
 
-// Calculates how far a frame is from 0 and the last frame's index and stores those values in carryover.
+// Calculates how far a frame is from 0 and the last frame's index and stores those values in csfbounds.
 calculateSelectedFrameBounds`
     # Log the function call
     $${debug.run} {input: "calculateSelectedFrameBounds with frame $(framenum)"}
@@ -937,29 +937,59 @@ calculateSelectedFrameBounds`
     scoreboard players remove framecount ${ns}-csfb 1
     # Subtract framecount score by framenum to get distance from last frame
     scoreboard players operation framecount ${ns}-csfb -= framenum ${ns}-csfb
-    # Store the distance from 0 (framenum itself) and the distance from last frame in carryover (if there is none to begin with)
-    execute unless data storage ${ns}:temp carryover.bounds.lower store result storage ${ns}:temp carryover.bounds.lower int 1 run scoreboard players get framenum ${ns}-csfb
-    execute unless data storage ${ns}:temp carryover.bounds.upper store result storage ${ns}:temp carryover.bounds.upper int 1 run scoreboard players get framecount ${ns}-csfb
+    # Store the distance from 0 (framenum itself) and the distance from last frame in csfbounds (if there is none to begin with)
+    execute unless data storage ${ns}:temp csfbounds.lower store result storage ${ns}:temp csfbounds.lower int 1 run scoreboard players get framenum ${ns}-csfb
+    execute unless data storage ${ns}:temp csfbounds.upper store result storage ${ns}:temp csfbounds.upper int 1 run scoreboard players get framecount ${ns}-csfb
     # If there is carryover data, store it as a score
-    execute if data storage ${ns}:temp carryover.bounds.lower store result score lower ${ns}-csfb run data get storage ${ns}:temp carryover.bounds.lower
-    execute if data storage ${ns}:temp carryover.bounds.upper store result score upper ${ns}-csfb run data get storage ${ns}:temp carryover.bounds.upper
+    execute if data storage ${ns}:temp csfbounds.lower store result score lower ${ns}-csfb run data get storage ${ns}:temp csfbounds.lower
+    execute if data storage ${ns}:temp csfbounds.upper store result score upper ${ns}-csfb run data get storage ${ns}:temp csfbounds.upper
     # If these new distances are smaller, save those instead.
-    execute if score framenum ${ns}-csfb < lower ${ns}-csfb store result storage ${ns}:temp carryover.bounds.lower int 1 run scoreboard players get framenum ${ns}-csfb
-    execute if score framecount ${ns}-csfb < upper ${ns}-csfb store result storage ${ns}:temp carryover.bounds.upper int 1 run scoreboard players get framecount ${ns}-csfb
+    execute if score framenum ${ns}-csfb < lower ${ns}-csfb store result storage ${ns}:temp csfbounds.lower int 1 run scoreboard players get framenum ${ns}-csfb
+    execute if score framecount ${ns}-csfb < upper ${ns}-csfb store result storage ${ns}:temp csfbounds.upper int 1 run scoreboard players get framecount ${ns}-csfb
     # Clear the scoreboard
     scoreboard objectives remove ${ns}-csfb
 `
 
-// Takes all selected frames, finds the closest bounds to each edge within the domain of all frames in this animation, asks the user for an offset, and moves all selected frames based on that offset.
-moveAllSelectedFrames`
+// Asks the user for an offset to move all selected frames by.
+moveFramesShowDialog`
+    # Log the entry point
+    ${debug.entry} {input: "from editor_menu dialog"}
     # Log the function call
-    ${debug.run} {input: "moveAllSelectedFrames"}
-    # Writing a quick function to test the functionality of calculateSelectedFrameBounds.
+    ${debug.run} {input: "moveFramesShowDialog"}
+    # Log the expected path
+    ${debug.path} {input: "-> grabAnimationFromUuid -> ^ no selection -> operationOnSelectedFrames -> show Move Selected Frames dialog"}
+    # Grab animation data (just for the check below)
     ${grabAnimationFromUuid} with entity @s
-    ${calculateSelectedFrameBounds} {framenum:0}
-    ${calculateSelectedFrameBounds} {framenum:2}
-    data remove storage ${ns}:animation_data new
+    # If no frames are selected, error and exit. Warn the player in the process.
+    execute unless data storage ${ns}:animation_data new.frames[].selected run return run ${a`
+        # Remove leftover data in new, which was opened just to check if any frames were selected.
+        data remove storage ${ns}:animation_data new
+        # Log error
+        ${debug.error} {input: "No frames are selected!"}
+        # Warn the user that they must select frames first.
+        tellraw @s {text: "Please select some frames first!", color:red}
+    `}
+    # Execute operationOnSelectedFrames with the calcBounds operation.
+    ${operationOnSelectedFrames} {mode: "calcBounds"}
+    # Create an offset macro key insert in storage for the dialog to use.
+    data modify storage ${ns}:temp csfbounds.offsetinsert set value "$(offset)"
+    # Using the bounds, generate and show the dialog to the user.
+    ${a`
+        $dialog show @s {type:"minecraft:multi_action",title:"Move Selected Frames",inputs:[{type:"minecraft:number_range",key:"offset",label:"Offset",start:-$(lower),end:$(upper),step:1,initial:0}],exit_action:{label:"Cancel"},actions:[{label:"Move Frames",tooltip:"Takes each frame's # and applies the offset to move them that amount within the animation. + is later, - is earlier.",action:{type:"minecraft:dynamic/run_command",template:"function easy-anim:animation/grab_offset_and_operate {offset: $(offsetinsert)}"}}]}
+    `} with storage ${ns}:temp csfbounds
+    # Clean up trailing data
+    # data remove storage ${ns}:temp csfbounds
 `
+
+// Tosses the given offset into carryover and calls operationOnSelectedFrames with the move operation.
+grabOffsetAndOperate`
+    # Log the function call
+    $${debug.run} {input: "grabOffsetAndOperate with offset $(offset)"}
+`
+
+
+// Calculates the frame's target frame using offset and the frame's index, then calls moveFrame.
+
 
 // Moves the specified framenum to the specified targetframe within the editor dimension.
 moveFrame`
@@ -1036,7 +1066,8 @@ const operationMap = [
     {mode: "highlightCamera", command: `${toggleHighlightFrame}`},
     {mode: "duration", command: `${setFrameDuration}`},
     {mode: "addBase", command: `${addNewFrame}`, beforeExecute: `data modify storage ${ns}:temp grabsizeanchor.targetframe set value "base"`},
-    {mode: "duplicate", command: `${duplicateFrame}`}
+    {mode: "duplicate", command: `${duplicateFrame}`},
+    {mode: "calcBounds", command: `${calculateSelectedFrameBounds}`}
 ];
 
 function createOperateCommands({mode, command, beforeExecute}) {
@@ -1056,7 +1087,7 @@ operateCommands.push(...operationMap.map(createOperateCommands));
 // Performs a specified operation on all selected frames, in reverse order.
 operationOnSelectedFrames`
     # Log the entry point
-    ${debug.entry} {input: "from editor_menu dialog, multiple options"}
+    ${debug.entry} {input: "from editor_menu dialog, multiple options | moveFramesShowDialog"}
     # Log the function call
     $${debug.run} {input: "operationOnSelectedFrames executing $(mode)"}
     # Log the expected function path.
