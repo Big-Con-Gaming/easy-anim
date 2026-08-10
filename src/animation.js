@@ -11,13 +11,13 @@ export const {
     enterEditor, selectInPlayerFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, parseToggleSingleSelectFrame,
     parseToggleRangeSelectFrame, saveCameraCurrentFrame, recPlayerSearch, saveSpecificFrame, addNewFrame,
     toggleAllSelectFrame, clearSpecificFrame, pullNextFrameData, recMoveFrames, loadSpecificFrame, moveFrame,
-    selectAllFrames, placeFrame, loadCameraCurrentFrame, toggleHighlightCurrentFrame, exit, recRemoveFrames,
+    selectAllFrames, placeFrame, loadCameraCurrentFrame, toggleHighlightCurrentFrame, exit, recRemoveFrames, moveAllSelectedFrames,
     renumberFrame, modifyCurrentFrameDuration, operationOnSelectedFrames, cameraSaveFrameEnterIterate, insertSpace, duplicateFrame
 } = folder;
 const {
     anonymous: a, cleanRemainder, newPlayerLane, modifyFrameDurationDialog, setFrameDuration,
     toggleSelectionState, removeQuoteMacroInsertScore, recToggle, recSelectAll, selectFrame, deselectFrame,
-    recSelectCheck, recOperate, grabFromRef
+    recSelectCheck, recOperate, grabFromRef, calculateSelectedFrameBounds
 } = folder;
 const ns = 'easy-anim';
 
@@ -922,6 +922,44 @@ duplicateFrame`
     data remove storage ${ns}:temp df
     scoreboard objectives remove ${ns}-df
 `;
+
+// Calculates how far a frame is from 0 and the last frame's index and stores those values in carryover.
+calculateSelectedFrameBounds`
+    # Log the function call
+    $${debug.run} {input: "calculateSelectedFrameBounds with frame $(framenum)"}
+    # Create a scoreboard
+    scoreboard objectives add ${ns}-csfb dummy
+    # Save the framenum as a score
+    $scoreboard players set framenum ${ns}-csfb $(framenum)
+    # Save the framecount as a score
+    execute store result score framecount ${ns}-csfb run data get storage ${ns}:animation_data new.framecount
+    # Subtract framecount by 1 to get the last frame's index
+    scoreboard players remove framecount ${ns}-csfb 1
+    # Subtract framecount score by framenum to get distance from last frame
+    scoreboard players operation framecount ${ns}-csfb -= framenum ${ns}-csfb
+    # Store the distance from 0 (framenum itself) and the distance from last frame in carryover (if there is none to begin with)
+    execute unless data storage ${ns}:temp carryover.bounds.lower store result storage ${ns}:temp carryover.bounds.lower int 1 run scoreboard players get framenum ${ns}-csfb
+    execute unless data storage ${ns}:temp carryover.bounds.upper store result storage ${ns}:temp carryover.bounds.upper int 1 run scoreboard players get framecount ${ns}-csfb
+    # If there is carryover data, store it as a score
+    execute if data storage ${ns}:temp carryover.bounds.lower store result score lower ${ns}-csfb run data get storage ${ns}:temp carryover.bounds.lower
+    execute if data storage ${ns}:temp carryover.bounds.upper store result score upper ${ns}-csfb run data get storage ${ns}:temp carryover.bounds.upper
+    # If these new distances are smaller, save those instead.
+    execute if score framenum ${ns}-csfb < lower ${ns}-csfb store result storage ${ns}:temp carryover.bounds.lower int 1 run scoreboard players get framenum ${ns}-csfb
+    execute if score framecount ${ns}-csfb < upper ${ns}-csfb store result storage ${ns}:temp carryover.bounds.upper int 1 run scoreboard players get framecount ${ns}-csfb
+    # Clear the scoreboard
+    scoreboard objectives remove ${ns}-csfb
+`
+
+// Takes all selected frames, finds the closest bounds to each edge within the domain of all frames in this animation, asks the user for an offset, and moves all selected frames based on that offset.
+moveAllSelectedFrames`
+    # Log the function call
+    ${debug.run} {input: "moveAllSelectedFrames"}
+    # Writing a quick function to test the functionality of calculateSelectedFrameBounds.
+    ${grabAnimationFromUuid} with entity @s
+    ${calculateSelectedFrameBounds} {framenum:0}
+    ${calculateSelectedFrameBounds} {framenum:2}
+    data remove storage ${ns}:animation_data new
+`
 
 // Moves the specified framenum to the specified targetframe within the editor dimension.
 moveFrame`
