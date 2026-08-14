@@ -46,6 +46,14 @@
       }
     },
     {
+      "label": "↕ Move Frames",
+      "tooltip": "Moves each selected frame by a specified offset.",
+      "action": {
+        "type": "minecraft:run_command",
+        "command": "function easy-anim:animation/move_frames_show_dialog"
+      }
+    },
+    {
       "label": "🗐 Duplicate Frames",
       "tooltip": "Inserts a duplicate frame at each selected frame, retaining the order of consecutive frames.",
       "action": {

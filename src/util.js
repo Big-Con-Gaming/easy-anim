@@ -116,11 +116,11 @@ stringConcat`
     $${debug.run} {input: "stringConcat using $(front) and $(back) at $(output)"}
     # Log the expected function path.
     ${debug.path} {input: "-> rawConcat"}
-    $data modify storage ${ns}:temp stringConcat.output set value "$(output)"
-    $data modify storage ${ns}:temp stringConcat.front set from storage $(front)
-    $data modify storage ${ns}:temp stringConcat.back set from storage $(back)
-    ${rawConcat} with storage ${ns}:temp stringConcat
-    data remove storage ${ns}:temp stringConcat
+    $data modify storage ${ns}:util stringConcat.output set value "$(output)"
+    $data modify storage ${ns}:util stringConcat.front set from storage $(front)
+    $data modify storage ${ns}:util stringConcat.back set from storage $(back)
+    ${rawConcat} with storage ${ns}:util stringConcat
+    data remove storage ${ns}:util stringConcat
 `;
 
 // Execute on an entity to kill it by teleporting it away to the editor dimension, removing it's drops so nothing is left behind.
@@ -139,15 +139,15 @@ stringEquals`
     $${debug.run} {input: "stringEquals using $(input1) and $(input2) placing into $(output)"}
     scoreboard objectives add ${ns}-string-equals dummy
     # place the input and output strings into temporary storage.
-    $data modify storage ${ns}:test stringEquals.input1 set value "$(input1)"
-    $data modify storage ${ns}:test stringEquals.input2 set value "$(input2)"
+    $data modify storage ${ns}:util stringEquals.input1 set value "$(input1)"
+    $data modify storage ${ns}:util stringEquals.input2 set value "$(input2)"
     # Warn if replacing data in output. Currently can't be used as output within the data subtype doesn't have subtype in its prefix...
     # $execute if data $(output) run ${debug.warn} {input:"$(output) already has data! Overwriting..."}
     # Store a result score while setting the input to the value of output.
-    $execute store result $(output) run data modify storage ${ns}:test stringEquals.input1 set from storage ${ns}:test stringEquals.input2
+    $execute store result $(output) run data modify storage ${ns}:util stringEquals.input1 set from storage ${ns}:util stringEquals.input2
     # Remove temporary data
     scoreboard objectives remove ${ns}-string-equals
-    data remove storage ${ns}:test stringEquals
+    data remove storage ${ns}:util stringEquals
 `;
 
 // Pulls out data from paths to setup a storage macro for stringEquals. Needs input1, input2, and output which have to be data paths (block/entity/storage coordinates/selector/namespace path)
@@ -156,13 +156,13 @@ pullDataStringEquals`
     $${debug.run} {input: "pullDatastringEquals from $(input1) and $(input2) placing into $(output)"}
     # Log the path
     ${debug.path} {input: "-> stringEquals"}
-    $data modify storage ${ns}:test pullDataStringEquals.input1 set from $(input1)
-    $data modify storage ${ns}:test pullDataStringEquals.input2 set from $(input2)
-    $data modify storage ${ns}:test pullDataStringEquals.output set value "$(output)"
+    $data modify storage ${ns}:util pullDataStringEquals.input1 set from $(input1)
+    $data modify storage ${ns}:util pullDataStringEquals.input2 set from $(input2)
+    $data modify storage ${ns}:util pullDataStringEquals.output set value "$(output)"
     # run stringEquals
-    ${stringEquals} with storage ${ns}:test pullDataStringEquals
+    ${stringEquals} with storage ${ns}:util pullDataStringEquals
     # Clean up temporary data
-    data remove storage ${ns}:test pullDataStringEquals
+    data remove storage ${ns}:util pullDataStringEquals
 `;
 
 // Places the macroed input into a score command.
@@ -184,8 +184,12 @@ testIfInt`
 arrayMoveEntry`
     # Log the function call
     $${debug.run} {input: "arrayMoveEntry with $(array) placing $(source) at $(target)"}
-    # Insert the new entry at target position
-    $data modify storage $(array) insert $(target) from storage $(array)[$(source)]
-    # Remove the original entry
+    # Copy the value at source into temporary storage
+    $data modify storage ${ns}:util arrayMoveEntry.sourceValue set from storage $(array)[$(source)]
+    # Remove the source entry
     $data remove storage $(array)[$(source)]
+    # Insert the saved value into the array at target
+    $data modify storage $(array) insert $(target) from storage ${ns}:util arrayMoveEntry.sourceValue
+    # Clear trailing data
+    data remove storage ${ns}:util arrayMoveEntry.sourceValue
 `

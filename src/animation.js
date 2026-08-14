@@ -3,7 +3,7 @@ import mcf from './mcf.js';
 import * as debug from './debug.js';
 import { calculateLaneX, unclaimLane, findPlayerAxisOffset } from './inventory.js';
 import { recGroupSearch, regroupEntities, removeDocile, grabSizeAnchorEditor, cleanUpNewAnimationData, grabAnimationFromUuid, grabPlayerAndAnimation, exitSelection, appendAllDataChanges, turnEntityDocile } from './selection.js';
-import { storeFrame, retrieveFrame, removeFrame } from './storage.js';
+import { storeFrame, retrieveFrame, removeFrame, storeFrameInTemp, retrieveFrameFromTemp, clearOutTempStorage } from './storage.js';
 import { cameraSaveFrame, cameraLoadQueueFrame, toggleHighlightFrame, cameraClosest } from './camera.js';
 import { cleanKill, testIfInt, stringEquals, arrayMoveEntry } from './util.js';
 const folder = mcf.animation;
@@ -11,13 +11,13 @@ export const {
     enterEditor, selectInPlayerFrame, recPlaceFrames, editorAnchorInData, tpIntoEditor, clean, parseToggleSingleSelectFrame,
     parseToggleRangeSelectFrame, saveCameraCurrentFrame, recPlayerSearch, saveSpecificFrame, addNewFrame,
     toggleAllSelectFrame, clearSpecificFrame, pullNextFrameData, recMoveFrames, loadSpecificFrame, moveFrame,
-    selectAllFrames, placeFrame, loadCameraCurrentFrame, toggleHighlightCurrentFrame, exit, recRemoveFrames,
+    selectAllFrames, placeFrame, loadCameraCurrentFrame, toggleHighlightCurrentFrame, exit, recRemoveFrames, moveFramesShowDialog,
     renumberFrame, modifyCurrentFrameDuration, operationOnSelectedFrames, cameraSaveFrameEnterIterate, insertSpace, duplicateFrame
 } = folder;
 const {
     anonymous: a, cleanRemainder, newPlayerLane, modifyFrameDurationDialog, setFrameDuration,
     toggleSelectionState, removeQuoteMacroInsertScore, recToggle, recSelectAll, selectFrame, deselectFrame,
-    recSelectCheck, recOperate, grabFromRef
+    recSelectCheck, recOperate, grabFromRef, calculateSelectedFrameBounds, grabOffsetAndOperate, moveSelectedFrames
 } = folder;
 const ns = 'easy-anim';
 
@@ -663,17 +663,27 @@ addNewFrame`
     # Calculate the frame num diff from the consecutive count so that it can be used in the preceeding macro
     execute if score consecutive ${ns}-anf matches 2.. run scoreboard players operation consecutive ${ns}-anf += framenum ${ns}-anf
     execute if score consecutive ${ns}-anf matches 2.. store result storage ${ns}:temp anf.movetoframe int 1 run scoreboard players get consecutive ${ns}-anf
+    # Calc frame num behind movetoframe to insert the data at, so that movetoframe # is still in front
+    execute if score consecutive ${ns}-anf matches 2.. run scoreboard players operation pushback ${ns}-anf = consecutive ${ns}-anf
+    execute if score consecutive ${ns}-anf matches 2.. store result storage ${ns}:temp anf.pushback int 1 run scoreboard players remove pushback ${ns}-anf 1
     # (oh btw, the "matches 2.." check still works after this math because consecutive is >= 2 to begin with [if consecutive] so += framenum will also be >= 2)
     # If there's consecutive frames, we need to insert the space at where the original frame needs to be moved to, and move it there.
     execute if score consecutive ${ns}-anf matches 2.. run ${a`
         # Log the function call
-        $${debug.run} {input: "Inserting space after consecutive and moving this frame to $(movetoframe)"}
+        $${debug.run} {input: "Inserting space after consecutive and moving this frame to $(movetoframe), pushing back $(pushback) and lower"}
+        # Save the old az to use in moveFrame only (so that targetframe picks up the eanchor of the gap. This should lowkey be recalculated.)
+        $data modify storage ${ns}:temp anf.oldaz set from storage ${ns}:animation_data new.frames[$(movetoframe)].eanchor[2]
         # Insert space at movetoframe
         $${insertSpace} {framenum: $(movetoframe), sz: $(sz)}
+        # Save this new az to use after moveframe and for now set it to old
+        $data modify storage ${ns}:temp anf.realaz set from storage ${ns}:animation_data new.frames[$(movetoframe)].eanchor[2]
+        $data modify storage ${ns}:animation_data new.frames[$(movetoframe)].eanchor[2] set from storage ${ns}:temp anf.oldaz
         # Move frame at framenum to this new position
         $${moveFrame} {framenum: $(framenum), targetframe: $(movetoframe)}
+        # Reset eanchorz to be the real value
+        $data modify storage ${ns}:animation_data new.frames[$(movetoframe)].eanchor[2] set from storage ${ns}:temp anf.realaz
         # Update the array of frames so that this frame's data is there.
-        $${arrayMoveEntry} {array: "${ns}:animation_data new.frames", source: $(framenum), target: $(movetoframe)}
+        $${arrayMoveEntry} {array: "${ns}:animation_data new.frames", source: $(framenum), target: $(pushback)}
     `} with storage ${ns}:temp anf
     # Copy the target frame's data into the new frame. Entities aren't copied as storeFrame will generate that for us
     $data modify storage ${ns}:animation_data new.frames insert $(framenum) value {}
@@ -833,6 +843,7 @@ insertSpace`
 `;
 
 // Pulls and sets up all of the data required for recMoveFrames, which specifically needs eanchor, size, and size - 1 = sh[x-z]. Newz also has to be calculated.
+// Also sets eanchor's z to the new value.
 pullNextFrameData`
     # Log the function call
     $${debug.run} {input: "pullNextFrameData for one frame ahead: $(nextframe) for $(name) placed in $(namespace) shifting $(neg)$(diff)"}
@@ -858,6 +869,13 @@ pullNextFrameData`
     $data modify storage ${ns}:temp $(namespace).selected set from storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].selected
 `
 
+// Recursively moves frames over by the size of the removed frame's z axis, and renumbers them accordingly.
+// FOR DEPENDENCIES BELOW: USE pullNextFrameData ABOVE.
+// a[x-z]: the eanchor of the frame being moved. s[x-z]: the size of the frame being moved. sh[x-z]: the size - 1 of the frame being moved.
+// neg: sign of the diff. diff: the size of the removed frame's z axis + 1. newz: the new z coordinate of the frame being moved. name: name of animation.
+// currentframe: frame # where nextframe is being placed at. nextframe: frame # being moved. namespace: location where all data is stored.
+// selected: whether or not the frame being moved is selected. 
+// SCOREBOARD: target in ${ns}-$(namespace) must be set to a frame index where once reached, stops the loop. Set it to the first index you DO NOT want moved!
 recMoveFrames`
     # Log the function call
     $${debug.run} {input: "recMoveFrames at $(ax) $(ay) $(az) extending $(shx) ($(sx)) $(shy) ($(sy)) $(shz) ($(sz)) shifting $(neg)$(diff) placing at $(newz) for $(name) frame $(currentframe) <- $(nextframe) inside of $(namespace) selected? $(selected)"}
@@ -923,7 +941,249 @@ duplicateFrame`
     scoreboard objectives remove ${ns}-df
 `;
 
+// Calculates how far a frame is from 0 and the last frame's index and stores those values in csfbounds.
+calculateSelectedFrameBounds`
+    # Log the function call
+    $${debug.run} {input: "calculateSelectedFrameBounds with frame $(framenum)"}
+    # Create a scoreboard
+    scoreboard objectives add ${ns}-csfb dummy
+    # Save the framenum as a score
+    $scoreboard players set framenum ${ns}-csfb $(framenum)
+    # Save the framecount as a score
+    execute store result score framecount ${ns}-csfb run data get storage ${ns}:animation_data new.framecount
+    # Subtract framecount by 1 to get the last frame's index
+    scoreboard players remove framecount ${ns}-csfb 1
+    # Subtract framecount score by framenum to get distance from last frame
+    scoreboard players operation framecount ${ns}-csfb -= framenum ${ns}-csfb
+    # Store the distance from 0 (framenum itself) and the distance from last frame in csfbounds (if there is none to begin with)
+    execute unless data storage ${ns}:temp csfbounds.lower store result storage ${ns}:temp csfbounds.lower int 1 run scoreboard players get framenum ${ns}-csfb
+    execute unless data storage ${ns}:temp csfbounds.upper store result storage ${ns}:temp csfbounds.upper int 1 run scoreboard players get framecount ${ns}-csfb
+    # If there is carryover data, store it as a score
+    execute if data storage ${ns}:temp csfbounds.lower store result score lower ${ns}-csfb run data get storage ${ns}:temp csfbounds.lower
+    execute if data storage ${ns}:temp csfbounds.upper store result score upper ${ns}-csfb run data get storage ${ns}:temp csfbounds.upper
+    # If these new distances are smaller, save those instead.
+    execute if score framenum ${ns}-csfb < lower ${ns}-csfb store result storage ${ns}:temp csfbounds.lower int 1 run scoreboard players get framenum ${ns}-csfb
+    execute if score framecount ${ns}-csfb < upper ${ns}-csfb store result storage ${ns}:temp csfbounds.upper int 1 run scoreboard players get framecount ${ns}-csfb
+    # Clear the scoreboard
+    scoreboard objectives remove ${ns}-csfb
+`
+
+// Asks the user for an offset to move all selected frames by.
+moveFramesShowDialog`
+    # Log the entry point
+    ${debug.entry} {input: "from editor_menu dialog"}
+    # Log the function call
+    ${debug.run} {input: "moveFramesShowDialog"}
+    # Log the expected path
+    ${debug.path} {input: "-> grabAnimationFromUuid -> ^ no selection -> operationOnSelectedFrames -> show Move Selected Frames dialog"}
+    # Grab animation data (just for the check below)
+    ${grabAnimationFromUuid} with entity @s
+    # If no frames are selected, error and exit. Warn the player in the process.
+    execute unless data storage ${ns}:animation_data new.frames[].selected run return run ${a`
+        # Remove leftover data in new, which was opened just to check if any frames were selected.
+        data remove storage ${ns}:animation_data new
+        # Log error
+        ${debug.error} {input: "No frames are selected!"}
+        # Warn the user that they must select frames first.
+        tellraw @s {text: "Please select some frames first!", color:red}
+    `}
+    # Execute operationOnSelectedFrames with the calcBounds operation.
+    ${operationOnSelectedFrames} {mode: "calcBounds"}
+    # Create an offset macro key insert in storage for the dialog to use.
+    data modify storage ${ns}:temp csfbounds.offsetinsert set value "$(offset)"
+    # Using the bounds, generate and show the dialog to the user.
+    ${a`
+        $dialog show @s {type:"minecraft:multi_action",title:"Move Selected Frames",inputs:[{type:"minecraft:number_range",key:"offset",label:"Offset",start:-$(lower),end:$(upper),step:1,initial:0}],exit_action:{label:"Cancel"},actions:[{label:"Move Frames",tooltip:"Takes each frame's # and applies the offset to move them that amount within the animation. + is later, - is earlier.",action:{type:"minecraft:dynamic/run_command",template:"function easy-anim:animation/grab_offset_and_operate {offset: $(offsetinsert)}"}}]}
+    `} with storage ${ns}:temp csfbounds
+    # Clean up trailing data
+    data remove storage ${ns}:temp csfbounds
+`
+
+// Tosses the given offset into carryover and calls operationOnSelectedFrames with the move operation.
+grabOffsetAndOperate`
+    # Log the function call
+    $${debug.run} {input: "grabOffsetAndOperate with offset $(offset)"}
+    # Create a scoreboard to test offset's sign
+    scoreboard objectives add ${ns}-gao dummy
+    # Store this offset into carryover for operationOnSelectedFrames to use.
+    $data modify storage ${ns}:temp carryover.offset set value $(offset)
+    execute store result score offset ${ns}-gao run data get storage ${ns}:temp carryover.offset
+    # If offset is zero, we exit since you can't move a frame to itself...
+    execute if score offset ${ns}-gao matches 0 run return run ${a`
+        tellraw @s {text: "You can't move a frame to it's own location! Try an offset that isn't zero!", color: "red"}
+        ${debug.error} {input: "User inputted an offset of 0 from move_frames dialog, exiting..."}
+        data remove storage ${ns}:temp carryover.offset
+        scoreboard objectives remove ${ns}-gao
+    `}
+    # Check if this value is negative, and if so, trigger a flag so that operationOnSelectedFrames can run in ascending order instead of descending order.
+    execute if score offset ${ns}-gao matches ..-1 run data modify storage ${ns}:temp selectedframes.reverseCount set value true
+    # Execute operationOnSelectedFrames with the move operation.
+    ${operationOnSelectedFrames} {mode: "move"}
+    # remove the scoreboard
+    scoreboard objectives remove ${ns}-gao
+`
+
+// Calculates the frame's target frame using offset and the frame's index, then calls moveFrame and handles all other logic.
+moveSelectedFrames`
+    # Log the function call
+    $${debug.run} {input: "moveSelectedFrames with $(framenum)"}
+    ${debug.path} {input: "-> pull target frame data -> moving target temporarily -> recGroupSearch -> storeFrameInTemp -> moveFrame -> | (pullNextFrameData -> recMoveFrames) -> grab pullfrom -> move out of temp -> retrieveFrameFromTemp -> clearOutTempStorage -> retrieveFrame -> arrayMoveEntry"}
+    # Create a scoreboard
+    scoreboard objectives add ${ns}-msf dummy
+    # Pull all framenum data into storage for easy grabbing without macro.
+    $data modify storage ${ns}:temp msf merge from storage ${ns}:animation_data new.frames[$(framenum)]
+    # Store the framenum (in storage and...) and offset and target # into the scoreboard (probably could grab them from grabsizeanchor storage...)
+    $execute store result storage ${ns}:temp msf.framenum int 1 run scoreboard players set framenum ${ns}-msf $(framenum)
+    execute store result score offset ${ns}-msf store result score target ${ns}-msf run data get storage ${ns}:temp carryover.offset
+    # Calculate the target frame by adding framenum and target together.
+    scoreboard players operation target ${ns}-msf += framenum ${ns}-msf
+    # Store this target frame into storage for other functions to use.
+    execute store result storage ${ns}:temp msf.targetframe int 1 run scoreboard players get target ${ns}-msf
+    # Grab target frame data like eanchor and size
+    ${a`
+        # Log the function call
+        $${debug.run} {input: "pulling target frame data for $(targetframe)"}
+        # Grab all data to a generic namespace to cut down macros.
+        $data modify storage ${ns}:temp msf.targetdata set from storage ${ns}:animation_data new.frames[$(targetframe)]
+        # grab eanchor
+        data modify storage ${ns}:temp msf.tax set from storage ${ns}:temp msf.targetdata.eanchor[0]
+        data modify storage ${ns}:temp msf.tay set from storage ${ns}:temp msf.targetdata.eanchor[1]
+        data modify storage ${ns}:temp msf.taz set from storage ${ns}:temp msf.targetdata.eanchor[2]
+        execute store result score taz ${ns}-msf run data get storage ${ns}:temp msf.taz
+        # Add 96 to targetframe's z eanchor so that we can TP it back that amount to the temporary location.
+        execute store result storage ${ns}:temp msf.difftotemp int 1 run scoreboard players add taz ${ns}-msf 96
+        # grab size
+        data modify storage ${ns}:temp msf.tsx set from storage ${ns}:temp msf.targetdata.size[0]
+        data modify storage ${ns}:temp msf.tsy set from storage ${ns}:temp msf.targetdata.size[1]
+        data modify storage ${ns}:temp msf.tsz set from storage ${ns}:temp msf.targetdata.size[2]
+        # Set msf.selected to a default value of false (we need this for placing a structure block way later)
+        data modify storage ${ns}:temp msf.selected set value false
+        # Set msf.selected to whether or not targetframe is selected
+        data modify storage ${ns}:temp msf.selected set from storage ${ns}:temp msf.targetdata.selected
+    `} with storage ${ns}:temp msf
+    ${a`
+        # Log the function call
+        $${debug.run} {input: "moving target temporarily, from $(tax) $(tay) $(taz) with size $(tsx) $(tsy) $(tsz)"}
+        # Forceload the target frame area and the temporary area. (Possible optimization where we only forceload area bounded by size, but that also adds more macro inserts so.)
+        $execute positioned $(tax) $(tay) $(taz) run forceload add ~ ~ ~47 ~47
+        execute positioned 0 0 -96 run forceload add ~ ~ ~47 ~47
+        # Use this data to ungroup entities at target frame
+        $execute positioned $(tax) $(tay) $(taz) run ${recGroupSearch} {sx: $(tsx), sy: $(tsy), sz: $(tsz), id: 0}
+        # Clone the blocks at target frame to a temporary location
+        # You'll need to grab target frame data to then move them to a place that is different from 0 -48 actually since other functions we'll run will use that region.)
+        $execute positioned $(tax) $(tay) $(taz) run clone ~ ~ ~ ~$(tsx) ~$(tsy) ~$(tsz) 0 0 -96 masked move
+        # remove the old structure block (warn if not structure block)
+        $execute positioned $(tax) $(tay) $(taz) unless block ~ ~-1 ~ minecraft:structure_block run ${debug.warn} {input: "non-structure block found at target's structure block location! Clearing..."}
+        $execute positioned $(tax) $(tay) $(taz) run setblock ~ ~-1 ~ minecraft:air
+        # Teleport all entities at target frame to this temporary location
+        $execute positioned $(tax) $(tay) $(taz) as @e[tag=${ns}-entity-turned-docile,dx=$(tsx), dy=$(tsy), dz=$(tsz)] at @s run tp @s ~ ~ ~-$(difftotemp)
+        # Unforceload the target frame area and the temporary area.
+        $execute positioned $(tax) $(tay) $(taz) run forceload remove ~ ~ ~47 ~47
+        execute positioned 0 0 -96 run forceload remove ~ ~ ~47 ~47
+        # We also need to temporarily store this frame's storage data, since it'll be overwritten.
+        $${storeFrameInTemp} {framenum: $(targetframe)}
+    `} with storage ${ns}:temp msf
+    # Move the framenum frame to where target frame is (which is now empty since we moved it to a temporary location).
+    ${moveFrame} with storage ${ns}:temp msf
+    # Pull data needed to run recMoveFrames.
+    # Namespace
+    data modify storage ${ns}:temp msf.namespace set value "msf"
+    # Name
+    data modify storage ${ns}:temp msf.name set from storage ${ns}:animation_data new.name
+    # diff (should just be frame sz + 1 that we moved)
+    execute store result score sz ${ns}-msf run data get storage ${ns}:temp msf.size[2]
+    execute store result storage ${ns}:temp msf.diff int 1 run scoreboard players add sz ${ns}-msf 1
+    # Neg (depends on offset score's sign, this is inversed because if we moved the func up in index [along z axis], to close the gap we move the other frames down in index [down on z axis])
+    data modify storage ${ns}:temp msf.neg set value ""
+    execute if score offset ${ns}-msf matches 0.. run data modify storage ${ns}:temp msf.neg set value "-"
+    # Set nextframe to framenum +- 1 so that pullNextFrameData knows what to grab (sign depends on direction we are moving)
+    scoreboard players operation nextframe ${ns}-msf = framenum ${ns}-msf
+    execute if score offset ${ns}-msf matches 0.. store result storage ${ns}:temp msf.nextframe int 1 run scoreboard players add nextframe ${ns}-msf 1
+    execute if score offset ${ns}-msf matches ..-1 store result storage ${ns}:temp msf.nextframe int 1 run scoreboard players remove nextframe ${ns}-msf 1
+    # currentframe is just framenum
+    data modify storage ${ns}:temp msf.currentframe set from storage ${ns}:temp msf.framenum
+    # Target is another dependency of recMoveFrames that we actually set above already.
+    # However, if target = nextframe already (the case when we are moving one frame over), then we can skip both of these functions! Set a flag
+    execute if score target ${ns}-msf = nextframe ${ns}-msf run data modify storage ${ns}:temp msf.skipInbetweens set value true
+    # use pullNextFrameData to create most of this for us
+    execute unless data storage ${ns}:temp msf.skipInbetweens run ${pullNextFrameData} with storage ${ns}:temp msf
+    # use recMoveFrames to close the gap left by the moved frame.
+    execute unless data storage ${ns}:temp msf.skipInbetweens run ${recMoveFrames} with storage ${ns}:temp msf
+    # Before target is changed, clone it to find where we are moving target to, later.
+    scoreboard players operation targetnewindex ${ns}-msf = target ${ns}-msf
+    # Now we gotta move the frame stored at 0 0 -96 back to targetframe - 1's position.
+    # Must calculate a new eanchor z location since targetframe - 1 data doesn't exist anymore.
+    # If moving upwards on Z, it will be targetframe - 2 (well in data should be targetframe - 1 since the extra -1 is from the physical gap)'s eanchorz + sizez + 1
+    # If moving downwards on Z, it will be targetframe (which is now framenum's since we moved it there) eanchorz + sizez + 1
+    # However, if we didn't shuffle in between frames (because there were none) we need to decrease targetframe by another 1 (if we are moving upwards on z).
+    execute if data storage ${ns}:temp msf.skipInbetweens if score offset ${ns}-msf matches 0.. run scoreboard players remove target ${ns}-msf 1
+    # First, change target to be -1 if upwards on z
+    execute if score offset ${ns}-msf matches 0.. run scoreboard players remove target ${ns}-msf 1
+    # Now, grab that frame's eanchorz and sizez. Should be in animation_data new
+    execute store result storage ${ns}:temp msf.pullfrom int 1 run scoreboard players get target ${ns}-msf
+    ${a`
+        # Log the function call
+        $${debug.run} {input: "grabbing data from frame $(pullfrom)"}
+        # Store the eanchorz as a score
+        $data modify storage ${ns}:temp msf.assembleaz set from storage ${ns}:animation_data new.frames[$(pullfrom)]
+    `} with storage ${ns}:temp msf
+    # Store eanchorz and sizez into a score
+    execute store result score assembleaz ${ns}-msf run data get storage ${ns}:temp msf.assembleaz.eanchor[2]
+    execute store result score assemblesz ${ns}-msf run data get storage ${ns}:temp msf.assembleaz.size[2]
+    # Add them together
+    scoreboard players operation assembleaz ${ns}-msf += assemblesz ${ns}-msf
+    # Increase by 1 and store this value to be macroed.
+    execute store result storage ${ns}:temp msf.newtaz int 1 run scoreboard players add assembleaz ${ns}-msf 1
+    # Increase by 96 and store this as the diff to teleport entities by out of temp storage.
+    execute store result storage ${ns}:temp msf.difffromtemp int 1 run scoreboard players add assembleaz ${ns}-msf 96
+    # Using targetnewindex which was created earlier, depending on the sign of offset, change it to be the target frame's new index, and store it.
+    execute if score offset ${ns}-msf matches 0.. run scoreboard players remove targetnewindex ${ns}-msf 1
+    execute if score offset ${ns}-msf matches ..-1 run scoreboard players add targetnewindex ${ns}-msf 1
+    execute store result storage ${ns}:temp msf.targetnewindex int 1 run scoreboard players get targetnewindex ${ns}-msf
+    # Bring the frame back over
+    ${a`
+        # Log the function call
+        ${debug.run} {input: "Moving frame out of temp storage"}
+        # Forceload the areas
+        $execute positioned $(tax) $(tay) $(newtaz) run forceload add ~ ~ ~47 ~47
+        execute positioned 0 0 -96 run forceload add ~ ~ ~47 ~47
+        # Clone the blocks over
+        $execute positioned 0 0 -96 run clone ~ ~ ~ ~$(tsx) ~$(tsy) ~$(tsz) $(tax) $(tay) $(newtaz) masked move
+        # Teleport the entities over
+        $execute positioned 0 0 -96 as @e[tag=${ns}-entity-turned-docile,dx=$(tsx), dy=$(tsy), dz=$(tsz)] at @s run tp @s ~ ~ ~$(difffromtemp)
+        # Regroup entities
+        $execute positioned $(tax) $(tay) $(newtaz) run ${regroupEntities} {sx: $(tsx), sy: $(tsy), sz: $(tsz)}
+        # Place new structure block which will have a new index (warn if replacing non-air)
+        $execute positioned $(tax) $(tay) $(newtaz) unless block ~ ~-1 ~ minecraft:air run ${debug.warn} {input: "expected air block at target frame's new structure block position! Overwriting..."}
+        $execute positioned $(tax) $(tay) $(newtaz) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"LOAD", showboundingbox: $(selected), posX: 0, posY: 1, posZ: 0, sizeX: $(tsx), sizeY: $(tsy), sizeZ: $(tsz), ignoreEntities: false, name: "${ns}:$(name)-frame$(targetnewindex)", strict: true}
+        # Save the change to animation data
+        $data modify storage ${ns}:animation_data new.frames[$(targetframe)].eanchor[2] set value $(newtaz).0d
+        # Unforceload both regions
+        $execute positioned $(tax) $(tay) $(newtaz) run forceload remove ~ ~ ~47 ~47
+        execute positioned 0 0 -96 run forceload remove ~ ~ ~47 ~47
+        # Retrieve that data we stored earlier in temp
+        $${retrieveFrameFromTemp} {framenum: $(targetnewindex)}
+        # Clear out temp storage
+        ${clearOutTempStorage}
+        # Setting a flag so that retrieveFrame skips the existence check (forces overwriting data)
+        data modify storage ${ns}:temp retrieveframe.forceOverwrite set value true
+        # retrieve frame to update the structure block to what we saved in storage
+        $${retrieveFrame} {framenum: $(targetnewindex)}
+    `} with storage ${ns}:temp msf
+    # Actually move the frames in the array data.
+    data modify storage ${ns}:temp msf.array set value "${ns}:animation_data new.frames"
+    data modify storage ${ns}:temp msf.source set from storage ${ns}:temp msf.framenum
+    data modify storage ${ns}:temp msf.target set from storage ${ns}:temp msf.targetframe
+    ${arrayMoveEntry} with storage ${ns}:temp msf
+    # Clear trailing data
+    data remove storage ${ns}:temp msf
+    scoreboard objectives remove ${ns}-msf
+`
+
 // Moves the specified framenum to the specified targetframe within the editor dimension.
+// I think this function will cause major issues if frame sizes aren't equal, mainly because a bigger
+// frame can be placed at a smaller frame's anchor and it wouldn't check if other frames in sequence are within that range.
+// to fix this, you would have to calc the size diff and shift EVERYTHING ahead by that diff. Not gonna do that now lol.
 moveFrame`
     # Log the function call
     $${debug.run} {input: "moveFrame $(framenum) to $(targetframe)"}
@@ -932,8 +1192,10 @@ moveFrame`
     # We're going to make the assumption that this method is being used elsewhere where animation_data is open already and will be closed on its own
     # Open a scoreboard
     scoreboard objectives add ${ns}-mf dummy
+    # Set a default value of selected to false for macro insert later (for creating structure block)
+    data modify storage ${ns}:temp moveFrame.frameData.selected set value false
     # Pull needed data (Use macros once and then not again). Also warn if this data is missing
-    $data modify storage ${ns}:temp moveFrame.frameData set from storage ${ns}:animation_data new.frames[$(framenum)]
+    $data modify storage ${ns}:temp moveFrame.frameData merge from storage ${ns}:animation_data new.frames[$(framenum)]
     $data modify storage ${ns}:temp moveFrame.frameDataTarget set from storage ${ns}:animation_data new.frames[$(targetframe)]
     # Using input and output namespaces for renumberFrame function (also needs a macro for name)
     $data modify storage ${ns}:temp moveFrame.frameData.input set value $(framenum)
@@ -956,16 +1218,16 @@ moveFrame`
     data modify storage ${ns}:temp moveFrame.frameData.tax set from storage ${ns}:temp moveFrame.frameDataTarget.eanchor[0]
     data modify storage ${ns}:temp moveFrame.frameData.tay set from storage ${ns}:temp moveFrame.frameDataTarget.eanchor[1]
     data modify storage ${ns}:temp moveFrame.frameData.taz set from storage ${ns}:temp moveFrame.frameDataTarget.eanchor[2]
-    # Currently, the Z position is off since insert space was ran first -> so this frame's data is placed sz + 1 ahead. Must subtract sz and 1000 (we scaled up coords) to get accurate targeteanchor.
-    execute store result score sizez ${ns}-mf run data get storage ${ns}:temp moveFrame.frameData.sz 1000
-    execute store result score anchordiff ${ns}-mf run data get storage ${ns}:temp moveFrame.frameData.taz 1000
-    scoreboard players operation anchordiff ${ns}-mf -= sizez ${ns}-mf
-    execute store result storage ${ns}:temp moveFrame.frameData.taz double 0.001 run scoreboard players remove anchordiff ${ns}-mf 1000
+    # grab targetanchor as a score
+    execute store result score targetanchor ${ns}-mf run data get storage ${ns}:temp moveFrame.frameData.taz 1000
     # Calculate the difference in the z positions
-    execute store result storage ${ns}:temp moveFrame.frameData.diff int 0.001 run scoreboard players operation anchordiff ${ns}-mf -= anchorz ${ns}-mf
+    execute store result storage ${ns}:temp moveFrame.frameData.diff int 0.001 run scoreboard players operation targetanchor ${ns}-mf -= anchorz ${ns}-mf
     ${a`
         # Log the function call
         ${debug.run} {input: "Moving the frame"}
+        # Forceload the frame's area and the target frame's area.
+        $execute positioned $(ax) $(ay) $(az) run forceload add ~ ~ ~47 ~47
+        $execute positioned $(tax) $(tay) $(taz) run forceload add ~ ~ ~47 ~47
         # Ungroup entities at framenum
         $execute positioned $(ax) $(ay) $(az) run ${recGroupSearch} with storage ${ns}:temp moveFrame.frameData
         # Clone move the blocks over to the new location
@@ -976,11 +1238,19 @@ moveFrame`
         $execute positioned $(tax) $(tay) $(taz) run ${regroupEntities} with storage ${ns}:temp moveFrame.frameData
         # Renumber the frame in data
         ${renumberFrame} with storage ${ns}:temp moveFrame.frameData
+        # Warn if replacing a non-structure or air block at the new location.
+        $execute positioned $(tax) $(tay) $(taz) unless block ~ ~-1 ~ minecraft:air unless block ~ ~-1 ~ minecraft:structure_block run ${debug.warn} {input: "Non-air or non-structure block found below frame! Overwriting..."}
+        # Change the structure block at the new location to have the correct frame number.
+        $execute positioned $(tax) $(tay) $(taz) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"LOAD", showboundingbox:$(selected), posX:0, posY:1, posZ:0, sizeX:$(sx), sizeY:$(sy), sizeZ:$(sz), ignoreEntities: false, name:"${ns}:$(name)-frame$(output)", strict: true}
         # Update new frame data since eanchor just changed. (we only changed the Z-coordinate)
         $data modify storage ${ns}:animation_data new.frames[$(input)].eanchor[2] set from storage ${ns}:temp moveFrame.frameData.taz
+        # Unforceload the frame's area and the target frame's area.
+        $execute positioned $(ax) $(ay) $(az) run forceload remove ~ ~ ~47 ~47
+        $execute positioned $(tax) $(tay) $(taz) run forceload remove ~ ~ ~47 ~47
     `} with storage ${ns}:temp moveFrame.frameData
     # Clean up trailing data
     data remove storage ${ns}:temp moveFrame
+    scoreboard objectives remove ${ns}-mf
 `;
 
 // Used in operationOnSelectedFrames
@@ -998,7 +1268,9 @@ const operationMap = [
     {mode: "highlightCamera", command: `${toggleHighlightFrame}`},
     {mode: "duration", command: `${setFrameDuration}`},
     {mode: "addBase", command: `${addNewFrame}`, beforeExecute: `data modify storage ${ns}:temp grabsizeanchor.targetframe set value "base"`},
-    {mode: "duplicate", command: `${duplicateFrame}`}
+    {mode: "duplicate", command: `${duplicateFrame}`},
+    {mode: "calcBounds", command: `${calculateSelectedFrameBounds}`},
+    {mode: "move", command: `${moveSelectedFrames}`}
 ];
 
 function createOperateCommands({mode, command, beforeExecute}) {
@@ -1018,7 +1290,7 @@ operateCommands.push(...operationMap.map(createOperateCommands));
 // Performs a specified operation on all selected frames, in reverse order.
 operationOnSelectedFrames`
     # Log the entry point
-    ${debug.entry} {input: "from editor_menu dialog, multiple options"}
+    ${debug.entry} {input: "from editor_menu dialog, multiple options | moveFramesShowDialog"}
     # Log the function call
     $${debug.run} {input: "operationOnSelectedFrames executing $(mode)"}
     # Log the expected function path.
@@ -1049,8 +1321,10 @@ operationOnSelectedFrames`
     execute if data storage ${ns}:animation_data new.frames[0] run ${recSelectCheck`
         # Log the function call
         $${debug.run} {input: "Select Check with $(maxframe) and $(prevframe)"}
-        # Check if this frame is selected, and if so, add it to the end of the list of frames to operate on.
-        $execute if data storage ${ns}:animation_data new.frames[$(maxframe)].selected run data modify storage ${ns}:temp selectedframes.framenums append value $(maxframe)
+        # Check if this frame is selected and that reverseCount is false, and if so, add it to the end of the list of frames to operate on.
+        $execute if data storage ${ns}:animation_data new.frames[$(maxframe)].selected unless data storage ${ns}:temp selectedframes.reverseCount run data modify storage ${ns}:temp selectedframes.framenums append value $(maxframe)
+        # If selectedframes.reverseCount is true, insert this frame at the beginning of the list instead of the end.
+        $execute if data storage ${ns}:animation_data new.frames[$(maxframe)].selected if data storage ${ns}:temp selectedframes.reverseCount run data modify storage ${ns}:temp selectedframes.framenums insert 0 value $(maxframe)
         # If mode is duplicate and this frame is selected, modify carryover to track consecutive frames
         $execute if data storage ${ns}:animation_data new.frames[$(maxframe)].selected if data storage ${ns}:temp selectedframes.trackConsecutive run ${a`
             # log the function call

@@ -160,7 +160,7 @@ recGroupSearch`
     data remove storage ${ns}:temp rgs
 `
 
-// Must be ran with xyz and sx sy sz, where xyz represents the neg-neg-neg corner of the frame/selection and sx sy sz represent the size of the frame/selection. This goes through and puts grouped entities back together after they were split for structure saving.
+// Must be ran at xyz and with sx sy sz, where xyz represents the neg-neg-neg corner of the frame/selection and sx sy sz represent the size of the frame/selection. This goes through and puts grouped entities back together after they were split for structure saving.
 regroupEntities`
     # Log the function call
     $${debug.run} {input: "regroupEntities within $(sx) $(sy) $(sz)"}

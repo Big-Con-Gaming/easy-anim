@@ -3,8 +3,8 @@ import mcf from './mcf.js';
 import * as debug from './debug.js';
 import { stringConcat, cleanKill } from './util.js';
 const folder = mcf.storage;
-export const { allocAnimation, storeFrame, retrieveFrame, removeFrame } = folder;
-const { recFindNextEmptyLane, macroPlaceFrame, pullStoreCoords, macroStoreFrame, macroRemoveFrame, recRetrieveEntities, frameExistanceCheck, anonymous: a } = folder;
+export const { allocAnimation, storeFrame, retrieveFrame, removeFrame, storeFrameInTemp, retrieveFrameFromTemp, clearOutTempStorage } = folder;
+const { recFindNextEmptyLane, macroPlaceFrame, pullStoreCoords, macroStoreFrame, macroRemoveFrame, recRetrieveEntities, frameExistenceCheck, anonymous: a } = folder;
 const ns = 'easy-anim';
 
 // Takes the name of an animation, and finds it a new lane within the storage dimension for their frame's structure blocks. Searches by checking for bedrock blocks. Stores the lane within the animation's data.storageid field.
@@ -163,11 +163,13 @@ storeFrame`
     scoreboard objectives remove ${ns}-storeframe
 `;
 
+// Retrieves a frame from storage, saving it into structure memory
+// Flag ${ns}:temp retrieveframe.forceOverwrite -> skips the existence check, overwriting data.
 retrieveFrame`
     # Log the function call
     $${debug.run} {input: "retrieveFrame for $(framenum)"}
     # Log the expected function path.
-    ${debug.path} {input: "-> pullStoreCoords -> ^ frameExistanceCheck -> | non-base frame -> macroStoreFrame -> | recRetrieveFrames (place and configure) -> | cleanKill"}
+    ${debug.path} {input: "-> pullStoreCoords -> ^ frameExistenceCheck -> | non-base frame -> macroStoreFrame -> | recRetrieveFrames (place and configure) -> | cleanKill"}
     # Error if animation is missing name
     execute unless data storage ${ns}:animation_data new.name run return run ${debug.error} {input:"Current animation is missing a name!"}
     # Setup scoreboard
@@ -177,18 +179,18 @@ retrieveFrame`
     # Attempt to place a structure within a protected spot like editor. If it succeeds, then retrieving is not necessary.
     # Toss the name into macro storage
     data modify storage ${ns}:temp retrieveframe.name set from storage ${ns}:animation_data new.name
-    ${frameExistanceCheck`
+    execute unless data storage ${ns}:temp retrieveframe.forceOverwrite run ${frameExistenceCheck`
         # Log the function call
-        $${debug.run} {input: "frameExistanceCheck for $(name)-$(prefix)"}
+        $${debug.run} {input: "frameExistenceCheck for $(name)-$(prefix)"}
         # Log the expected function path.
         ${debug.path} {input: "-> | cleanKill"}
-        $execute in ${ns}:editor store success score frameExistanceCheck ${ns}-retrieveframe run place template ${ns}:$(name)-$(prefix) 0 0 -48 none none 1 1 strict
+        $execute in ${ns}:editor store success score frameExistenceCheck ${ns}-retrieveframe run place template ${ns}:$(name)-$(prefix) 0 0 -48 none none 1 1 strict
         # Kill off any entities and clear any blocks
         execute in ${ns}:editor positioned 0 0 -48 as @e[type=!player,dx=47,dy=47,dz=47] run ${cleanKill}
         execute in ${ns}:editor run fill 0 0 -48 47 47 -1 minecraft:air strict
     `} with storage ${ns}:temp retrieveframe
     # If the placement succeeded, warn and exit (and clean data.)
-    execute if score frameExistanceCheck ${ns}-retrieveframe matches 1 run return run ${a`
+    execute if score frameExistenceCheck ${ns}-retrieveframe matches 1 run return run ${a`
         ${debug.warn} {input:"Frame already exists within scope! Exiting..."}
         data remove storage ${ns}:temp retrieveframe
         scoreboard objectives remove ${ns}-retrieveframe
@@ -289,3 +291,98 @@ removeFrame`
     data remove storage ${ns}:temp removeframe
     scoreboard objectives remove ${ns}-removeframe
 `;
+
+// Takes a frame from the current animation and places it in a temporary location to save it from being overwritten
+storeFrameInTemp`
+    # Log the function call
+    $${debug.run} {input: "storeFrameInTemp for $(framenum)"}
+    # Log the expected function path.
+    ${debug.path} {input:"-> pullStoreCoords -> copy blocks to"}
+    # Setup scoreboard
+    scoreboard objectives add ${ns}-storetemp dummy
+    # Grab the necessary data to know where in the storage dimension the frame is.
+    $${pullStoreCoords} {namespace: "storetemp", framenum: $(framenum)}
+    # Pull name into storage
+    data modify storage ${ns}:temp storetemp.name set from storage ${ns}:animation_data new.name
+    ${a`
+        # Log the function call
+        $${debug.run} {input: "Copy blocks to temp at $(x) 0 $(z), spanning $(sx) $(sy) $(sz) in $(name)"}
+        # Error if temp already has data (no overwriting allowed)
+        $execute if data storage ${ns}:animation_data storetemp.$(name) run return run ${debug.error} {input: "Temp storage in use!"}
+        # Forceload the 3 chunks in the storage dimension
+        $execute in ${ns}:storage positioned $(x) 0 $(z) run forceload add ~ ~ ~47 ~47
+        # Forceload the temporary location
+        $execute in ${ns}:storage positioned $(x) 0 -96 run forceload add ~ ~ ~47 ~47
+        # Clone blocks over
+        $execute in ${ns}:storage positioned $(x) 0 $(z) run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) $(x) 0 -96
+        # Clone entity data
+        $data modify storage ${ns}:animation_data storetemp.$(name).entities set from storage ${ns}:animation_data new.frames[$(framenum)].entities
+        # Place anything in data location just in case there are no entities the temp data check above will still hit
+        $data modify storage ${ns}:animation_data storetemp.$(name).inuse set value true
+    `} with storage ${ns}:temp storetemp
+    # Clear trailing data
+    data remove storage ${ns}:temp storetemp
+    scoreboard objectives remove ${ns}-storetemp
+`
+
+// Retrieves the frame stored in temporary storage in the current animation into a specific frame's location in storage, overwritting any data in the process.
+retrieveFrameFromTemp`
+    # Log the function call
+    $${debug.run} {input: "retrieveFrameFromTemp at $(framenum)"}
+    # Log the expected function path.
+    ${debug.path} {input:"-> pullStoreCoords -> copy blocks from"}
+    # Setup scoreboard
+    scoreboard objectives add ${ns}-retrievetemp dummy
+    # Grab the necessary data to know where in the storage dimension the frame is.
+    $${pullStoreCoords} {namespace: "retrievetemp", framenum: $(framenum)}
+    # Pull name into storage
+    data modify storage ${ns}:temp retrievetemp.name set from storage ${ns}:animation_data new.name
+    ${a`
+        # Log the function call
+        $${debug.run} {input: "Copy blocks from temp to $(x) 0 $(z), spanning $(sx) $(sy) $(sz) in $(name)"}
+        # Error if temp has no data
+        $execute unless data storage ${ns}:animation_data storetemp.$(name) run return run ${debug.error} {input: "Temp storage is empty!"}
+        # Forceload the 3 chunks in the storage dimension
+        $execute in ${ns}:storage positioned $(x) 0 $(z) run forceload add ~ ~ ~47 ~47
+        # Forceload the temporary location
+        $execute in ${ns}:storage positioned $(x) 0 -96 run forceload add ~ ~ ~47 ~47
+        # Clone blocks over
+        $execute in ${ns}:storage positioned $(x) 0 -96 run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) $(x) 0 $(z)
+        # Clone entity data (if it exists)
+        $execute if data storage ${ns}:animation_data storetemp.$(name).entities run data modify storage ${ns}:animation_data new.frames[$(framenum)].entities set from storage ${ns}:animation_data storetemp.$(name).entities
+    `} with storage ${ns}:temp retrievetemp
+    # Clear trailing data
+    data remove storage ${ns}:temp retrievetemp
+    scoreboard objectives remove ${ns}-retrievetemp
+`
+
+// Clears all data related to the temporary storage
+clearOutTempStorage`
+    # Log the function call
+    ${debug.run} {input: "clearOutTempStorage for current anim"}
+    # Log the expected function path.
+    ${debug.path} {input:"-> removing blocks and data"}
+    # Error if this animation has no name.
+    execute unless data storage ${ns}:animation_data new.name run return run ${debug.error} {input: "Animation in new has no name! Returning..."}
+    # Error if this animation has no storageid
+    execute unless data storage ${ns}:animation_data new.storageid run return run ${debug.error} {input: "Animation in new has no storageid! Returning..."}
+    # Grab the x of this animation
+    execute store result storage ${ns}:temp cleartemp.x int 48 run data get storage ${ns}:animation_data new.storageid
+    # Grab the animation's name
+    data modify storage ${ns}:temp cleartemp.name set from storage ${ns}:animation_data new.name
+    # Macro time
+    ${a`
+        # Log the function call
+        $${debug.run} {input: "removing blocks and data at $(x) 0 -96 for $(name)"}
+        # Forceload the area
+        $execute positioned $(x) 0 -96 run forceload add ~ ~ ~47 ~47
+        # Fill everything with air
+        $execute positioned $(x) 0 -96 run fill ~ ~ ~ ~47 ~47 ~47 minecraft:air strict
+        # Unforceload the area
+        $execute positioned $(x) 0 -96 run forceload remove ~ ~ ~47 ~47
+        # Remove the entity data
+        $data remove storage ${ns}:animation_data storetemp.$(name)
+    `} with storage ${ns}:temp cleartemp
+    # Clear trailing data
+    data remove storage ${ns}:temp cleartemp
+`
