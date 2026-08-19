@@ -1,0 +1,17 @@
+{
+  "type": "easy-anim:workplace",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "minecraft:the_void",
+      "lakes": false,
+      "features": false,
+      "layers": [
+        {
+          "height": 32,
+          "block": "minecraft:black_concrete"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:multi_action",
+  "title": {
+    "text": "Animation Name:",
+    "type": "text"
+  },
+  "inputs": [
+    {
+      "type": "minecraft:text",
+      "key": "name",
+      "label": {
+        "text": "That Name is Taken. Try Again:"
+      },
+      "label_visible": true
+    }
+  ],
+  "can_close_with_escape": true,
+  "exit_action": {
+    "label": "❌ Cancel"
+  },
+  "actions": [
+    {
+      "label": "✔ Submit",
+      "action": {
+        "type": "minecraft:dynamic/run_command",
+        "template": "function easy-anim:menu/set_name {name:\"$(name)\"}"
+      }
+    }
+  ]
+}

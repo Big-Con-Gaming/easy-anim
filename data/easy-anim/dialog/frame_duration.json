@@ -1,0 +1,42 @@
+{
+  "type": "minecraft:multi_action",
+  "title": "Set frame(s) duration",
+  "external_title": "Set Duration for Frames",
+  "body": {
+    "type": "minecraft:plain_message",
+    "contents": "Choose a length with the slider, or input a number into the text field (supercedes slider). To help with conversion: 1 tick is 0.05 seconds, or 20 ticks is 1 second."
+  },
+  "inputs": [
+    {
+      "type": "minecraft:number_range",
+      "key": "slider",
+      "label": "length (in ticks)",
+      "start": 1,
+      "end": 600,
+      "step": 1,
+      "initial": 20
+    },
+    {
+      "type": "minecraft:text",
+      "key": "text",
+      "initial": "",
+      "label": "Positive Integer (in ticks):"
+    }
+  ],
+  "exit_action": {
+    "label": "❌ Return to Editor Menu",
+    "action": {
+      "type": "minecraft:show_dialog",
+      "dialog": "easy-anim:editor_menu"
+    }
+  },
+  "actions": [
+    {
+      "label": "✔ Set",
+      "action": {
+        "type": "minecraft:dynamic/run_command",
+        "template": "/function easy-anim:animation/modify_frame_duration_dialog {slider: $(slider), text: \"$(text)\"}"
+      }
+    }
+  ]
+}

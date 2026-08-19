@@ -1,0 +1,34 @@
+{
+  "type": "minecraft:multi_action",
+  "title": {
+    "text": "Camera Info:",
+    "type": "text"
+  },
+  "inputs": [
+    {
+      "type": "minecraft:text",
+      "key": "note",
+      "label": {
+        "text": "Camera Notes (FOV, anything, etc.):"
+      },
+      "label_visible": true
+    }
+  ],
+  "can_close_with_escape": true,
+  "exit_action": {
+    "label": "❌ Save No Note",
+    "action": {
+      "type": "minecraft:run_command",
+      "command": "function easy-anim:animation/camera_save_frame_enter_iterate {note:\"\"}"
+    }
+  },
+  "actions": [
+    {
+      "label": "✔ Submit",
+      "action": {
+        "type": "minecraft:dynamic/run_command",
+        "template": "function easy-anim:animation/camera_save_frame_enter_iterate {note:\"$(note)\"}"
+      }
+    }
+  ]
+}

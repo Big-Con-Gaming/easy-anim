@@ -1,0 +1,46 @@
+{
+  "type": "minecraft:multi_action",
+  "title": "Filter Log:",
+  "inputs": [
+    {
+      "type": "minecraft:single_option",
+      "key": "level",
+      "label": "Log Level",
+      "options": [
+        {
+          "id": "3",
+          "display": "Everything",
+          "initial": true
+        },
+        {
+          "id": "2",
+          "display": "Warns + Errors"
+        },
+        {
+          "id": "1",
+          "display": "Errors Only"
+        }
+      ]
+    },
+    {
+      "type": "minecraft:number_range",
+      "key": "lines",
+      "label": "# of Lines",
+      "start": 0,
+      "end": 100,
+      "step": 1,
+      "initial": 0
+    }
+  ],
+  "actions": [
+    {
+      "label": "👁 View Log",
+      "tooltip": "Outputs to chat. Set # of lines to 0 for max.",
+      "width": 200,
+      "action": {
+        "type": "minecraft:dynamic/run_command",
+        "template": "function easy-anim:debug/display_log_filtered {level:$(level), lines: $(lines)}"
+      }
+    }
+  ]
+}

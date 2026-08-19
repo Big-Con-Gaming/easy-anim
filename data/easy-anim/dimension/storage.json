@@ -1,0 +1,12 @@
+{
+  "type": "easy-anim:storage",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "minecraft:the_void",
+      "lakes": false,
+      "features": false,
+      "layers": []
+    }
+  }
+}
