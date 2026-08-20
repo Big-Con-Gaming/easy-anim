@@ -1,15 +1,11 @@
 // Set up stuff
 import mcf from './mcf.js';
 import * as debug from './debug.js';
+import { findPlayerAxisOffset } from './editor/lane.js';
 const folder = mcf.inventory;
-export const { grabOwnerPlayerData, cleanUpCurrentPlayerData, calculateLaneX, findPlayerAxisOffset, unclaimLane, saveInventory, loadInventory, workingHotbar } = folder;
-const { anonymous: a, recEditorSearch, macroUnclaim } = folder;
-// grabOwnerPlayerData: Using the owner tag on a selection, it pulls that player's data into current.
-// calculateLaneX: Takes the current.lane player data and multiplies by 48 to find the X coordinate. Specify an output storage position to place the number.
-// findPlayerAxisOffset: searches the editor dimension recursively to find a "lane" for a player. This will be stored inside of player_data, and this function outputs into current.lane.
-// recEditorSearch: The recursively looped function that looks for the lane to assign a new player. Repeats until current.lane exists in ${ns}:player_data.
-// unclaimLane: Removes all data indicating the player's assignment to a lane in the editor. Uses lane data from ${ns}:player_data current.lane.
-// macroUnclaim: uses the x coordinate that is placed into a macro storage to remove the bedrock block and forceloaded chunk to remove a player's lane.
+export const { saveInventory, loadInventory, workingHotbar } = folder;
+const { anonymous: a } = folder;
+
 // saveInventory: places the inventory of the player running this function and tosses it into player_data.current.
 // loadInventory: takes the player data in player_data.current and applies it to the inventory of the player running this function.
 // workingHotbar: places all of the creating a selection tools into the entity's inventory who ran the function.
@@ -20,105 +16,6 @@ const inventorySaveCommands = [];
 const inventoryLoadCommands = [];
 const workingHotbarCommands = [];
 const rightClickCommands = [];
-
-// Using the owner tag on a selection, it pulls that player's data into current.
-
-grabOwnerPlayerData`
-    ${a`
-        # Log the function call
-        $${debug.run} {input: "grabOwnerPlayerData for $(owner)"}
-        # Error if no player data exists.
-        $execute unless data storage ${ns}:player_data players[{UUID:$(owner)}] run return run ${debug.error} {input: "No player data exists for $(owner)!"}
-        $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(owner)}]
-    `} with storage ${ns}:animation_data new
-`;
-
-// Places all changes made to the current namespace onto the player's data
-cleanUpCurrentPlayerData`
-    # Log the function call
-    $${debug.run} {input:"cleanUpCurrentPlayerData for $(UUID)"}
-    # Error if the current namespace currently has no data
-    execute unless data storage ${ns}:player_data current run return run ${debug.error} {input: "there is no data in player_data current!"}
-    # Do the operation.
-    $data modify storage ${ns}:player_data players[{UUID:$(UUID)}] set from storage ${ns}:player_data current
-    # Remove the current data.
-    data remove storage ${ns}:player_data current
-`;
-
-
-// Calculates the x position from the lane value placed in the current player's data. Output is a specified path with the output macro, and the type to save the number as.
-
-calculateLaneX`
-    # Log the function call
-    $${debug.run} {input: "calculateLaneX outputting to $(output)"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> | grabOwnerPlayerData"}
-    execute unless data storage ${ns}:player_data current run ${grabOwnerPlayerData}
-    # Error if the player doesn't have a lane.
-    execute unless data storage ${ns}:player_data current.lane run return run ${debug.error} {input:"Player does not have an editor lane!"}
-    scoreboard objectives add ${ns}-lane dummy
-    scoreboard players set 48 ${ns}-lane 48
-    execute store result score current-lane ${ns}-lane run data get storage ${ns}:player_data current.lane
-    scoreboard players operation blocks ${ns}-lane = current-lane ${ns}-lane
-    scoreboard players operation blocks ${ns}-lane *= 48 ${ns}-lane
-    # Warn if output already has data. This would work except $(output) currently provides a type, which can't be used here...
-    # $execute if data storage $(output) run ${debug.warn} {input:"$(output) already has data! Overwriting..."}
-    $execute store result storage $(output) 1 run scoreboard players get blocks ${ns}-lane
-    scoreboard objectives remove ${ns}-lane
-    data remove storage ${ns}:player_data current
-`;
-
-// Searches the editor dimension recursively to find a "lane" for a player. This will be stored inside of player_data, and this function outputs into current.lane.
-
-findPlayerAxisOffset`
-    # Log the function call
-    ${debug.run} {input: "findPlayerAxisOffset"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> recEditorSearch (^ found empty lane)"}
-    # Error if the player already has a lane
-    execute if data storage ${ns}:player_data current.lane run return run ${debug.error} {input:"Player already has a lane!"}
-    scoreboard objectives add ${ns}-lane dummy
-    scoreboard players set current-lane ${ns}-lane 0
-    execute unless data storage ${ns}:player_data current.lane in ${ns}:editor positioned 0 1 0 run ${recEditorSearch`
-        # Log the function call
-        ${debug.run} {input: "recEditorSearch"}
-        forceload add ~ ~
-        execute unless block ~ ~ ~ minecraft:bedrock run return run ${a`
-            # Log the function call
-            ${debug.run} {input: "found empty lane"}
-            execute store result storage ${ns}:player_data current.lane int 1 run scoreboard players get current-lane ${ns}-lane
-            # Warn if a non-air block is located here.
-            execute unless block ~ ~ ~ minecraft:air run ${debug.warn} {input: "Non-air block found in lane! Overwriting..."}
-            setblock ~ ~ ~ minecraft:bedrock
-            forceload remove ~ ~
-        `}
-        forceload remove ~ ~
-        scoreboard players add current-lane ${ns}-lane 1
-        execute positioned ~48 ~ ~ run ${recEditorSearch}
-    `}
-    scoreboard objectives remove ${ns}-lane
-`;
-
-// Removes a player's lane by deleting the bedrock block and by unforceloading the chunk. current.lane is used and must be provided.
-
-unclaimLane`
-    # Log the function call
-    ${debug.run} {input: "unclaimLane"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> calculateLaneX -> macroUnclaim"}
-    ${calculateLaneX} {output:"${ns}:temp macro_unclaim.pos int"}
-    ${macroUnclaim`
-        # Log the function call
-        $${debug.run} {input: "macroUnclaim at x value: $(pos)"}
-        # Warn if non-bedrock block is placed here.
-        $execute unless block $(pos) 1 0 minecraft:bedrock run ${debug.warn} {input:"Expected bedrock at $(pos) 1 0! Overwriting..."}
-        $setblock $(pos) 1 0 minecraft:air
-        # Warn if we're in the first lane.
-        $execute if block $(pos) 2 0 minecraft:obsidian run ${debug.warn} {input:"This is the initial lane! Skipping unload..."}
-        $execute unless block $(pos) 2 0 minecraft:obsidian run forceload remove $(pos) 0
-    `} with storage ${ns}:temp macro_unclaim
-    data remove storage ${ns}:temp macro_unclaim
-`;
 
 // INVENTORY SAVE AND LOAD COMMANDS
 

@@ -1,18 +1,15 @@
 // Set up stuff
 import mcf from './mcf.js';
 import * as debug from './debug.js';
-import { calculateLaneX, loadInventory, unclaimLane, cleanUpCurrentPlayerData } from './inventory.js';
+import { grabAnimationFromUuid, grabAnimationData, cleanUpNewAnimationData } from './data.js';
+import { calculateLaneX, unclaimLane } from './editor/lane.js';
+import { turnEntityDocile, removeDocile } from './entity.js';
+import { loadInventory } from './inventory.js';
 import { pullDataStringEquals } from './util.js';
 const folder = mcf.selection;
-export const { turnEntityDocile, grabPlayerData, grabAnimationData, grabPlayerAndAnimation, grabAnimationFromUuid, exitSelection, cleanUpNewAnimationData, appendAllDataChanges, recGroupSearch, regroupEntities, anchorDifference, constructRealCoordinates, grabSizeAnchor, grabSizeAnchorEditor, grabStrBlockPos, handleSummon, resetCornerBlock, handleHighlight, keepHoverSelect, removeHovers, removeDocile } = folder;
+export const { exitSelection, recSplitGroups, regroupEntities, anchorDifference, constructRealCoordinates, grabSizeAnchor, grabSizeAnchorEditor, grabStrBlockPos, handleSummon, resetCornerBlock, handleHighlight, keepHoverSelect, removeHovers } = folder;
 const { skipDocile, storeArrayMacro, storeAxisMacro, updateSelection, displayBox, placeStructureBlock, handleExecution, placeGhost, executeAsMarker, removeOldSelection, createTwoPointSelection, twoPointSelection, recDocileSearch, targetSelectInSelection, anonymous: a } = folder;
 
-// grabPlayerData: grabs the player's data and places it into the current namespace. Might be moved out into a player file.
-// grabAnimationData: Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
-// grabPlayerAndAnimation: Calls both grabPlayerData and grabAnimationData to retrieve both player_data current and animation_data new
-// grabAnimationFromUuid: Grabs animation data from the player's UUID directly.
-// cleanUpNewAnimationData: Saves changes made to the new namespace within animation_data to the actual animation's data. Must be ran with storage ${ns}:animation_data new.
-// regroupEntities: Must be ran with xyz and sx sy sz, where xyz represents the neg-neg-neg corner of the frame/selection and sx sy sz represent the size of the frame/selection. This goes through and puts grouped entities back together after they were split for structure saving.
 // storeArrayMacro: places data into an output array location dependent on an iterative varible i. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
 // storeAxisMacro: places data into an output object location dependent on a string varible axis. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
 // anchorDifference: Takes an input storage location and calculates the difference between that location and the anchor location from the new selection.
@@ -39,22 +36,20 @@ const { skipDocile, storeArrayMacro, storeAxisMacro, updateSelection, displayBox
 // recDocileSearch: Recursive, is called until temporary list docileSearch in animationData is empty. Goes through each animation and turns entities docile within each.
 // targetSelectInSelection: using grabSizeAnchor data, it executes turnEntityDocile on every entity (besides the player) in the selection radius.
 
-const ns = 'easy-anim';
+export const ns = 'easy-anim';
 
 // Set up lists that will hold commands.
 const anchorDifferenceCommands = [];
 const constructRealCoordinatesCommands = [];
 const grabSizeAnchorCommands = [];
 const grabSizeAnchorEditorCommands = [];
-const selectCommands = [];
+export const selectCommands = [];
 const twoPointCommands = [];
 const displayBoxCommands = [];
 const handleSummonCommands = [];
 const grabStrBlockPosCommands = [];
 const updateSelectionCommands = [];
 const handleExecutionCommands = [];
-const turnEntityDocileCommands = [];
-const removeDocileCommands = [];
 
 // ALL COMMANDS FOR THE SELECT TOOL
 
@@ -64,124 +59,6 @@ export const axis = [
     {axis:"y",i:"1"},
     {axis:"z",i:"2"}
 ];
-
-// grabs the player's data and places it into the current namespace. Might be moved out into a player file.
-// Must be ran as the player or with a UUID passed in.
-grabPlayerData`
-    # Log the function call
-    $${debug.run} {input: "grabPlayerData for $(UUID)"}
-    # Error if the player doesn't have data
-    $execute unless data storage ${ns}:player_data players[{UUID:$(UUID)}] run return run ${debug.error} {input: "Player has no player_data!"}
-    # Load the player's inventory from storage.
-    $data modify storage ${ns}:player_data current set from storage ${ns}:player_data players[{UUID:$(UUID)}]
-`
-
-// Using currentAnim as a macro for the name of the animation, it pulls that out of animation_data into the new namespace.
-grabAnimationData`
-    # Log the function call
-    $${debug.run} {input: "grabAnimationData for $(currentAnim)"}
-    # Warn if animation data is already present in the new namespace.
-    execute if data storage ${ns}:animation_data new run ${debug.warn} {input: "New contains data already, overriding..."}
-    # Error if the animation requested doesn't exist.
-    $execute unless data storage ${ns}:animation_data animations[{name:$(currentAnim)}].data run return run ${debug.error} {input: "Animation $(currentAnim) does not exist."}
-    $data modify storage ${ns}:animation_data new set from storage ${ns}:animation_data animations[{name:$(currentAnim)}].data
-    $data modify storage ${ns}:animation_data new.name set value $(currentAnim)
-`;
-
-// Calls both grabPlayerData and grabAnimationData to retrieve both player_data current and animation_data new
-grabPlayerAndAnimation`
-    # Log the function call
-    $${debug.run} {input: "grabPlayerAndAnimation for $(UUID)"}
-    # Log the path
-    ${debug.path} {input: "-> grabPlayerData -> grabAnimationData"}
-    # Toss player data into current with the provided UUID
-    $${grabPlayerData} {UUID:$(UUID)}
-    # Using the info inside of player data current, grab the animation data
-    ${grabAnimationData} with storage ${ns}:player_data current
-`;
-
-// Grabs animation data from the player's UUID directly.
-grabAnimationFromUuid`
-    # Log the function call
-    $${debug.run} {input: "grabAnimationFromUuid for $(UUID)"}
-    # Log the path
-    ${debug.path} {input: "-> grabAnimationData"}
-    # Call grabAnimationData using currentAnim from the player data
-    $${grabAnimationData} with storage ${ns}:player_data players[{UUID:$(UUID)}]
-`;
-
-// Saves changes made to the new namespace within animation_data to the actual animation's data. Must be ran with storage ${ns}:animation_data new.
-cleanUpNewAnimationData`
-    # Log the function call
-    $${debug.run} {input: "cleanUpNewAnimationData for $(name)"}
-    # Error if animation_data new does not exist.
-    execute unless data storage ${ns}:animation_data new run return run ${debug.error} {input: "No data found in the new namespace."}
-    data remove storage ${ns}:animation_data new.name
-    $data modify storage ${ns}:animation_data animations[{name:$(name)}].data set from storage ${ns}:animation_data new
-    data remove storage ${ns}:animation_data new
-`
-appendAllDataChanges`
-    # Log the function call
-    $${debug.run} {input: "appendAllDataChanges for animation $(name) and player $(owner)"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> cleanUpNewAnimationData -> cleanUpCurrentPlayerData"}
-    # Call each function with the appropriate macro
-    $${cleanUpNewAnimationData} {name: $(name)}
-    $${cleanUpCurrentPlayerData} {UUID: $(owner)}
-`
-
-// Separates groups within a selection/frame using tags so that they can be recreated after a structure block loads.
-recGroupSearch`
-    # Log the function call
-    $${debug.run} {input: "recGroupSearch with id $(id) within $(sx) $(sy) $(sz)"}
-    # Create the objective used to count groupid if it doesn't already exist.
-    scoreboard objectives add ${ns}-rgs dummy
-    $execute store result storage ${ns}:temp rgs.id int 1 run scoreboard players set groupid ${ns}-rgs $(id)
-    $data modify storage ${ns}:temp rgs.sx set value $(sx)
-    $data modify storage ${ns}:temp rgs.sy set value $(sy)
-    $data modify storage ${ns}:temp rgs.sz set value $(sz)
-    # Warn if no entities are present within the selection
-    $execute unless entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group,limit=1,sort=random] run ${debug.warn} {input:"No entities can be grouped! Skipping..."}
-    $execute as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group,limit=1,sort=random] if data entity @s Passengers run ${a`
-        # Log the function call
-        ${debug.run} {input: "grouping an entity found within selection"}
-        $tag @s add ${ns}-vehicle-$(id)
-        $data modify entity @s data.easyanimgroupid set value $(id)
-        tag @s add ${ns}-group
-        $execute on passengers run tag @s add ${ns}-passenger-$(id)
-        execute on passengers run tag @s add ${ns}-group
-        $execute on passengers run data modify entity @s data.easyanimgroupid set value $(id)
-        execute on passengers run ride @s dismount
-        execute store result storage ${ns}:temp rgs.id int 1 run scoreboard players add groupid ${ns}-rgs 1
-    `} with storage ${ns}:temp rgs
-    $execute as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group] if data entity @s Passengers run ${recGroupSearch} with storage ${ns}:temp rgs
-    # Remove the created objective.
-    scoreboard objectives remove ${ns}-rgs
-    data remove storage ${ns}:temp rgs
-`
-
-// Must be ran at xyz and with sx sy sz, where xyz represents the neg-neg-neg corner of the frame/selection and sx sy sz represent the size of the frame/selection. This goes through and puts grouped entities back together after they were split for structure saving.
-regroupEntities`
-    # Log the function call
-    $${debug.run} {input: "regroupEntities within $(sx) $(sy) $(sz)"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> | passenger on vehicle -> | untagging"}
-    # Warn if no grouped entities are found within selection in case there should be.
-    $execute unless entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${debug.warn} {input: "No grouped entities found, skipping..."}
-    $execute as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${a`
-        # Log the function call
-        $${debug.run} {input: "placing passenger on vehicle in group $(easyanimgroupid)"}
-        $execute if entity @s[tag=${ns}-passenger-$(easyanimgroupid)] run ride @s mount @n[tag=${ns}-vehicle-$(easyanimgroupid)]
-    `} with entity @s data
-    $execute as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${a`
-        # Log the function call
-        $${debug.run} {input: "untagging $(easyanimgroupid)"}
-        $execute if entity @s[tag=${ns}-passenger-$(easyanimgroupid)] run tag @s remove ${ns}-passenger-$(easyanimgroupid)
-        $execute if entity @s[tag=${ns}-vehicle-$(easyanimgroupid)] run tag @s remove ${ns}-vehicle-$(easyanimgroupid)
-        tag @s remove ${ns}-group
-        data remove entity @s data.easy-anim-groupid
-    `} with entity @s data
-`;
 
 // Set up the list that will hold commands for the exitSelection macro.
 const exitCommands = [];
@@ -869,87 +746,6 @@ removeHovers`
     execute at @s if block ~ ~ ~ ${hoverBlock} run setblock ~ ~ ~ minecraft:air
     kill @s
 `
-
-// All nbtdata that needs to be changed (set to true by default) to make an entity "docile".
-const entityAttributes = [
-    {name:"NoAI"},
-    {name:"Silent"},
-    {name:"Glowing", selectOnly: true},
-    {name:"Invulnerable"},
-    {name:"PersistenceRequired"},
-    {name:"PickupDelay", value:"10s", itemOnly:true,repeated:true},
-    {name:"Age", value:"0s", itemOnly:true, repeated:true},
-    {name:"Motion", value:"[0.0d,0.0d,0.0d]", repeated:true}
-];
-
-// Turn all entities within the selection area "docile" (No AI, No Gravity, Silent, Invulnerable, Persistent, Full Pickup Delay and No Despawn Timer for Items)
-// These commands here specifically change all of the attributes required to be docile to the executor.
-function createTurnEntityDocileCommands({name, value, itemOnly, repeated, selectOnly}){
-    let selector = ``;
-    let output = "true";
-    if (repeated === null) {
-        selector = `unless entity @s[tag=${ns}-entity-turned-docile] `;
-    }
-    if (itemOnly) {
-        selector = selector.concat(`if entity @s[type=item] `);
-    }
-    if (value) {
-        output = value;
-    }
-    if (selectOnly) {
-        selector = selector.concat(`if entity @s[tag=${ns}-selected] `);
-    }
-    return`
-            execute at @s ${selector}store success score ${ns}-${name} ${ns}-entity-docile run data modify entity @s ${name} set value ${output}
-            execute at @s ${selector}if score ${ns}-${name} ${ns}-entity-docile matches 1 run tag @s add ${ns}-${name}
-    `;
-};
-
-turnEntityDocileCommands.push(`
-    # Log the function call - Removed for running every frame
-    # ${debug.run} {input: "turnEntityDocile"}
-    # Warn if the entity is already docile.
-    execute unless entity @s[type=item] if entity @s[tag=${ns}-entity-turned-docile] run ${debug.warn} {input: "Non-item entity is already docile, continuing anyway."}
-
-    scoreboard objectives add ${ns}-entity-docile dummy
-`);
-
-turnEntityDocileCommands.push(...entityAttributes.map(createTurnEntityDocileCommands));
-
-turnEntityDocileCommands.push(`
-    scoreboard objectives remove ${ns}-entity-docile
-    execute unless entity @s[tag=${ns}-entity-turned-docile] run tag @s add ${ns}-entity-turned-docile
-`);
-
-// These commands here specifically remove all of the attributes that make an entity docile from the executor.
-function createRemoveDocileCommands({name, repeated}){
-    if (repeated) {
-        return`
-            execute if entity @s[tag=${ns}-${name}] run tag @s remove ${ns}-${name}
-        `;
-    } else {
-        return`
-            execute if entity @s[tag=${ns}-${name}] run data modify entity @s ${name} set value false
-            execute if entity @s[tag=${ns}-${name}] run tag @s remove ${ns}-${name}
-        `;
-    }
-}
-
-removeDocileCommands.push(`
-    # Log the function call - Removed for running every frame
-    # ${debug.run} {input: "removeDocile"}
-    # Warn if the entity isn't docile.
-    execute unless entity @s[tag=${ns}-entity-turned-docile] run ${debug.warn} {input: "Entity isn't docile, continuing anyway."}
-`);
-
-removeDocileCommands.push(...entityAttributes.map(createRemoveDocileCommands));
-
-removeDocileCommands.push(`
-    execute if entity @s[tag=${ns}-entity-turned-docile] run tag @s remove ${ns}-entity-turned-docile
-`);
-
-turnEntityDocile`${turnEntityDocileCommands.join('\n')}`;
-removeDocile`${removeDocileCommands.join('\n')}`;
 
 // Helper function to skip a frame in docile check
 skipDocile`

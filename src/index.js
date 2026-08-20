@@ -4,6 +4,9 @@
 
 import mcf from './mcf.js';
 import * as debug from './debug.js';
+import './data.js';
+import './editor.js';
+import './entity.js';
 import { toolbarRightClick } from './inventory.js';
 import { select, handleDetection, handleHighlight, keepHoverSelect, removeHovers } from './selection.js';
 import './menu.js';

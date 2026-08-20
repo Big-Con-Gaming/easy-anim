@@ -1,16 +1,18 @@
+// The purpose of this file is to render out animations into the real world from their animation data.
+
 // Sets up basic things.
 import mcf from './mcf.js';
 import * as debug from './debug.js';
-import { grabPlayerData, grabPlayerAndAnimation, grabAnimationData, grabStrBlockPos, cleanUpNewAnimationData, grabSizeAnchorEditor, constructRealCoordinates, removeDocile, recGroupSearch, regroupEntities } from './selection.js';
-import { cleanUpCurrentPlayerData, calculateLaneX, findPlayerAxisOffset, unclaimLane } from './inventory.js';
+import { removeDocile, recSplitGroups, regroupEntities } from './entity.js';
+import { grabStrBlockPos, grabSizeAnchorEditor, constructRealCoordinates } from './selection.js';
+import { grabPlayerData, grabPlayerAndAnimation, grabAnimationData, cleanUpNewAnimationData, cleanUpCurrentPlayerData } from './data.js';
+import { calculateLaneX, unclaimLane, findPlayerAxisOffset } from './editor/lane.js';
 import { cleanKill } from './util.js';
 import { retrieveFrame } from './storage.js';
 const folder = mcf.render;
 export const { startRender, renderCheck, specificFrameRender, exitRender } = folder;
 const { recCheck, anonymous: a } = folder;
 const ns = 'easy-anim';
-
-// The purpose of this file is to render out animations into the real world from their animation data.
 
 // Starts the render for an animation. This will take place inside the animation's dimension, at the animation's anchor.
 // Expects the player to be outside of the editor, and to have this animation as their currentAnim.
@@ -61,7 +63,7 @@ startRender`
         $execute in $(dimension) run setblock $(x) $(y) $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:false,posX:1,posY:1,posZ:1,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-original",strict:true}
         # Ungroup entities
         data modify storage ${ns}:temp str.id set value 0
-        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 run ${recGroupSearch} with storage ${ns}:temp str
+        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 run ${recSplitGroups} with storage ${ns}:temp str
         # Save the frame
         $execute in $(dimension) positioned $(x) $(y) $(z) run setblock ~ ~1 ~ minecraft:redstone_block
         # Replace this block with what was there beforehand, and remove that block from the editor

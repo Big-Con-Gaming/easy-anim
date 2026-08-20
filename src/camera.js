@@ -1,8 +1,8 @@
 // Sets up basic things.
 import mcf from './mcf.js';
 import * as debug from './debug.js';
-import { operationOnSelectedFrames} from './animation.js';
-import { axis, cleanUpNewAnimationData, anchorDifference, constructRealCoordinates, grabAnimationFromUuid} from './selection.js';
+import { grabAnimationFromUuid, cleanUpNewAnimationData } from './data.js';
+import { axis, anchorDifference, constructRealCoordinates } from './selection.js';
 import { exitRender } from './render.js';
 const folder = mcf.camera;
 export const { anonymous: a, placeParticleEveryTick, cameraSave, cameraSaveFrame, cameraClosest, cameraLoad, cameraLoadFrame, cameraLoadQueueFrame, exitCamera, cameraHighlight, cameraRemoveHighlight, toggleHighlightFrame } = folder;

@@ -1,11 +1,14 @@
 // Set up stuff
 import mcf from './mcf.js';
 import * as debug from './debug.js';
-import { saveInventory, workingHotbar, calculateLaneX } from './inventory.js';
-import { grabStrBlockPos, cleanUpNewAnimationData, handleSummon, regroupEntities, removeDocile, grabAnimationFromUuid, recGroupSearch } from './selection.js';
+import { saveInventory, workingHotbar } from './inventory.js';
+import { calculateLaneX } from './editor/lane.js';
+import { regroupEntities, removeDocile, recSplitGroups } from './entity.js';
+import { grabAnimationFromUuid, cleanUpNewAnimationData } from './data.js';
+import { grabStrBlockPos, handleSummon } from './selection.js';
 import { allocAnimation, storeFrame } from './storage.js';
 import { replaceAllInString, toLowerCase, stringConcat } from './util.js';
-import { enterEditor } from './animation.js';
+import { enterEditor } from './editor.js';
 import { startRender } from './render.js';
 const folder = mcf.menu;
 export const { setName, createSelection, createAnimation, saveStructure, displayAnimationsDialog, deleteAnimation, renderAnimation, displayModifySelectDialog } = folder;
@@ -71,7 +74,7 @@ createAnimation`
     # Log the function call
     $${debug.run} {input: "createAnimation for $(UUID)"}
     # Log the expected function path.
-    ${debug.path} {input: "-> grabAnimationFromUuid -> ^ camera and selection check -> grabStrBlockPos -> calculateLaneX -> saveStructure -> recGroupSearch (| grouping entity) -> macro context update -> | removeDocile -> allocAnimation -> storeFrame X2 -> regroupEntities -> handleSummon -> cleanUpNewAnimationData"}
+    ${debug.path} {input: "-> grabAnimationFromUuid -> ^ camera and selection check -> grabStrBlockPos -> calculateLaneX -> saveStructure -> recSplitGroups (| grouping entity) -> macro context update -> | removeDocile -> allocAnimation -> storeFrame X2 -> regroupEntities -> handleSummon -> cleanUpNewAnimationData"}
     # Load the player's inventory from storage.
     $${grabAnimationFromUuid} {UUID:$(UUID)}
     # Error if animation_data new is missing: name or anchor
@@ -109,7 +112,7 @@ createAnimation`
         $execute positioned $(x) $(y) $(z) run kill @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)]
         # Ungroup any grouped entities and tag them so they can find each other.
         data modify storage ${ns}:temp str.id set value 0
-        $execute positioned $(x) $(y) $(z) run ${recGroupSearch} with storage ${ns}:temp str
+        $execute positioned $(x) $(y) $(z) run ${recSplitGroups} with storage ${ns}:temp str
         # Using the macro, make sure all of the entities within the selection are no longer considered docile
         ${a`
             # Log the function call
