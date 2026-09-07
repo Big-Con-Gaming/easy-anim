@@ -3,12 +3,11 @@
 // Sets up basic things.
 import mcf from './mcf.js';
 import * as debug from './debug.js';
-import { removeDocile, recSplitGroups, regroupEntities } from './entity.js';
+import { removeDocile, recSplitGroups, regroupEntities, cleanKill } from './entity.js';
 import { constructRealCoordinates } from './selection/geometry.js';
 import { grabSizeAnchorEditor, grabStrBlockPos } from './selection/data.js'
 import { grabPlayerData, grabPlayerAndAnimation, grabAnimationData, cleanUpNewAnimationData, cleanUpCurrentPlayerData } from './data.js';
 import { calculateLaneX, unclaimLane, findPlayerAxisOffset } from './editor/lane.js';
-import { cleanKill } from './util.js';
 import { retrieveFrame } from './storage.js';
 const folder = mcf.render;
 export const { startRender, renderCheck, specificFrameRender, exitRender } = folder;

@@ -18,7 +18,7 @@
       "tooltip": "Operates on all selected frames.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/operation_on_selected_frames {mode: save}"
+        "command": "function easy-anim:animation/operate/operation_on_selected_frames {mode: save}"
       }
     },
     {
@@ -26,7 +26,7 @@
       "tooltip": "Operates on all selected frames.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/operation_on_selected_frames {mode: load}"
+        "command": "function easy-anim:animation/operate/operation_on_selected_frames {mode: load}"
       }
     },
     {
@@ -34,7 +34,7 @@
       "tooltip": "Operates on all selected frames.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/operation_on_selected_frames {mode: clear}"
+        "command": "function easy-anim:animation/operate/operation_on_selected_frames {mode: clear}"
       }
     },
     {
@@ -42,7 +42,7 @@
       "tooltip": "Adds a frame inserted at the frames selected, and defaults to the end of the animation if none are selected. Consecutive frames are treated as groups.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/operation_on_selected_frames {mode: addBase}"
+        "command": "function easy-anim:animation/operate/operation_on_selected_frames {mode: addBase}"
       }
     },
     {
@@ -58,7 +58,7 @@
       "tooltip": "Inserts a duplicate frame at each selected frame, retaining the order of consecutive frames.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/operation_on_selected_frames {mode: duplicate}"
+        "command": "function easy-anim:animation/operate/operation_on_selected_frames {mode: duplicate}"
       }
     },
     {
@@ -74,7 +74,7 @@
       "tooltip": "Operates on all selected frames, shows you a preview of those frames with their durations.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/operation_on_selected_frames {mode: loadCamera}"
+        "command": "function easy-anim:animation/operate/operation_on_selected_frames {mode: loadCamera}"
       }
     },
     {
@@ -82,7 +82,7 @@
       "tooltip": "Operates on all selected frames, shows where their cameras are located.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/operation_on_selected_frames {mode: highlightCamera}"
+        "command": "function easy-anim:animation/operate/operation_on_selected_frames {mode: highlightCamera}"
       }
     },
     {

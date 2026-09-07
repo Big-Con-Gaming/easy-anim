@@ -2,7 +2,7 @@
 import mcf from './mcf.js';
 import * as debug from './debug.js';
 const folder = mcf.util;
-export const { replaceAllInString, toLowerCase, stringConcat, cleanKill, stringEquals, pullDataStringEquals, testIfInt, arrayMoveEntry } = folder;
+export const { replaceAllInString, toLowerCase, stringConcat, stringEquals, pullDataStringEquals, testIfInt, arrayMoveEntry } = folder;
 const { anonymous: a, incrementIdx, recCharTest, lowerCaseMacro, rawConcat } = folder;
 const ns = 'easy-anim';
 
@@ -121,16 +121,6 @@ stringConcat`
     $data modify storage ${ns}:util stringConcat.back set from storage $(back)
     ${rawConcat} with storage ${ns}:util stringConcat
     data remove storage ${ns}:util stringConcat
-`;
-
-// Execute on an entity to kill it by teleporting it away to the editor dimension, removing it's drops so nothing is left behind.
-cleanKill`
-    # Log the function call
-    ${debug.run} {input: "cleanKill"}
-    data modify entity @s DeathLootTable set value "minecraft:air"
-    data modify entity @s Glowing set value false
-    kill @s
-    execute in ${ns}:editor run tp @s 0 -30 0
 `;
 
 // Checks to see if two strings are equal. Requires input1, input2, and output macros that contain strings.

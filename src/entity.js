@@ -8,7 +8,7 @@ import { grabSizeAnchor, grabSizeAnchorEditor } from './selection/data.js';
 const folder = mcf.entity;
 
 // Define functions you want other files to use here:
-export const { recSplitGroups, regroupEntities, turnEntityDocile, removeDocile, mainDocileLoop } = folder;
+export const { recSplitGroups, regroupEntities, turnEntityDocile, removeDocile, mainDocileLoop, cleanKill } = folder;
 
 // Define local functions here:
 const { anonymous: a, recDocileSearch, skipDocile, targetSelectInSelection } = folder;
@@ -223,3 +223,12 @@ mainDocileLoop`
     `}
     data remove storage ${ns}:temp docileSearch
 `
+// Execute on an entity to kill it by teleporting it away to the editor dimension, removing it's drops so nothing is left behind.
+cleanKill`
+    # Log the function call
+    ${debug.run} {input: "cleanKill"}
+    data modify entity @s DeathLootTable set value "minecraft:air"
+    data modify entity @s Glowing set value false
+    kill @s
+    execute in ${ns}:editor run tp @s 0 -30 0
+`;

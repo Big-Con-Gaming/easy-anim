@@ -8,7 +8,8 @@ import { grabAnimationFromUuid, grabPlayerAndAnimation, cleanUpNewAnimationData 
 import { regroupEntities } from './entity.js';
 import { exitSelection } from './selection.js';
 import { retrieveFrame } from './storage.js';
-import { clearSpecificFrame, toggleSelectionState } from './animation.js';
+import { clearSpecificFrame } from './animation/functions.js';
+import { toggleSelectionState } from './animation/selecting.js';
 import { calculateLaneX, unclaimLane, findPlayerAxisOffset } from './editor/lane.js';
 
 const folder = mcf.editor;

@@ -1,7 +1,8 @@
 // Sets up basic stuff.
 import mcf from './mcf.js';
 import * as debug from './debug.js';
-import { stringConcat, cleanKill } from './util.js';
+import { cleanKill } from './entity.js';
+import { stringConcat } from './util.js';
 const folder = mcf.storage;
 export const { allocAnimation, storeFrame, retrieveFrame, removeFrame, storeFrameInTemp, retrieveFrameFromTemp, clearOutTempStorage } = folder;
 const { recFindNextEmptyLane, macroPlaceFrame, pullStoreCoords, macroStoreFrame, macroRemoveFrame, recRetrieveEntities, frameExistenceCheck, anonymous: a } = folder;
