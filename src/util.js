@@ -191,5 +191,5 @@ arrayMoveEntry`
     # Insert the saved value into the array at target
     $data modify storage $(array) insert $(target) from storage ${ns}:util arrayMoveEntry.sourceValue
     # Clear trailing data
-    data remove storage ${ns}:util arrayMoveEntry.sourceValue
+    data remove storage ${ns}:util arrayMoveEntry
 `

@@ -4,7 +4,7 @@ import * as debug from './debug.js';
 import { calculateLaneX } from './editor/lane.js';
 import { recSplitGroups, regroupEntities, turnEntityDocile, removeDocile } from './entity.js';
 import { grabAnimationFromUuid, cleanUpNewAnimationData } from './data.js';
-import { grabSizeAnchorEditor } from './selection.js';
+import { grabSizeAnchorEditor } from './selection/data.js';
 import { storeFrame, retrieveFrame, removeFrame, storeFrameInTemp, retrieveFrameFromTemp, clearOutTempStorage } from './storage.js';
 import { cameraSaveFrame, cameraLoadQueueFrame, toggleHighlightFrame, cameraClosest } from './camera.js';
 import { cleanKill, testIfInt, stringEquals, arrayMoveEntry } from './util.js';

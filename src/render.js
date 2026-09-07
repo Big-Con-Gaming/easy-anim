@@ -4,7 +4,8 @@
 import mcf from './mcf.js';
 import * as debug from './debug.js';
 import { removeDocile, recSplitGroups, regroupEntities } from './entity.js';
-import { grabStrBlockPos, grabSizeAnchorEditor, constructRealCoordinates } from './selection.js';
+import { constructRealCoordinates } from './selection/geometry.js';
+import { grabSizeAnchorEditor, grabStrBlockPos } from './selection/data.js'
 import { grabPlayerData, grabPlayerAndAnimation, grabAnimationData, cleanUpNewAnimationData, cleanUpCurrentPlayerData } from './data.js';
 import { calculateLaneX, unclaimLane, findPlayerAxisOffset } from './editor/lane.js';
 import { cleanKill } from './util.js';

@@ -3,14 +3,15 @@
 // Set up stuff
 import mcf from './mcf.js';
 import * as debug from './debug.js';
+import { grabSizeAnchor, grabSizeAnchorEditor } from './selection/data.js';
 
 const folder = mcf.entity;
 
 // Define functions you want other files to use here:
-export const { recSplitGroups, regroupEntities, turnEntityDocile, removeDocile } = folder;
+export const { recSplitGroups, regroupEntities, turnEntityDocile, removeDocile, mainDocileLoop } = folder;
 
 // Define local functions here:
-const { anonymous: a } = folder;
+const { anonymous: a, recDocileSearch, skipDocile, targetSelectInSelection } = folder;
 
 const ns = 'easy-anim';
 
@@ -152,3 +153,73 @@ removeDocileCommands.push(`
 turnEntityDocile`${turnEntityDocileCommands.join('\n')}`;
 removeDocile`${removeDocileCommands.join('\n')}`;
 
+// Helper function to skip a frame in docile check
+skipDocile`
+    data remove storage ${ns}:temp docileSearch[0]
+    execute if data storage ${ns}:temp docileSearch[0] run ${recDocileSearch}
+`
+
+// The main stack that goes through all entities that should be docile and makes them docile. Called every frame from selection.
+mainDocileLoop`
+    # Remove all docile entities.
+    execute as @e[tag=${ns}-entity-turned-docile] run ${removeDocile}
+    # If an entity is inside the newly created selection radius, make them docile.
+    data modify storage ${ns}:temp docileSearch set from storage ${ns}:animation_data animations
+    # Recursive, is called until temporary list docileSearch in animationData is empty. Goes through each animation and turns entities docile within each.
+    ${recDocileSearch`
+        # If this animation is not displayed anywhere, then there's no entities to be made docile. Skip to next animation.
+        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"none"}}]} run return run ${skipDocile}
+        # Pull data and name into the new namespace so that functions work properly.
+        data modify storage ${ns}:animation_data new set from storage ${ns}:temp docileSearch[0].data
+        data modify storage ${ns}:animation_data new.name set from storage ${ns}:temp docileSearch[0].name
+        # If we are in the "real world," we can run the normal grabSizeAnchor function to grab anchor coordinates and size in a macro data space.
+        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"anchor"}}]} run ${grabSizeAnchor}
+        # If we are in the editor, we need to grab the eanchor and size of the first frame, as well as setup an incrementing variable to go between frames and a max variable to know when to stop searching (framecount)
+        # return early and remove this frame from the search if location is editor but there's no frames in the animation.
+        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} unless data storage ${ns}:temp docileSearch[0].data.frames[0] run return run ${skipDocile}
+        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} run ${a`
+            ${grabSizeAnchorEditor} {framenum:0}
+            scoreboard objectives add ${ns}-recDocile dummy
+            # framenum is set to 1 as an advanced increment so that new data is pulled immediately.
+            execute store result score framenum ${ns}-recDocile run data modify storage ${ns}:temp grabsizeanchor.framenum set value 1
+            execute store result score totalframe ${ns}-recDocile run data get storage ${ns}:animation_data new.framecount
+        `}
+        # If we are rendering, we need the lanex to find the original world data to make docile. Grab the other default data for completing macros + size.
+        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"render"}}]} run ${a`
+            ${grabSizeAnchor}
+            $${a`
+                $execute store result storage ${ns}:temp grabsizeanchor.ax int 48 run data get storage ${ns}:player_data players[{UUID: $(UUID)}].lane    
+            `} with storage ${ns}:animation_data render_queue[{name: $(name)}]
+        `} with storage ${ns}:temp docileSearch[0]
+        # Use the newly placed macro data in ${ns}:temp grabsizeanchor to target select the entities.
+        ${targetSelectInSelection`
+            # If we are in the "real world," just execute once on the selection and turn those entities docile.
+            $execute if data storage ${ns}:temp {docileSearch:[{data:{location:"anchor"}}]} positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
+            # If we are in the editor, we will execute within that dimension at the eanchor and specific frame size.
+            execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} run ${a`
+                $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
+                # Clear grabsizeanchor for the next frame
+                data remove storage ${ns}:temp grabsizeanchor
+                # Exit the loop if we have reached the total frame count for this animation.
+                execute if score framenum ${ns}-recDocile >= totalframe ${ns}-recDocile run return 1
+                # Grab the next frame's eanchor and size (framenum is incremented by 1 in advance)
+                $${grabSizeAnchorEditor} {framenum:$(framenum)}
+                # Increase framenum by 1 in score and data.
+                execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players add framenum ${ns}-recDocile 1
+                # Execute another target selection for the next frame.
+                ${targetSelectInSelection} with storage ${ns}:temp grabsizeanchor
+            `} with storage ${ns}:temp grabsizeanchor
+            # If the animation is currently being rendered, we let the renderer handle entities within the animation
+            # But, we can still make the original entities now in the editor docile.
+            $execute if data storage ${ns}:temp {docileSearch:[{data:{location:"render"}}]} positioned $(ax) 0 0 align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
+        `} with storage ${ns}:temp grabsizeanchor
+        # Remove trailing data.
+        data remove storage ${ns}:temp grabsizeanchor
+        scoreboard objectives remove ${ns}-recDocile
+        data remove storage ${ns}:temp docileSearch[0]
+        data remove storage ${ns}:animation_data new
+        # If we have more selections to turn docile, repeat this function.
+        execute if data storage ${ns}:temp docileSearch[0] run ${recDocileSearch}
+    `}
+    data remove storage ${ns}:temp docileSearch
+`
