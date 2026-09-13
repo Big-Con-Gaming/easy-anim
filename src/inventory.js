@@ -122,7 +122,7 @@ const hotbarTools = [
     {display:`minecraft:structure_void`, name:"Select", slot:0, placeable:true, entity_data:`{id:"minecraft:item_frame",Invisible:1b,Tags:["${ns}-edge"],data:{currentAnim:$(name)}}`, on_hover:`anchored eyes positioned ^ ^ ^5 if block ~ ~ ~ minecraft:air run function ${ns}:selection/hover/place_ghost`, on_not_hover:`as @e[type=interaction,tag=${ns}-hover-select] run function ${ns}:selection/hover/remove_hovers`},
     {display:`minecraft:dispenser`, name:"Set Camera", slot:1, action:`camera/camera_save with entity @s`},
     {display:`minecraft:observer`, name:"Load Camera", slot:2, action:`camera/camera_load with entity @s`, on_hover:`run function ${ns}:camera/camera_highlight with entity @s`, on_not_hover:`unless entity @s[tag=${ns}-inEditor] run function ${ns}:camera/camera_remove_highlight with entity @s`},
-    {display:`minecraft:paper`, name:"Create Animation", slot:7, action:`menu/create_animation with entity @s`},
+    {display:`minecraft:paper`, name:"Create Animation", slot:7, action:`animation/create_animation with entity @s`},
     {display:`minecraft:barrier`, name:"Exit", slot:8, action: `selection/exit_selection with entity @s`, dimension: `${ns}:editor`}
 ];
 

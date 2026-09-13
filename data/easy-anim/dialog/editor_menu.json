@@ -50,7 +50,7 @@
       "tooltip": "Moves each selected frame by a specified offset.",
       "action": {
         "type": "minecraft:run_command",
-        "command": "function easy-anim:animation/move_frames_show_dialog"
+        "command": "function easy-anim:menu/move_frames_show_dialog"
       }
     },
     {

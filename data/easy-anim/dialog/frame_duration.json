@@ -35,7 +35,7 @@
       "label": "✔ Set",
       "action": {
         "type": "minecraft:dynamic/run_command",
-        "template": "/function easy-anim:animation/modify_frame_duration_dialog {slider: $(slider), text: \"$(text)\"}"
+        "template": "/function easy-anim:menu/modify_frame_duration_dialog {slider: $(slider), text: \"$(text)\"}"
       }
     }
   ]
