@@ -48,8 +48,10 @@ allocAnimation`
 
 const grabSizeNamespaceBaseCommands = [];
 
-function createGrabSizeNamespaceBase({axis}) {
-
+function createGrabSizeNamespaceBase({axis, i}) {
+    return`
+        $data modify storage ${ns}:temp $(namespace).s${axis} set from storage ${ns}:animation_data new.size[${i}]
+    `;
 }
 
 grabSizeNamespaceBaseCommands.push(...axis.map(createGrabSizeNamespaceBase));
@@ -58,8 +60,10 @@ grabSizeNamespaceBase(grabSizeNamespaceBaseCommands.join('\n'));
 
 const grabSizeNamespaceFrameCommands = [];
 
-function createGrabSizeNamespaceFrame({axis}) {
-
+function createGrabSizeNamespaceFrame({axis, i}) {
+    return`
+        $data modify storage ${ns}:temp $(namespace).s${axis} set from storage ${ns}:animation_data new.frames[$(framenum)].size[${i}]
+    `;
 }
 
 grabSizeNamespaceFrameCommands.push(...axis.map(createGrabSizeNamespaceFrame));
@@ -88,9 +92,7 @@ pullStoreCoords`
         $data modify storage ${ns}:temp $(namespace).ref set value ""
         # Warn if size is missing from animation_data
         execute unless data storage ${ns}:animation_data new.size run ${debug.warn} {input:"Base size is missing from animation_data! Skipping..."}
-        $data modify storage ${ns}:temp $(namespace).sx set from storage ${ns}:animation_data new.size[0]
-        $data modify storage ${ns}:temp $(namespace).sy set from storage ${ns}:animation_data new.size[1]
-        $data modify storage ${ns}:temp $(namespace).sz set from storage ${ns}:animation_data new.size[2]
+        $${grabSizeNamespaceBase} {namespace: $(namespace)}
     `} {namespace: $(namespace)}
     # If it's a different frame, multiply framenum by 48 to get the z position and set the structure block name prefix to frame#. Set the frame reference to be .frames[framenum]. Grab the size numbers.
     $execute if score isbase ${ns}-$(namespace) matches 1 run ${a`
@@ -102,9 +104,7 @@ pullStoreCoords`
         $data modify storage ${ns}:temp $(namespace).prefix set value "frame"
         $${stringConcat} {output: "${ns}:temp $(namespace).prefix", front: "${ns}:temp $(namespace).prefix", back: "${ns}:temp $(namespace).framenum"}
         $data modify storage ${ns}:temp $(namespace).ref set value ".frames[$(framenum)]"
-        $data modify storage ${ns}:temp $(namespace).sx set from storage ${ns}:animation_data new.frames[$(framenum)].size[0]
-        $data modify storage ${ns}:temp $(namespace).sy set from storage ${ns}:animation_data new.frames[$(framenum)].size[1]
-        $data modify storage ${ns}:temp $(namespace).sz set from storage ${ns}:animation_data new.frames[$(framenum)].size[2]
+        $${grabSizeNamespaceFrame} {namespace: $(namespace), framenum: $(framenum)}
     `} {namespace: $(namespace), framenum: $(framenum)}
     # Grab the x position of the storage lane from the animation data.
     $execute store result storage ${ns}:temp $(namespace).x int 48 run data get storage ${ns}:animation_data new.storageid

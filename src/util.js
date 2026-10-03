@@ -7,6 +7,7 @@ const { anonymous: a, incrementIdx, recCharTest, lowerCaseMacro, rawConcat } = f
 const ns = 'easy-anim';
 
 // Useful const arrays for mapping.
+// axis: used for turning axis into indexes for arrays that store them in xyz order (like positions, size, anchor, etc.)
 export const axis = [
     {axis:"x",i:"0"},
     {axis:"y",i:"1"},

@@ -6,8 +6,14 @@ import { anchorDifference, constructRealCoordinates } from './selection/geometry
 import { exitRender } from './render.js';
 import { axis } from './util.js';
 const folder = mcf.camera;
-export const { anonymous: a, placeParticleEveryTick, cameraSave, cameraSaveFrame, cameraClosest, cameraLoad, cameraLoadFrame, cameraLoadQueueFrame, exitCamera, cameraHighlight, cameraRemoveHighlight, toggleHighlightFrame } = folder;
-const { cameraDisplayParticles, cameraSaveFinish, recLoad } = folder;
+
+export const {
+    anonymous: a, placeParticleEveryTick, cameraSave, cameraSaveFrame, cameraClosest, cameraLoad, cameraLoadFrame,
+    cameraLoadQueueFrame, exitCamera, cameraHighlight, cameraRemoveHighlight, toggleHighlightFrame
+} = folder;
+const {
+    cameraDisplayParticles, cameraSaveFinish, recLoad
+} = folder;
 const ns = 'easy-anim';
 
 // Takes the player's current position and rotation and saves it into the camera data for the current animation.

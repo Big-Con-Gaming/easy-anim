@@ -11,7 +11,7 @@ import { calculateLaneX } from '../editor/lane.js';
 import { storeFrame, removeFrame, retrieveFrame, clearOutTempStorage, retrieveFrameFromTemp, storeFrameInTemp } from '../storage.js';
 import { stringEquals, arrayMoveEntry, axis } from '../util.js';
 
-const folder = mcf.animation.frame;
+const folder = mcf.animation.functions;
 
 // Define functions you want other files to use here:
 export const {
@@ -28,12 +28,6 @@ const ns = 'easy-anim';
 // Needs this input from a macro: a[x, y, z] = anchor coordinates, s[x, y, z] = size parameters, name = animation name, framenum = frame number. 
 const saveSpecificFrameCommands = [];
 
-function createSaveSpecificFrame({axis}) {
-
-}
-
-saveSpecificFrameCommands.push(...axis.map(createSaveSpecificFrame));
-
 saveSpecificFrameCommands.push(`
     # Log the function call
     $${debug.run} {input: "saveSpecificFrame at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(name) frame $(framenum)"}
@@ -42,9 +36,17 @@ saveSpecificFrameCommands.push(`
     # Ungroup all of the entities within the frame, reusing functions from the create animation function within menu.
     data modify storage ${ns}:temp str.id set value 0
     # All important data needs to be placed into str for the old recSplitGroups function to work. I feel like there's a better way to do this.
-    $data modify storage ${ns}:temp str.sx set value $(sx)
-    $data modify storage ${ns}:temp str.sy set value $(sy)
-    $data modify storage ${ns}:temp str.sz set value $(sz)
+`);
+
+function createSaveSpecificFrame({axis}) {
+    return `
+        $data modify storage ${ns}:temp str.s${axis} set value $(s${axis})
+    `;
+}
+
+saveSpecificFrameCommands.push(...axis.map(createSaveSpecificFrame));
+
+saveSpecificFrameCommands.push(`
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run ${recSplitGroups} with storage ${ns}:temp str
     # Untag them from selected and remove docile for all entities within the frame.
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-selected] remove ${ns}-selected
@@ -76,12 +78,6 @@ saveSpecificFrame(saveSpecificFrameCommands.join('\n'));
 // Needs this input from a macro: a[x, y, z] = anchor coordinates, s[x, y, z] = size parameters, name = animation name, framenum = frame number.
 const clearSpecificFrameCommands = [];
 
-function createClearSpecificFrame({axis}) {
-
-}
-
-clearSpecificFrameCommands.push(...axis.map(createClearSpecificFrame));
-
 clearSpecificFrameCommands.push(`
     # Log the function call
     $${debug.run} {input: "clearSpecificFrame at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(name) frame $(framenum)"}
@@ -89,16 +85,20 @@ clearSpecificFrameCommands.push(`
     ${debug.path} {input: "-> /fill air -> cleanKill -> | pullNextFrameData -> (| recMoveFrames) -> | removeFrameData"}
     # Create a scoreboard and shrink size by 1 in each axis to be accurate for relative coordinates.
     scoreboard objectives add ${ns}-csf dummy
-    $scoreboard players set x ${ns}-csf $(sx)
-    $scoreboard players set y ${ns}-csf $(sy)
-    $scoreboard players set z ${ns}-csf $(sz)
-    execute store result storage ${ns}:temp csf.sx int 1 run scoreboard players remove x ${ns}-csf 1
-    execute store result storage ${ns}:temp csf.sy int 1 run scoreboard players remove y ${ns}-csf 1
-    execute store result storage ${ns}:temp csf.sz int 1 run scoreboard players remove z ${ns}-csf 1
-    # Place anchor into the new macro storage.
-    $data modify storage ${ns}:temp csf.ax set value $(ax)
-    $data modify storage ${ns}:temp csf.ay set value $(ay)
-    $data modify storage ${ns}:temp csf.az set value $(az)
+`);
+
+function createClearSpecificFrame({axis}) {
+    return`
+        $scoreboard players set ${axis} ${ns}-csf $(s${axis})
+        execute store result storage ${ns}:temp csf.s${axis} int 1 run scoreboard players remove ${axis} ${ns}-csf 1
+        # Place anchor into the new macro storage.
+        $data modify storage ${ns}:temp csf.a${axis} set value $(a${axis})
+    `;
+}
+
+clearSpecificFrameCommands.push(...axis.map(createClearSpecificFrame));
+
+clearSpecificFrameCommands.push(` 
     # Fill the area with air.
     ${a`
         # Log the function call
@@ -192,29 +192,31 @@ setFrameDuration`
 
 const grabFromRefCommands = [];
 
-function createGrabFromRef({axis}) {
+grabFromRefCommands.push(`
+    # Log the function call
+    $${debug.run} {input: "grabFromRef from $(ref)"}
+    # Using ref, place all needed data into temporary storage.
+    # Size
+`);
 
+function createGrabFromRef({axis, i}) {
+    return`
+        $data modify storage ${ns}:temp anf.s${axis} set from storage ${ns}:animation_data new.$(ref)size[${i}]
+    `;
 }
 
 grabFromRefCommands.push(...axis.map(createGrabFromRef));
 
 grabFromRefCommands.push(`
-        # Log the function call
-        $${debug.run} {input: "grabFromRef from $(ref)"}
-        # Using ref, place all needed data into temporary storage.
-        # Size
-        $data modify storage ${ns}:temp anf.sx set from storage ${ns}:animation_data new.$(ref)size[0]
-        $data modify storage ${ns}:temp anf.sy set from storage ${ns}:animation_data new.$(ref)size[1]
-        $data modify storage ${ns}:temp anf.sz set from storage ${ns}:animation_data new.$(ref)size[2]
-        $data modify storage ${ns}:temp anf.size set from storage ${ns}:animation_data new.$(ref)size
-        # Anchor
-        $data modify storage ${ns}:temp anf.anchor set from storage ${ns}:animation_data new.$(ref)anchor
-        # Camera
-        $data modify storage ${ns}:temp anf.camera set from storage ${ns}:animation_data new.$(ref)camera
-        # Target x and z for duplicating frame (not used with base frame)
-        $execute if score basecheck ${ns}-anf matches 1 run data modify storage ${ns}:temp anf.tx set from storage ${ns}:animation_data new.$(ref)eanchor[0]
-        $execute if score basecheck ${ns}-anf matches 1 run data modify storage ${ns}:temp anf.tz set from storage ${ns}:animation_data new.$(ref)eanchor[2]
-    `);
+    $data modify storage ${ns}:temp anf.size set from storage ${ns}:animation_data new.$(ref)size
+    # Anchor
+    $data modify storage ${ns}:temp anf.anchor set from storage ${ns}:animation_data new.$(ref)anchor
+    # Camera
+    $data modify storage ${ns}:temp anf.camera set from storage ${ns}:animation_data new.$(ref)camera
+    # Target x and z for duplicating frame (not used with base frame)
+    $execute if score basecheck ${ns}-anf matches 1 run data modify storage ${ns}:temp anf.tx set from storage ${ns}:animation_data new.$(ref)eanchor[0]
+    $execute if score basecheck ${ns}-anf matches 1 run data modify storage ${ns}:temp anf.tz set from storage ${ns}:animation_data new.$(ref)eanchor[2]
+`);
 
 grabFromRef(grabFromRefCommands.join('\n'));
 
@@ -223,7 +225,7 @@ addNewFrame`
     # Log the function call
     $${debug.run} {input: "addNewFrame at $(framenum) from $(targetframe)"}
     # Log the expected function path.
-    ${debug.path} {input: "-> stringEquals -> grabFromRef -> retrieveFrame -> toggleSelectionState -> cleanUpNewAnimationData -> grabAnimationFromUuid -> | insertSpace -> | insert consecutive [-> insertSpace -> moveFrame -> arrayMoveEntry] -> | calculateLaneX -> placeFrame -> regroupEntities -> storeFrame -> toggleSelectionState"}
+    ${debug.path} {input: "-> stringEquals -> grabFromRef -> retrieveFrame -> | toggleSelectionState -> cleanUpNewAnimationData -> grabAnimationFromUuid -> | insertSpace -> | insert consecutive [-> insertSpace -> moveFrame -> arrayMoveEntry] -> | calculateLaneX -> placeFrame -> regroupEntities -> storeFrame -> toggleSelectionState"}
     # create a temporary scoreboard
     scoreboard objectives add ${ns}-anf dummy
     # Place the framenum into the scoreboard
@@ -386,28 +388,27 @@ duplicateFrame`
 
 const pullTargetFrameDataCommands = [];
 
-function createPullTargetFrameData({axis}) {
+pullTargetFrameDataCommands.push(`
+    # Log the function call
+    $${debug.run} {input: "pulling target frame data for $(targetframe)"}
+    # Grab all data to a generic namespace to cut down macros.
+    $data modify storage ${ns}:temp msf.targetdata set from storage ${ns}:animation_data new.frames[$(targetframe)]
+    # grab eanchor and size for each axis
+`);
 
+function createPullTargetFrameData({axis, i}) {
+    return`
+        data modify storage ${ns}:temp msf.ta${axis} set from storage ${ns}:temp msf.targetdata.eanchor[${i}]
+        data modify storage ${ns}:temp msf.ts${axis} set from storage ${ns}:temp msf.targetdata.size[${i}]
+    `;
 }
 
 pullTargetFrameDataCommands.push(...axis.map(createPullTargetFrameData));
 
 pullTargetFrameDataCommands.push(`
-        # Log the function call
-        $${debug.run} {input: "pulling target frame data for $(targetframe)"}
-        # Grab all data to a generic namespace to cut down macros.
-        $data modify storage ${ns}:temp msf.targetdata set from storage ${ns}:animation_data new.frames[$(targetframe)]
-        # grab eanchor
-        data modify storage ${ns}:temp msf.tax set from storage ${ns}:temp msf.targetdata.eanchor[0]
-        data modify storage ${ns}:temp msf.tay set from storage ${ns}:temp msf.targetdata.eanchor[1]
-        data modify storage ${ns}:temp msf.taz set from storage ${ns}:temp msf.targetdata.eanchor[2]
         execute store result score taz ${ns}-msf run data get storage ${ns}:temp msf.taz
         # Add 96 to targetframe's z eanchor so that we can TP it back that amount to the temporary location.
         execute store result storage ${ns}:temp msf.difftotemp int 1 run scoreboard players add taz ${ns}-msf 96
-        # grab size
-        data modify storage ${ns}:temp msf.tsx set from storage ${ns}:temp msf.targetdata.size[0]
-        data modify storage ${ns}:temp msf.tsy set from storage ${ns}:temp msf.targetdata.size[1]
-        data modify storage ${ns}:temp msf.tsz set from storage ${ns}:temp msf.targetdata.size[2]
         # Set msf.selected to a default value of false (we need this for placing a structure block way later)
         data modify storage ${ns}:temp msf.selected set value false
         # Set msf.selected to whether or not targetframe is selected

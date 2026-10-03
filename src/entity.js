@@ -19,21 +19,23 @@ const ns = 'easy-anim';
 // Separates groups within a selection/frame using tags so that they can be recreated after a structure block loads.
 const recSplitGroupsCommands = [];
 
-function createRecSplitGroups({axis}) {
-
-}
-
-recSplitGroupsCommands.push(...axis.map(createRecSplitGroups));
-
 recSplitGroupsCommands.push(`
     # Log the function call
     $${debug.run} {input: "recSplitGroups with id $(id) within $(sx) $(sy) $(sz)"}
     # Create the objective used to count groupid if it doesn't already exist.
     scoreboard objectives add ${ns}-rsg dummy
     $execute store result storage ${ns}:temp rsg.id int 1 run scoreboard players set groupid ${ns}-rsg $(id)
-    $data modify storage ${ns}:temp rsg.sx set value $(sx)
-    $data modify storage ${ns}:temp rsg.sy set value $(sy)
-    $data modify storage ${ns}:temp rsg.sz set value $(sz)
+`);
+
+function createRecSplitGroups({axis}) {
+    return`
+        $data modify storage ${ns}:temp rsg.s${axis} set value $(s${axis})
+    `;
+}
+
+recSplitGroupsCommands.push(...axis.map(createRecSplitGroups));
+
+recSplitGroupsCommands.push(`
     # Warn if no entities are present within the selection
     $execute unless entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group,limit=1,sort=random] run ${debug.warn} {input:"No entities can be grouped! Skipping..."}
     $execute as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group,limit=1,sort=random] if data entity @s Passengers run ${a`

@@ -72,29 +72,27 @@ renumberFrame`
 // Also sets eanchor's z to the new value.
 const pullNextFrameDataCommands = [];
 
-function createPullNextFrameData({axis}) {
-
-}
-
-pullNextFrameDataCommands.push(...axis.map(createPullNextFrameData));
-
 pullNextFrameDataCommands.push(`
     # Log the function call
     $${debug.run} {input: "pullNextFrameData for one frame ahead: $(nextframe) for $(name) placed in $(namespace) shifting $(neg)$(diff)"}
     # Error if there's no eanchor on this frame.
     $execute unless data storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].eanchor run ${debug.error} {input: "No eanchor data for next frame!"}
-    $data modify storage ${ns}:temp $(namespace).ax set from storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].eanchor[0]
-    $data modify storage ${ns}:temp $(namespace).ay set from storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].eanchor[1]
-    $data modify storage ${ns}:temp $(namespace).az set from storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].eanchor[2]
-    $execute store result score az ${ns}-$(namespace) run data get storage ${ns}:temp $(namespace).az
-    # Error if there's no size data on this frame.
+        # Error if there's no size data on this frame.
     $execute unless data storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].size run ${debug.error} {input: "No size data for next frame!"}
-    $execute store result score x ${ns}-$(namespace) store result storage ${ns}:temp $(namespace).shx int 1 run data get storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].size[0]
-    $execute store result score y ${ns}-$(namespace) store result storage ${ns}:temp $(namespace).shy int 1 run data get storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].size[1]
-    $execute store result score z ${ns}-$(namespace) store result storage ${ns}:temp $(namespace).shz int 1 run data get storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].size[2]
-    $execute store result storage ${ns}:temp $(namespace).sx int 1 run scoreboard players remove x ${ns}-$(namespace) 1
-    $execute store result storage ${ns}:temp $(namespace).sy int 1 run scoreboard players remove y ${ns}-$(namespace) 1
-    $execute store result storage ${ns}:temp $(namespace).sz int 1 run scoreboard players remove z ${ns}-$(namespace) 1
+`);
+
+function createPullNextFrameData({axis, i}) {
+    return`
+        $data modify storage ${ns}:temp $(namespace).a${axis} set from storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].eanchor[${i}]
+        $execute store result score ${axis} ${ns}-$(namespace) store result storage ${ns}:temp $(namespace).sh${axis} int 1 run data get storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].size[${i}]
+        $execute store result storage ${ns}:temp $(namespace).s${axis} int 1 run scoreboard players remove ${axis} ${ns}-$(namespace) 1
+    `;
+}
+
+pullNextFrameDataCommands.push(...axis.map(createPullNextFrameData));
+
+pullNextFrameDataCommands.push(`
+    $execute store result score az ${ns}-$(namespace) run data get storage ${ns}:temp $(namespace).az
     # Set diff using neg so that if negative it's subtracted but if positive it is added
     $scoreboard players set diff ${ns}-$(namespace) $(neg)$(diff)
     $execute store result storage ${ns}:temp $(namespace).newz int 1 store result storage ${ns}:animation_data new.frames[$(nextframe)].eanchor[2] double 1 run scoreboard players operation az ${ns}-$(namespace) += diff ${ns}-$(namespace)
@@ -219,12 +217,6 @@ calculateSelectedFrameBounds`
 // to fix this, you would have to calc the size diff and shift EVERYTHING ahead by that diff. Not gonna do that now lol.
 const moveFrameCommands = [];
 
-function createMoveFrame({axis}) {
-
-}
-
-moveFrameCommands.push(...axis.map(createMoveFrame));
-
 moveFrameCommands.push(`
     # Log the function call
     $${debug.run} {input: "moveFrame $(framenum) to $(targetframe)"}
@@ -245,20 +237,22 @@ moveFrameCommands.push(`
     execute unless data storage ${ns}:temp moveFrame.frameData run return run ${debug.error} {input: "Missing frameData for moving frame!"}
     execute unless data storage ${ns}:temp moveFrame.frameDataTarget run return run ${debug.error} {input: "Missing frameDataTarget for target frame!"}
     execute unless data storage ${ns}:temp moveFrame.frameData.name run return run ${debug.error} {input: "Missing name for target animation!"}
-    # Pull sx-z and id for grouping for frameData
-    data modify storage ${ns}:temp moveFrame.frameData.sx set from storage ${ns}:temp moveFrame.frameData.size[0]
-    data modify storage ${ns}:temp moveFrame.frameData.sy set from storage ${ns}:temp moveFrame.frameData.size[1]
-    data modify storage ${ns}:temp moveFrame.frameData.sz set from storage ${ns}:temp moveFrame.frameData.size[2]
+    # Pull sx-z and id for grouping for frameData, Create coords for anchor for frameData, Create coords for anchor for frameDataTarget
+`);
+
+function createMoveFrame({axis, i}) {
+    return`
+        data modify storage ${ns}:temp moveFrame.frameData.s${axis} set from storage ${ns}:temp moveFrame.frameData.size[${i}]
+        data modify storage ${ns}:temp moveFrame.frameData.a${axis} set from storage ${ns}:temp moveFrame.frameData.eanchor[${i}]
+        data modify storage ${ns}:temp moveFrame.frameData.ta${axis} set from storage ${ns}:temp moveFrame.frameDataTarget.eanchor[${i}]
+    `;
+}
+
+moveFrameCommands.push(...axis.map(createMoveFrame));
+
+moveFrameCommands.push(`
     data modify storage ${ns}:temp moveFrame.frameData.id set value 0
-    # Create coords for anchor for frameData
-    data modify storage ${ns}:temp moveFrame.frameData.ax set from storage ${ns}:temp moveFrame.frameData.eanchor[0]
-    data modify storage ${ns}:temp moveFrame.frameData.ay set from storage ${ns}:temp moveFrame.frameData.eanchor[1]
-    data modify storage ${ns}:temp moveFrame.frameData.az set from storage ${ns}:temp moveFrame.frameData.eanchor[2]
     execute store result score anchorz ${ns}-mf run data get storage ${ns}:temp moveFrame.frameData.az 1000
-    # Create coords for anchor for frameDataTarget
-    data modify storage ${ns}:temp moveFrame.frameData.tax set from storage ${ns}:temp moveFrame.frameDataTarget.eanchor[0]
-    data modify storage ${ns}:temp moveFrame.frameData.tay set from storage ${ns}:temp moveFrame.frameDataTarget.eanchor[1]
-    data modify storage ${ns}:temp moveFrame.frameData.taz set from storage ${ns}:temp moveFrame.frameDataTarget.eanchor[2]
     # grab targetanchor as a score
     execute store result score targetanchor ${ns}-mf run data get storage ${ns}:temp moveFrame.frameData.taz 1000
     # Calculate the difference in the z positions

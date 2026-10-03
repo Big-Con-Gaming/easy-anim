@@ -291,18 +291,30 @@ updateSelectionCommands.push(`
 updateSelection`${updateSelectionCommands.join('\n')}`;
 
 // removeOldSelection: finds and removes the old selection's structure block and any loose handles.
-removeOldSelection`
+const removeOldSelectionCommands = [];
+
+removeOldSelectionCommands.push(`
+    # Log the function call
+    ${debug.run} {input: "removeOldSelection"}
+    # Log the expected function path
+    ${debug.path} {input: "-> grabStrBlockPos -> calculateLaneX -> resetCornerBlock -> kill old handles"}
     scoreboard objectives add ${ns}-remove-handles dummy
     ${grabStrBlockPos}
     ${calculateLaneX} {output:"${ns}:temp str.lanex int"}
     ${resetCornerBlock} with storage ${ns}:temp str
     # Take size s[x, y, z] and increase by 2 so the kill command below only removes handles associated with this selection.
-    execute store result score smx ${ns}-remove-handles run data get storage ${ns}:temp str.sx
-    execute store result score smy ${ns}-remove-handles run data get storage ${ns}:temp str.sy
-    execute store result score smz ${ns}-remove-handles run data get storage ${ns}:temp str.sz
-    execute store result storage ${ns}:temp str.smx double 1 run scoreboard players add smx ${ns}-remove-handles 2
-    execute store result storage ${ns}:temp str.smy double 1 run scoreboard players add smy ${ns}-remove-handles 2
-    execute store result storage ${ns}:temp str.smz double 1 run scoreboard players add smz ${ns}-remove-handles 2
+`);
+
+function createRemoveOldSelection({axis}) {
+    return`
+        execute store result score sm${axis} ${ns}-remove-handles run data get storage ${ns}:temp str.s${axis}
+        execute store result storage ${ns}:temp str.sm${axis} double 1 run scoreboard players add sm${axis} ${ns}-remove-handles 2
+    `;
+}
+
+removeOldSelectionCommands.push(...axis.map(createRemoveOldSelection));
+
+removeOldSelectionCommands.push(`
     # Kill the display item_display entities from the old selection. Placed in a new function for macros.
     ${a`
         # Log the function call
@@ -312,4 +324,6 @@ removeOldSelection`
     # Remove the temporary data location.
     data remove storage ${ns}:temp str
     scoreboard objectives remove ${ns}-remove-handles
-`
+`);
+
+removeOldSelection(removeOldSelectionCommands.join('\n'));

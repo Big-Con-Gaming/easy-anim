@@ -19,7 +19,7 @@ const folder = mcf.editor;
 export const { enterEditor, exit } = folder;
 
 // Define local functions here:
-const { anonymous: a, recPlaceFrames, recRemoveFrames, tpIntoEditor, newPlayerLane, editorAnchorInData, cleanRemainder } = folder;
+const { anonymous: a, recPlaceFrames, recRemoveFrames, tpIntoEditor, newPlayerLane, editorAnchorInData, cleanRemainder, eemacroSize, pullAnchorSizeExit } = folder;
 
 const ns = 'easy-anim';
 
@@ -27,15 +27,20 @@ const ns = 'easy-anim';
 const editor_menu_item = 'minecraft:carrot_on_a_stick[item_name={italic:false,text:"Editor Menu"}, item_model="minecraft:test_instance_block"]';
 
 // Run when the player wants to enter the editor for an existing animation. Must be executed with the player as context.
-const enterEditorCommands = [];
+const eemacroSizeCommands = [];
 
-function createEditorCommands({axis}) {
-
+function createEemacroSize({axis, i}) {
+    return`
+        # Grab the ${axis} size of the first frame and store that into the macro.
+        data modify storage ${ns}:temp eemacro.s${axis} set from storage ${ns}:temp eemacro.frames[0].size[${i}]
+    `
 }
 
-enterEditorCommands.push(...axis.map(createEditorCommands));
+eemacroSizeCommands.push(...axis.map(createEemacroSize));
 
-enterEditorCommands.push(`
+eemacroSize(eemacroSizeCommands.join('\n'));
+
+enterEditor`
     # Log the entry point
     ${debug.entry} {input: "from dialog enter_editor | from dialog main_menu editExistinAnimation"}
     # Log the function call
@@ -66,12 +71,7 @@ enterEditorCommands.push(`
     data modify storage ${ns}:temp eemacro.frames set from storage ${ns}:animation_data new.frames
     # Set y to 0 so that the regrouping macro knows where to go.
     data modify storage ${ns}:temp eemacro.y set value 1
-    # Grab the x size of the first frame and store that into the macro.
-    data modify storage ${ns}:temp eemacro.sx set from storage ${ns}:temp eemacro.frames[0].size[0]
-    # Grab the y size of the first frame and store that into the macro.
-    data modify storage ${ns}:temp eemacro.sy set from storage ${ns}:temp eemacro.frames[0].size[1]
-    # Grab the z size of the first frame and store that into the macro.
-    data modify storage ${ns}:temp eemacro.sz set from storage ${ns}:temp eemacro.frames[0].size[2]
+    ${eemacroSize}
     # Set the first Z offset to 2.
     data modify storage ${ns}:temp eemacro.z set value 2
     # Set i (frame #) to 0, representing the first frame:
@@ -110,12 +110,7 @@ enterEditorCommands.push(`
         data remove storage ${ns}:temp eemacro.frames[0]
         # If there's no more frames, return and end the recursive loop.
         execute unless data storage ${ns}:temp eemacro.frames[0] run return 1
-        # Grab the x size and store that into the macro.
-        data modify storage ${ns}:temp eemacro.sx set from storage ${ns}:temp eemacro.frames[0].size[0]
-        # Grab the y size and store that into the macro.
-        data modify storage ${ns}:temp eemacro.sy set from storage ${ns}:temp eemacro.frames[0].size[1]
-        # Grab the z size and store that into the macro.
-        data modify storage ${ns}:temp eemacro.sz set from storage ${ns}:temp eemacro.frames[0].size[2]
+        ${eemacroSize}
         # Combine the current offset with the newly found one from the size's z axis, and add 1 for more separation. Store directly into the macro storage.
         scoreboard players operation offset ${ns}-temp += zadd ${ns}-temp
         execute store result storage ${ns}:temp eemacro.z int 1 run scoreboard players add offset ${ns}-temp 1
@@ -152,19 +147,24 @@ enterEditorCommands.push(`
     scoreboard objectives remove ${ns}-temp
     # Give them the quick menu item. This item's data is stored as a constant above.
     execute unless items entity @s inventory.* ${editor_menu_item} unless items entity @s hotbar.* ${editor_menu_item} unless items entity @s weapon.* ${editor_menu_item} run give @s ${editor_menu_item}
-`);
-
-enterEditor(enterEditorCommands.join('\n'));
+`;
 
 // Allows the player to exit the editor dimension.
 
-const exitCommands = [];
+const pullAnchorSizeExitCommands = [];
 
-function createExit({axis}) {
-
+function createPullAnchorSizeExit({axis, i}) {
+    return`
+        data modify storage ${ns}:temp exit.a${axis} set from storage ${ns}:temp exit.frames[0].eanchor[${i}]
+        data modify storage ${ns}:temp exit.s${axis} set from storage ${ns}:temp exit.frames[0].size[${i}]
+    `;
 }
 
-exitCommands.push(...axis.map(createExit));
+pullAnchorSizeExitCommands.push(...axis.map(createPullAnchorSizeExit));
+
+pullAnchorSizeExit(pullAnchorSizeExitCommands.join('\n'));
+
+const exitCommands = [];
 
 exitCommands.push(`
     # Log the entry point
@@ -186,12 +186,7 @@ exitCommands.push(`
     data modify storage ${ns}:temp exit.frames set from storage ${ns}:animation_data new.frames
     # Grab all the info for the first frame and place it in the macro storage.
     data modify storage ${ns}:temp exit.name set from storage ${ns}:animation_data new.name
-    data modify storage ${ns}:temp exit.ax set from storage ${ns}:temp exit.frames[0].eanchor[0]
-    data modify storage ${ns}:temp exit.ay set from storage ${ns}:temp exit.frames[0].eanchor[1]
-    data modify storage ${ns}:temp exit.az set from storage ${ns}:temp exit.frames[0].eanchor[2]
-    data modify storage ${ns}:temp exit.sx set from storage ${ns}:temp exit.frames[0].size[0]
-    data modify storage ${ns}:temp exit.sy set from storage ${ns}:temp exit.frames[0].size[1]
-    data modify storage ${ns}:temp exit.sz set from storage ${ns}:temp exit.frames[0].size[2]
+    ${pullAnchorSizeExit}
     # Add a placeholder framenum as it is only needed for removing data and we are not doing that.
     data modify storage ${ns}:temp exit.framenum set value 0
     execute if data storage ${ns}:temp exit.frames[0] run ${recRemoveFrames`
@@ -207,12 +202,7 @@ exitCommands.push(`
         execute unless data storage ${ns}:temp exit.frames[0].eanchor run ${debug.error} {input: "No eanchor data for next frame!"}
         execute unless data storage ${ns}:temp exit.frames[0].size run ${debug.error} {input: "No size data for next frame!"}
         # Grab all the info for the next frame and place it in the macro storage.
-        data modify storage ${ns}:temp exit.ax set from storage ${ns}:temp exit.frames[0].eanchor[0]
-        data modify storage ${ns}:temp exit.ay set from storage ${ns}:temp exit.frames[0].eanchor[1]
-        data modify storage ${ns}:temp exit.az set from storage ${ns}:temp exit.frames[0].eanchor[2]
-        data modify storage ${ns}:temp exit.sx set from storage ${ns}:temp exit.frames[0].size[0]
-        data modify storage ${ns}:temp exit.sy set from storage ${ns}:temp exit.frames[0].size[1]
-        data modify storage ${ns}:temp exit.sz set from storage ${ns}:temp exit.frames[0].size[2]
+        ${pullAnchorSizeExit}
         # Loop
         ${recRemoveFrames} with storage ${ns}:temp exit
     `} with storage ${ns}:temp exit
@@ -220,9 +210,17 @@ exitCommands.push(`
     ${unclaimLane}
     # Return the player to the overworld at the anchor location. Grabs dimension data and the real world anchor coordinates.
     $data modify storage ${ns}:temp exit.dimension set from storage ${ns}:player_data players[{UUID:$(UUID)}].prevDim
-    $data modify storage ${ns}:temp exit.px set from storage ${ns}:player_data players[{UUID:$(UUID)}].prevPos[0]
-    $data modify storage ${ns}:temp exit.py set from storage ${ns}:player_data players[{UUID:$(UUID)}].prevPos[1]
-    $data modify storage ${ns}:temp exit.pz set from storage ${ns}:player_data players[{UUID:$(UUID)}].prevPos[2]
+`);
+
+function createExit({axis, i}) {
+    return`
+        $data modify storage ${ns}:temp exit.p${axis} set from storage ${ns}:player_data players[{UUID:$(UUID)}].prevPos[${i}]
+    `;
+}
+
+exitCommands.push(...axis.map(createExit));
+
+exitCommands.push(`
     ${a`
         # Log the function call
         $${debug.run} {input: "tp out of editor to $(dimension) at $(px) $(py) $(pz)"}

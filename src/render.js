@@ -128,12 +128,6 @@ renderCheck`
 // Requires $(name) of the animation as a macro.
 const specificFrameRenderCommands = [];
 
-function createSpecificFrameRender({axis}) {
-
-}
-
-specificFrameRenderCommands.push(...axis.map(createSpecificFrameRender));
-
 specificFrameRenderCommands.push(`
     # Log the entry point
     ${debug.entry} {input:"from: startRender | tick, frame duration hit 0"}
@@ -158,9 +152,17 @@ specificFrameRenderCommands.push(`
     # Pull frame's data into macroable storage
     ${grabSizeAnchorEditor} with storage ${ns}:temp grabsizeanchor
     # Since the above set anchor to an editor anchor value that didn't exist, we need to pull anchor on our own.
-    data modify storage ${ns}:temp grabsizeanchor.ax set from storage ${ns}:animation_data new.anchor[0]
-    data modify storage ${ns}:temp grabsizeanchor.ay set from storage ${ns}:animation_data new.anchor[1]
-    data modify storage ${ns}:temp grabsizeanchor.az set from storage ${ns}:animation_data new.anchor[2]    
+`);
+
+function createSpecificFrameRender({axis, i}) {
+    return`
+        data modify storage ${ns}:temp grabsizeanchor.a${axis} set from storage ${ns}:animation_data new.anchor[${i}]
+    `;
+}
+
+specificFrameRenderCommands.push(...axis.map(createSpecificFrameRender));
+
+specificFrameRenderCommands.push(`
     # Place the animation name into macro storage.
     data modify storage ${ns}:temp grabsizeanchor.name set from storage ${ns}:animation_data new.name
     # Place the player's UUID into macro storage.

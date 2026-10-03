@@ -79,7 +79,7 @@ grabSizeAnchorEditor`${grabSizeAnchorEditorCommands.join('\n')}`;
 // Takes the anchor position and subtracts 1 to find the structure block location. Also tosses some information into the same storage for macros (size)
 const grabStrBlockPosCommands = [];
 
-function calculategrabStrBlockPosCommands({axis, i}){
+function calculategrabStrBlockPosCommands({axis, i}) {
     return`
         # Take anchor out of storge and subtract one on all axis (position of structure block)
         execute store result score str${axis} ${ns}-calculategrabStrBlockPosCommands run data get storage ${ns}:animation_data new.anchor[${i}] 1
@@ -115,4 +115,4 @@ grabStrBlockPosCommands.push(`
 `);
 
 // Compile the grabStrBlockPosCommands into grabStrBlockPos
-grabStrBlockPos`${grabStrBlockPosCommands.join('\n')}`;
+grabStrBlockPos(grabStrBlockPosCommands.join('\n'));
