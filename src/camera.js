@@ -2,8 +2,9 @@
 import mcf from './mcf.js';
 import * as debug from './debug.js';
 import { grabAnimationFromUuid, cleanUpNewAnimationData } from './data.js';
-import { axis, anchorDifference, constructRealCoordinates } from './selection/geometry.js';
+import { anchorDifference, constructRealCoordinates } from './selection/geometry.js';
 import { exitRender } from './render.js';
+import { axis } from './util.js';
 const folder = mcf.camera;
 export const { anonymous: a, placeParticleEveryTick, cameraSave, cameraSaveFrame, cameraClosest, cameraLoad, cameraLoadFrame, cameraLoadQueueFrame, exitCamera, cameraHighlight, cameraRemoveHighlight, toggleHighlightFrame } = folder;
 const { cameraDisplayParticles, cameraSaveFinish, recLoad } = folder;

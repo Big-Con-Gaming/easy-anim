@@ -9,7 +9,7 @@ import { grabAnimationFromUuid, cleanUpNewAnimationData } from '../data.js';
 import { recSplitGroups, regroupEntities, removeDocile, cleanKill, turnEntityDocile } from '../entity.js';
 import { calculateLaneX } from '../editor/lane.js';
 import { storeFrame, removeFrame, retrieveFrame, clearOutTempStorage, retrieveFrameFromTemp, storeFrameInTemp } from '../storage.js';
-import { stringEquals, arrayMoveEntry } from '../util.js';
+import { stringEquals, arrayMoveEntry, axis } from '../util.js';
 
 const folder = mcf.animation.frame;
 
@@ -20,13 +20,21 @@ export const {
 
 // Define local functions here:
 const {
-    anonymous: a, grabFromRef, placeFrame
+    anonymous: a, grabFromRef, placeFrame, pullTargetFrameData
 } = folder;
 const ns = 'easy-anim';
 
 // Saves a specific frame within the editor to the structure file. Ungroups entities beforehand and regroups them after.
 // Needs this input from a macro: a[x, y, z] = anchor coordinates, s[x, y, z] = size parameters, name = animation name, framenum = frame number. 
-saveSpecificFrame`
+const saveSpecificFrameCommands = [];
+
+function createSaveSpecificFrame({axis}) {
+
+}
+
+saveSpecificFrameCommands.push(...axis.map(createSaveSpecificFrame));
+
+saveSpecificFrameCommands.push(`
     # Log the function call
     $${debug.run} {input: "saveSpecificFrame at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(name) frame $(framenum)"}
     # Log the expected function path.
@@ -60,11 +68,21 @@ saveSpecificFrame`
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run ${regroupEntities} with storage ${ns}:temp str
     # Remove all trailing data.
     data remove storage ${ns}:temp str
-`;
+`)
+
+saveSpecificFrame(saveSpecificFrameCommands.join('\n'));
 
 // Clears a specific frame within the editor. This removes all blocks and entities within the frame's area.
 // Needs this input from a macro: a[x, y, z] = anchor coordinates, s[x, y, z] = size parameters, name = animation name, framenum = frame number.
-clearSpecificFrame`
+const clearSpecificFrameCommands = [];
+
+function createClearSpecificFrame({axis}) {
+
+}
+
+clearSpecificFrameCommands.push(...axis.map(createClearSpecificFrame));
+
+clearSpecificFrameCommands.push(`
     # Log the function call
     $${debug.run} {input: "clearSpecificFrame at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(name) frame $(framenum)"}
     # Log the expected function path.
@@ -137,7 +155,9 @@ clearSpecificFrame`
     # Clear trailing data.
     scoreboard objectives remove ${ns}-csf
     data remove storage ${ns}:temp csf
-`;
+`);
+
+clearSpecificFrame(clearSpecificFrameCommands.join('\n'));
 
 // Loads a specific frame within the editor. This places all blocks and entities back into the world.
 // Needs this input from a macro: a[x, y, z] = anchor coordinates, s[x, y, z] = size parameters, name = animation name, framenum = frame number.
@@ -170,6 +190,34 @@ setFrameDuration`
     $data modify storage ${ns}:animation_data new.frames[$(framenum)].duration set from storage ${ns}:temp carryover.duration
 `
 
+const grabFromRefCommands = [];
+
+function createGrabFromRef({axis}) {
+
+}
+
+grabFromRefCommands.push(...axis.map(createGrabFromRef));
+
+grabFromRefCommands.push(`
+        # Log the function call
+        $${debug.run} {input: "grabFromRef from $(ref)"}
+        # Using ref, place all needed data into temporary storage.
+        # Size
+        $data modify storage ${ns}:temp anf.sx set from storage ${ns}:animation_data new.$(ref)size[0]
+        $data modify storage ${ns}:temp anf.sy set from storage ${ns}:animation_data new.$(ref)size[1]
+        $data modify storage ${ns}:temp anf.sz set from storage ${ns}:animation_data new.$(ref)size[2]
+        $data modify storage ${ns}:temp anf.size set from storage ${ns}:animation_data new.$(ref)size
+        # Anchor
+        $data modify storage ${ns}:temp anf.anchor set from storage ${ns}:animation_data new.$(ref)anchor
+        # Camera
+        $data modify storage ${ns}:temp anf.camera set from storage ${ns}:animation_data new.$(ref)camera
+        # Target x and z for duplicating frame (not used with base frame)
+        $execute if score basecheck ${ns}-anf matches 1 run data modify storage ${ns}:temp anf.tx set from storage ${ns}:animation_data new.$(ref)eanchor[0]
+        $execute if score basecheck ${ns}-anf matches 1 run data modify storage ${ns}:temp anf.tz set from storage ${ns}:animation_data new.$(ref)eanchor[2]
+    `);
+
+grabFromRef(grabFromRefCommands.join('\n'));
+
 // Adds a frame to whichever framenum is passed in, or at the end if none are given. Pulls from targetframe for which frame is inserted.
 addNewFrame`
     # Log the function call
@@ -188,23 +236,7 @@ addNewFrame`
     execute if score basecheck ${ns}-anf matches 0 run data modify storage ${ns}:temp anf.ref set value ""
     $execute if score basecheck ${ns}-anf matches 1 run data modify storage ${ns}:temp anf.ref set value "frames[$(targetframe)]."
     # Using reference, copy over the data into the same temp namespace for easy grabbing.
-    ${grabFromRef`
-        # Log the function call
-        $${debug.run} {input: "grabFromRef from $(ref)"}
-        # Using ref, place all needed data into temporary storage.
-        # Size
-        $data modify storage ${ns}:temp anf.sx set from storage ${ns}:animation_data new.$(ref)size[0]
-        $data modify storage ${ns}:temp anf.sy set from storage ${ns}:animation_data new.$(ref)size[1]
-        $data modify storage ${ns}:temp anf.sz set from storage ${ns}:animation_data new.$(ref)size[2]
-        $data modify storage ${ns}:temp anf.size set from storage ${ns}:animation_data new.$(ref)size
-        # Anchor
-        $data modify storage ${ns}:temp anf.anchor set from storage ${ns}:animation_data new.$(ref)anchor
-        # Camera
-        $data modify storage ${ns}:temp anf.camera set from storage ${ns}:animation_data new.$(ref)camera
-        # Target x and z for duplicating frame (not used with base frame)
-        $execute if score basecheck ${ns}-anf matches 1 run data modify storage ${ns}:temp anf.tx set from storage ${ns}:animation_data new.$(ref)eanchor[0]
-        $execute if score basecheck ${ns}-anf matches 1 run data modify storage ${ns}:temp anf.tz set from storage ${ns}:animation_data new.$(ref)eanchor[2]
-    `} with storage ${ns}:temp anf
+    ${grabFromRef} with storage ${ns}:temp anf
     # Error if the animation is missing specific frame data, but do not return (so we can clear data.)
     $execute unless data storage ${ns}:temp anf.anchor run ${debug.error} {input: "No anchor data for frame $(targetframe)!"}
     $execute unless data storage ${ns}:temp anf.camera run ${debug.error} {input: "No camera data for frame $(targetframe)!"}
@@ -352,24 +384,15 @@ duplicateFrame`
     scoreboard objectives remove ${ns}-df
 `;
 
-// Calculates the frame's target frame using offset and the frame's index, then calls moveFrame and handles all other logic.
-moveSelectedFrames`
-    # Log the function call
-    $${debug.run} {input: "moveSelectedFrames with $(framenum)"}
-    ${debug.path} {input: "-> pull target frame data -> moving target temporarily -> recSplitGroups -> storeFrameInTemp -> moveFrame -> | (pullNextFrameData -> recMoveFrames) -> grab pullfrom -> move out of temp -> retrieveFrameFromTemp -> clearOutTempStorage -> retrieveFrame -> arrayMoveEntry"}
-    # Create a scoreboard
-    scoreboard objectives add ${ns}-msf dummy
-    # Pull all framenum data into storage for easy grabbing without macro.
-    $data modify storage ${ns}:temp msf merge from storage ${ns}:animation_data new.frames[$(framenum)]
-    # Store the framenum (in storage and...) and offset and target # into the scoreboard (probably could grab them from grabsizeanchor storage...)
-    $execute store result storage ${ns}:temp msf.framenum int 1 run scoreboard players set framenum ${ns}-msf $(framenum)
-    execute store result score offset ${ns}-msf store result score target ${ns}-msf run data get storage ${ns}:temp carryover.offset
-    # Calculate the target frame by adding framenum and target together.
-    scoreboard players operation target ${ns}-msf += framenum ${ns}-msf
-    # Store this target frame into storage for other functions to use.
-    execute store result storage ${ns}:temp msf.targetframe int 1 run scoreboard players get target ${ns}-msf
-    # Grab target frame data like eanchor and size
-    ${a`
+const pullTargetFrameDataCommands = [];
+
+function createPullTargetFrameData({axis}) {
+
+}
+
+pullTargetFrameDataCommands.push(...axis.map(createPullTargetFrameData));
+
+pullTargetFrameDataCommands.push(`
         # Log the function call
         $${debug.run} {input: "pulling target frame data for $(targetframe)"}
         # Grab all data to a generic namespace to cut down macros.
@@ -389,7 +412,28 @@ moveSelectedFrames`
         data modify storage ${ns}:temp msf.selected set value false
         # Set msf.selected to whether or not targetframe is selected
         data modify storage ${ns}:temp msf.selected set from storage ${ns}:temp msf.targetdata.selected
-    `} with storage ${ns}:temp msf
+    `);
+
+pullTargetFrameData(pullTargetFrameDataCommands.join('\n'));
+
+// Calculates the frame's target frame using offset and the frame's index, then calls moveFrame and handles all other logic.
+moveSelectedFrames`
+    # Log the function call
+    $${debug.run} {input: "moveSelectedFrames with $(framenum)"}
+    ${debug.path} {input: "-> pull target frame data -> moving target temporarily -> recSplitGroups -> storeFrameInTemp -> moveFrame -> | (pullNextFrameData -> recMoveFrames) -> grab pullfrom -> move out of temp -> retrieveFrameFromTemp -> clearOutTempStorage -> retrieveFrame -> arrayMoveEntry"}
+    # Create a scoreboard
+    scoreboard objectives add ${ns}-msf dummy
+    # Pull all framenum data into storage for easy grabbing without macro.
+    $data modify storage ${ns}:temp msf merge from storage ${ns}:animation_data new.frames[$(framenum)]
+    # Store the framenum (in storage and...) and offset and target # into the scoreboard (probably could grab them from grabsizeanchor storage...)
+    $execute store result storage ${ns}:temp msf.framenum int 1 run scoreboard players set framenum ${ns}-msf $(framenum)
+    execute store result score offset ${ns}-msf store result score target ${ns}-msf run data get storage ${ns}:temp carryover.offset
+    # Calculate the target frame by adding framenum and target together.
+    scoreboard players operation target ${ns}-msf += framenum ${ns}-msf
+    # Store this target frame into storage for other functions to use.
+    execute store result storage ${ns}:temp msf.targetframe int 1 run scoreboard players get target ${ns}-msf
+    # Grab target frame data like eanchor and size
+    ${pullTargetFrameData} with storage ${ns}:temp msf
     ${a`
         # Log the function call
         $${debug.run} {input: "moving target temporarily, from $(tax) $(tay) $(taz) with size $(tsx) $(tsy) $(tsz)"}

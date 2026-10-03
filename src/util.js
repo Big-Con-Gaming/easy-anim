@@ -6,6 +6,13 @@ export const { replaceAllInString, toLowerCase, stringConcat, stringEquals, pull
 const { anonymous: a, incrementIdx, recCharTest, lowerCaseMacro, rawConcat } = folder;
 const ns = 'easy-anim';
 
+// Useful const arrays for mapping.
+export const axis = [
+    {axis:"x",i:"0"},
+    {axis:"y",i:"1"},
+    {axis:"z",i:"2"}
+];
+
 const toLowerCaseCommands = [];
 
 // Increment idx by 1

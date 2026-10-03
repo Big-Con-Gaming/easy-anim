@@ -9,6 +9,7 @@ import { grabSizeAnchorEditor, grabStrBlockPos } from './selection/data.js'
 import { grabPlayerData, grabPlayerAndAnimation, grabAnimationData, cleanUpNewAnimationData, cleanUpCurrentPlayerData } from './data.js';
 import { calculateLaneX, unclaimLane, findPlayerAxisOffset } from './editor/lane.js';
 import { retrieveFrame } from './storage.js';
+import { axis } from './util.js';
 const folder = mcf.render;
 export const { startRender, renderCheck, specificFrameRender, exitRender } = folder;
 const { recCheck, anonymous: a } = folder;
@@ -125,7 +126,15 @@ renderCheck`
 
 // Removes old frame data and places in the next frame, while updating scoreboards to execute the next frame to render.
 // Requires $(name) of the animation as a macro.
-specificFrameRender`
+const specificFrameRenderCommands = [];
+
+function createSpecificFrameRender({axis}) {
+
+}
+
+specificFrameRenderCommands.push(...axis.map(createSpecificFrameRender));
+
+specificFrameRenderCommands.push(`
     # Log the entry point
     ${debug.entry} {input:"from: startRender | tick, frame duration hit 0"}
     # Log the function call.
@@ -198,7 +207,9 @@ specificFrameRender`
     data remove storage ${ns}:animation_data new
     data remove storage ${ns}:temp grabsizeanchor
     scoreboard objectives remove ${ns}-render
-`;
+`);
+
+specificFrameRender(specificFrameRenderCommands.join('\n'));
 
 // Exits the render by replacing all of the data to how it was before rendering.
 // Name is passed in by a macro, this is executed by specificFrameRender so animation_data new is already set.

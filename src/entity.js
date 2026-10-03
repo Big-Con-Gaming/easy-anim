@@ -4,6 +4,7 @@
 import mcf from './mcf.js';
 import * as debug from './debug.js';
 import { grabSizeAnchor, grabSizeAnchorEditor } from './selection/data.js';
+import { axis } from './util.js';
 
 const folder = mcf.entity;
 
@@ -16,7 +17,15 @@ const { anonymous: a, recDocileSearch, skipDocile, targetSelectInSelection } = f
 const ns = 'easy-anim';
 
 // Separates groups within a selection/frame using tags so that they can be recreated after a structure block loads.
-recSplitGroups`
+const recSplitGroupsCommands = [];
+
+function createRecSplitGroups({axis}) {
+
+}
+
+recSplitGroupsCommands.push(...axis.map(createRecSplitGroups));
+
+recSplitGroupsCommands.push(`
     # Log the function call
     $${debug.run} {input: "recSplitGroups with id $(id) within $(sx) $(sy) $(sz)"}
     # Create the objective used to count groupid if it doesn't already exist.
@@ -43,7 +52,9 @@ recSplitGroups`
     # Remove the created objective.
     scoreboard objectives remove ${ns}-rsg
     data remove storage ${ns}:temp rsg
-`
+`);
+
+recSplitGroups(recSplitGroupsCommands.join('\n'));
 
 // Must be ran at xyz and with sx sy sz, where xyz represents the neg-neg-neg corner of the frame/selection and sx sy sz represent the size of the frame/selection. This goes through and puts grouped entities back together after they were split for structure saving.
 regroupEntities`

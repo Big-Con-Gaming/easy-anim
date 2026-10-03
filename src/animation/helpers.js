@@ -5,6 +5,7 @@ import mcf from '../mcf.js';
 import * as debug from '../debug.js';
 import { retrieveFrame, removeFrame, storeFrame } from '../storage.js';
 import { cleanKill, recSplitGroups, regroupEntities } from '../entity.js';
+import { axis } from '../util.js';
 
 const folder = mcf.animation.helpers;
 
@@ -69,7 +70,15 @@ renumberFrame`
 
 // Pulls and sets up all of the data required for recMoveFrames, which specifically needs eanchor, size, and size - 1 = sh[x-z]. Newz also has to be calculated.
 // Also sets eanchor's z to the new value.
-pullNextFrameData`
+const pullNextFrameDataCommands = [];
+
+function createPullNextFrameData({axis}) {
+
+}
+
+pullNextFrameDataCommands.push(...axis.map(createPullNextFrameData));
+
+pullNextFrameDataCommands.push(`
     # Log the function call
     $${debug.run} {input: "pullNextFrameData for one frame ahead: $(nextframe) for $(name) placed in $(namespace) shifting $(neg)$(diff)"}
     # Error if there's no eanchor on this frame.
@@ -92,8 +101,9 @@ pullNextFrameData`
     # Set selected to false by default but then true if it does exist on this frame.
     $data modify storage ${ns}:temp $(namespace).selected set value false
     $data modify storage ${ns}:temp $(namespace).selected set from storage ${ns}:animation_data animations[{name:$(name)}].data.frames[$(nextframe)].selected
-`
+`);
 
+pullNextFrameData(pullNextFrameDataCommands.join('\n'));
 
 // Recursively moves frames over by the size of the removed frame's z axis, and renumbers them accordingly.
 // FOR DEPENDENCIES BELOW: USE pullNextFrameData ABOVE.
@@ -207,7 +217,15 @@ calculateSelectedFrameBounds`
 // I think this function will cause major issues if frame sizes aren't equal, mainly because a bigger
 // frame can be placed at a smaller frame's anchor and it wouldn't check if other frames in sequence are within that range.
 // to fix this, you would have to calc the size diff and shift EVERYTHING ahead by that diff. Not gonna do that now lol.
-moveFrame`
+const moveFrameCommands = [];
+
+function createMoveFrame({axis}) {
+
+}
+
+moveFrameCommands.push(...axis.map(createMoveFrame));
+
+moveFrameCommands.push(`
     # Log the function call
     $${debug.run} {input: "moveFrame $(framenum) to $(targetframe)"}
     # Log the expected path
@@ -274,4 +292,6 @@ moveFrame`
     # Clean up trailing data
     data remove storage ${ns}:temp moveFrame
     scoreboard objectives remove ${ns}-mf
-`;
+`);
+
+moveFrame(moveFrameCommands.join('\n'));

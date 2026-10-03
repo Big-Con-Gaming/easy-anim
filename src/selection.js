@@ -4,7 +4,7 @@
 // Set up stuff
 import mcf from './mcf.js';
 import * as debug from './debug.js';
-import { axis, resetCornerBlock, twoPointSelection, updateSelection, removeOldSelection } from './selection/geometry.js';
+import { resetCornerBlock, twoPointSelection, updateSelection, removeOldSelection } from './selection/geometry.js';
 import { grabStrBlockPos } from './selection/data.js';
 import { displayBox } from './selection/display.js';
 import { handleSummon } from './selection/handle.js';
@@ -12,6 +12,7 @@ import { grabAnimationFromUuid, grabAnimationData, cleanUpNewAnimationData } fro
 import { calculateLaneX, unclaimLane } from './editor/lane.js';
 import { mainDocileLoop } from './entity.js';
 import { loadInventory } from './inventory.js';
+import { axis } from './util.js';
 const folder = mcf.selection;
 export const { exitSelection } = folder;
 const { executeAsMarker, anonymous: a, createTwoPointSelection } = folder;

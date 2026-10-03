@@ -2,10 +2,16 @@
 import mcf from './mcf.js';
 import * as debug from './debug.js';
 import { cleanKill } from './entity.js';
-import { stringConcat } from './util.js';
+import { stringConcat, axis } from './util.js';
 const folder = mcf.storage;
-export const { allocAnimation, storeFrame, retrieveFrame, removeFrame, storeFrameInTemp, retrieveFrameFromTemp, clearOutTempStorage } = folder;
-const { recFindNextEmptyLane, macroPlaceFrame, pullStoreCoords, macroStoreFrame, macroRemoveFrame, recRetrieveEntities, frameExistenceCheck, anonymous: a } = folder;
+export const {
+    allocAnimation, storeFrame, retrieveFrame, removeFrame, storeFrameInTemp, retrieveFrameFromTemp, clearOutTempStorage
+} = folder;
+
+const {
+    recFindNextEmptyLane, macroPlaceFrame, pullStoreCoords, macroStoreFrame, macroRemoveFrame, recRetrieveEntities,
+    frameExistenceCheck, grabSizeNamespaceBase, grabSizeNamespaceFrame, anonymous: a
+} = folder;
 const ns = 'easy-anim';
 
 // Takes the name of an animation, and finds it a new lane within the storage dimension for their frame's structure blocks. Searches by checking for bedrock blocks. Stores the lane within the animation's data.storageid field.
@@ -39,6 +45,26 @@ allocAnimation`
     data remove storage ${ns}:temp alloca
     scoreboard objectives remove ${ns}-alloca
 `;
+
+const grabSizeNamespaceBaseCommands = [];
+
+function createGrabSizeNamespaceBase({axis}) {
+
+}
+
+grabSizeNamespaceBaseCommands.push(...axis.map(createGrabSizeNamespaceBase));
+
+grabSizeNamespaceBase(grabSizeNamespaceBaseCommands.join('\n'));
+
+const grabSizeNamespaceFrameCommands = [];
+
+function createGrabSizeNamespaceFrame({axis}) {
+
+}
+
+grabSizeNamespaceFrameCommands.push(...axis.map(createGrabSizeNamespaceFrame));
+
+grabSizeNamespaceFrame(grabSizeNamespaceFrameCommands.join('\n'));
 
 // Generates the x and z positions of a frame in the storage dimension, using framenum and data from ${ns}:animation_data new.
 // Input = framenum: the number of the frame you are querying, namespace: space inside of data and the scoreboard name to insert data into, new: the animation's data, needed to retrieve storageid.

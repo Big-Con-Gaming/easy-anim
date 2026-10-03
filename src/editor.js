@@ -11,6 +11,7 @@ import { retrieveFrame } from './storage.js';
 import { clearSpecificFrame } from './animation/functions.js';
 import { toggleSelectionState } from './animation/selecting.js';
 import { calculateLaneX, unclaimLane, findPlayerAxisOffset } from './editor/lane.js';
+import { axis } from './util.js';
 
 const folder = mcf.editor;
 
@@ -26,7 +27,15 @@ const ns = 'easy-anim';
 const editor_menu_item = 'minecraft:carrot_on_a_stick[item_name={italic:false,text:"Editor Menu"}, item_model="minecraft:test_instance_block"]';
 
 // Run when the player wants to enter the editor for an existing animation. Must be executed with the player as context.
-enterEditor`
+const enterEditorCommands = [];
+
+function createEditorCommands({axis}) {
+
+}
+
+enterEditorCommands.push(...axis.map(createEditorCommands));
+
+enterEditorCommands.push(`
     # Log the entry point
     ${debug.entry} {input: "from dialog enter_editor | from dialog main_menu editExistinAnimation"}
     # Log the function call
@@ -143,10 +152,21 @@ enterEditor`
     scoreboard objectives remove ${ns}-temp
     # Give them the quick menu item. This item's data is stored as a constant above.
     execute unless items entity @s inventory.* ${editor_menu_item} unless items entity @s hotbar.* ${editor_menu_item} unless items entity @s weapon.* ${editor_menu_item} run give @s ${editor_menu_item}
-`;
+`);
+
+enterEditor(enterEditorCommands.join('\n'));
 
 // Allows the player to exit the editor dimension.
-exit`
+
+const exitCommands = [];
+
+function createExit({axis}) {
+
+}
+
+exitCommands.push(...axis.map(createExit));
+
+exitCommands.push(`
     # Log the entry point
     ${debug.entry} {input: "from editor_menu dialog"}
     # Log the function call
@@ -222,4 +242,6 @@ exit`
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     # Remove trailing data.
     data remove storage ${ns}:temp exit
-`;
+`);
+
+exit(exitCommands.join('\n'));

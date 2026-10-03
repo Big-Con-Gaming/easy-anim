@@ -4,6 +4,7 @@
 import mcf from '../mcf.js';
 // Import functions needed here:
 import * as debug from '../debug.js';
+import { axis } from '../util.js';
 
 const folder = mcf.selection.data;
 
@@ -18,14 +19,6 @@ const {
 } = folder;
 
 const ns = 'easy-anim';
-
-// Helpful conversion between locations of axes in arrays and their corresponding axe label.
-export const axis = [
-    {axis:"x",i:"0"},
-    {axis:"y",i:"1"},
-    {axis:"z",i:"2"}
-];
-
 
 // Grabs size and anchor and toss them into a temporary storage place to be used in other commands. Exports data into ${ns}:temp grabsizeanchor.
 const grabSizeAnchorCommands = [];

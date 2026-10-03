@@ -6,7 +6,7 @@ import mcf from '../mcf.js';
 import * as debug from '../debug.js';
 import { grabStrBlockPos } from './data.js';
 import { calculateLaneX } from '../editor/lane.js';
-import { pullDataStringEquals } from '../util.js';
+import { pullDataStringEquals, axis } from '../util.js';
 
 const folder = mcf.selection.geometry;
 
@@ -21,13 +21,6 @@ const {
 } = folder;
 
 const ns = 'easy-anim';
-
-// Helpful conversion between locations of axes in arrays and their corresponding axe label.
-export const axis = [
-    {axis:"x",i:"0"},
-    {axis:"y",i:"1"},
-    {axis:"z",i:"2"}
-];
 
 // places data into an output array location dependent on an iterative varible i. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
 storeArrayMacro`
