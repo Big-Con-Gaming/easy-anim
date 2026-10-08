@@ -8,7 +8,7 @@ import { saveSpecificFrame, clearSpecificFrame, loadSpecificFrame, setFrameDurat
 import { calculateSelectedFrameBounds } from './helpers.js';
 import { grabAnimationFromUuid, cleanUpNewAnimationData } from '../data.js';
 import { grabSizeAnchorEditor } from '../selection/data.js';
-import { cameraSaveFrame, cameraLoadQueueFrame, toggleHighlightFrame, cameraClosest } from '../camera.js';
+import { cameraSaveFrame, cameraLoadQueueFrame, toggleHighlightFrame, cameraClosest } from '../camera/frame.js';
 
 const folder = mcf.animation.operate;
 

@@ -1,0 +1,28 @@
+{
+  "type": "minecraft:multi_action",
+  "title": {
+    "text": "Missing Camera Data!"
+  },
+  "body": {
+    "type": "minecraft:plain_message",
+    "contents": {
+      "text": "You do not have a camera saved with this selection. Would you like to create one with your current position now?"
+    }
+  },
+  "exit_action": {
+    "label": "❌ Cancel",
+    "action": {
+        "type": "minecraft:run_command",
+        "command": "data remove storage easy-anim:temp cs.reenteranim"
+    }
+  },
+  "actions": [
+    {
+      "label": "✔ Yes",
+      "action": {
+        "type": "minecraft:run_command",
+        "command": "function easy-anim:camera/selection/camera_save with entity @s"
+      }
+    }
+  ]
+}

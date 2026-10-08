@@ -10,8 +10,8 @@ import { grabStrBlockPos } from './selection/data.js';
 import { handleSummon } from './selection/handle.js';
 import { allocAnimation, storeFrame } from './storage.js';
 import { grabAnimationFromUuid, cleanUpNewAnimationData } from './data.js';
-import { cameraSaveFrame } from './camera.js';
-import { noticeAnimInUse } from './menu.js';
+import { cameraSaveFrame } from './camera/frame.js';
+import { noticeAnimInUse } from './error.js';
 const folder = mcf.animation;
 export const {
     createAnimation, deleteAnimation, cameraSaveFrameEnterIterate, grabOffsetAndOperate
@@ -35,9 +35,16 @@ createAnimation`
     execute unless data storage ${ns}:animation_data new.anchor run return run ${debug.error} {input:"Missing anchor data from current animation!"}
     execute unless data storage ${ns}:animation_data new.name run return run ${debug.error} {input:"Missing name data from current animation!"}
     # If there is no selected blocks, tell the player to create one first and stop.
-    execute unless data storage ${ns}:animation_data new.size run return run tellraw @s {text:"You must create a selection before creating this animation!",color:"red"}
+    execute unless data storage ${ns}:animation_data new.size run return run ${a`
+        tellraw @s {text:"You must create a selection before creating this animation!",color:"red"}
+        data remove storage ${ns}:animation_data new
+    `}
     # If there is no camera set, tell the player to set one first and stop.
-    execute unless data storage ${ns}:animation_data new.camera run return run tellraw @s {text:"You must set a camera position before creating this animation!",color:"red"}
+    execute unless data storage ${ns}:animation_data new.camera run return run ${a`
+        data modify storage ${ns}:temp cs.reenteranim set value true
+        data remove storage ${ns}:animation_data new
+        dialog show @s ${ns}:no_camera_saved    
+    `}
     # Save the block at the neg neg neg corner (outside of region) to the editor dimension and place in a new structure block
     ${grabStrBlockPos}
     ${calculateLaneX} {output:"${ns}:temp str.lanex int"}

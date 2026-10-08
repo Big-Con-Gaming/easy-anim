@@ -19,7 +19,7 @@
     "label": "❌ Save No Note",
     "action": {
       "type": "minecraft:run_command",
-      "command": "function easy-anim:camera/camera_save_finish {note:\"\"}"
+      "command": "function easy-anim:camera/selection/camera_save_finish {note:\"\"}"
     }
   },
   "actions": [
@@ -27,7 +27,7 @@
       "label": "✔ Submit",
       "action": {
         "type": "minecraft:dynamic/run_command",
-        "template": "function easy-anim:camera/camera_save_finish {note:\"$(note)\"}"
+        "template": "function easy-anim:camera/selection/camera_save_finish {note:\"$(note)\"}"
       }
     }
   ]

@@ -3,15 +3,17 @@
 // Set up stuff
 import mcf from './mcf.js';
 import * as debug from './debug.js';
-import { saveInventory, workingHotbar } from './inventory.js';
+import { saveInventory } from './inventory.js';
+import { workingHotbar } from './inventory/hotbar.js';
 import { grabAnimationFromUuid } from './data.js';
 import { operationOnSelectedFrames } from './animation/operate.js';
 import { replaceAllInString, toLowerCase, stringConcat, testIfInt } from './util.js';
 import { enterEditor } from './editor.js';
 import { startRender } from './render.js';
+import { noticeAnimInUse } from './error.js';
 const folder = mcf.menu;
 export const {
-    setName, createSelection, displayAnimationsDialog, renderAnimation, noticeAnimInUse, moveFramesShowDialog
+    setName, createSelection, displayAnimationsDialog, renderAnimation, moveFramesShowDialog
 } = folder;
 const {
     recAddAnimToList, grabOffsetAndOperate, macroDialog, editAnimationSetup, countSelected, modifyFrameDurationDialog, displayModifySelectDialog, anonymous: a
@@ -120,12 +122,6 @@ displayAnimationsDialog`
     # Remove temporary data
     data remove storage ${ns}:temp displayanimationsdialog
 `;
-
-// Logs and tells the player that the animation is in use elsewhere
-noticeAnimInUse`
-    ${debug.error} {input: "Animation is currently in use!"}
-    tellraw @s {text: "Animation is currently in use!", color: "red"}
-`
 
 // Runs when selecting an animation to edit. Must receive macro anim and UUID which contains the name of the animation we want to edit and the UUID of the executing player.
 editAnimationSetup`
