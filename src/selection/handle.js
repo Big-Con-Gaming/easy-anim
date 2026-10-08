@@ -215,6 +215,6 @@ handleHighlight`
     execute positioned ~-0.875 ~-0.875 ~-0.875 as @e[dx=0, dy=0, dz=0, type=interaction, tag=${ns}-handle] as @n[type=item_display, tag=${ns}-handle] run tag @s add ${ns}-handle-select1
     execute positioned ~ ~ ~ as @e[dx=0, dy=0, dz=0, type=interaction, tag=${ns}-handle] as @n[type=item_display, tag=${ns}-handle] run tag @s add ${ns}-handle-select2
     execute as @e[type=item_display,tag=${ns}-handle-select1, tag=${ns}-handle-select2] run data merge entity @s {Glowing:1b}
-    tag @e[tag=${ns}-handle-select1] remove ${ns}-handle-select1
-    tag @e[tag=${ns}-handle-select2] remove ${ns}-handle-select2
+    tag @e[type=item_display, tag=${ns}-handle-select1] remove ${ns}-handle-select1
+    tag @e[type=item_display, tag=${ns}-handle-select2] remove ${ns}-handle-select2
 `
