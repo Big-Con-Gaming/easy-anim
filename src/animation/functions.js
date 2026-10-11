@@ -33,6 +33,8 @@ saveSpecificFrameCommands.push(`
     $${debug.run} {input: "saveSpecificFrame at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(name) frame $(framenum)"}
     # Log the expected function path.
     ${debug.path} {input: "-> recSplitGroups -> removeDocile -> storeFrame -> regroupEntities"}
+    # Remove all possibly trailing data.
+    data remove storage ${ns}:temp str
     # Ungroup all of the entities within the frame, reusing functions from the create animation function within menu.
     data modify storage ${ns}:temp str.id set value 0
     # All important data needs to be placed into str for the old recSplitGroups function to work. I feel like there's a better way to do this.
@@ -83,6 +85,9 @@ clearSpecificFrameCommands.push(`
     $${debug.run} {input: "clearSpecificFrame at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(name) frame $(framenum)"}
     # Log the expected function path.
     ${debug.path} {input: "-> /fill air -> cleanKill -> | pullNextFrameData -> (| recMoveFrames) -> | removeFrameData"}
+    # Clear possibly trailing data.
+    scoreboard objectives remove ${ns}-csf
+    # data remove storage ${ns}:temp csf - This can be set by operating commands
     # Create a scoreboard and shrink size by 1 in each axis to be accurate for relative coordinates.
     scoreboard objectives add ${ns}-csf dummy
 `);
@@ -226,6 +231,9 @@ addNewFrame`
     $${debug.run} {input: "addNewFrame at $(framenum) from $(targetframe)"}
     # Log the expected function path.
     ${debug.path} {input: "-> stringEquals -> grabFromRef -> retrieveFrame -> | toggleSelectionState -> cleanUpNewAnimationData -> grabAnimationFromUuid -> | insertSpace -> | insert consecutive [-> insertSpace -> moveFrame -> arrayMoveEntry] -> | calculateLaneX -> placeFrame -> regroupEntities -> storeFrame -> toggleSelectionState"}
+    # Clear possibly trailing data
+    data remove storage ${ns}:temp anf
+    scoreboard objectives remove ${ns}-anf
     # create a temporary scoreboard
     scoreboard objectives add ${ns}-anf dummy
     # Place the framenum into the scoreboard
@@ -372,6 +380,9 @@ duplicateFrame`
     $${debug.run} {input: "duplicateFrame with $(framenum)"}
     # Log the expected path
     ${debug.path} {input: "-> addNewFrame"}
+    # Clean up possibly trailing data
+    data remove storage ${ns}:temp df
+    scoreboard objectives remove ${ns}-df
     # Store framenum as a score and in our new namespace for macroing (need to add it with offset)
     scoreboard objectives add ${ns}-df dummy
     $execute store result storage ${ns}:temp df.targetframe int 1 run scoreboard players set framenum ${ns}-df $(framenum)
@@ -422,6 +433,9 @@ moveSelectedFrames`
     # Log the function call
     $${debug.run} {input: "moveSelectedFrames with $(framenum)"}
     ${debug.path} {input: "-> pull target frame data -> moving target temporarily -> recSplitGroups -> storeFrameInTemp -> moveFrame -> | (pullNextFrameData -> recMoveFrames) -> grab pullfrom -> move out of temp -> retrieveFrameFromTemp -> clearOutTempStorage -> retrieveFrame -> arrayMoveEntry"}
+    # Clear possibly trailing data
+    data remove storage ${ns}:temp msf
+    scoreboard objectives remove ${ns}-msf
     # Create a scoreboard
     scoreboard objectives add ${ns}-msf dummy
     # Pull all framenum data into storage for easy grabbing without macro.
@@ -429,6 +443,9 @@ moveSelectedFrames`
     # Store the framenum (in storage and...) and offset and target # into the scoreboard (probably could grab them from grabsizeanchor storage...)
     $execute store result storage ${ns}:temp msf.framenum int 1 run scoreboard players set framenum ${ns}-msf $(framenum)
     execute store result score offset ${ns}-msf store result score target ${ns}-msf run data get storage ${ns}:temp carryover.offset
+    
+    ${debug.info} {source:"storage", path:"carryover", location:"${ns}:temp"}
+    
     # Calculate the target frame by adding framenum and target together.
     scoreboard players operation target ${ns}-msf += framenum ${ns}-msf
     # Store this target frame into storage for other functions to use.

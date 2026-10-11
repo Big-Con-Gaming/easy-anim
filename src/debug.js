@@ -50,6 +50,8 @@ displayLog`
     # If there are no logs, log an error that will be displayed to the user (making the log no longer empty).
     # This shouldn't normally happen since a log is added on load.
     execute unless data storage ${ns}:debug log[0] run ${error} {input: "No log entries were present."}
+    # Clean up possibly trailing values.
+    data remove storage ${ns}:debug temp.log
     # Grab a copy of the entire log to iterate through.
     data modify storage ${ns}:debug temp.log set from storage ${ns}:debug log
     ${recPrintLog`
@@ -66,6 +68,9 @@ displayLog`
 
 // Tells the executing player the current debug log by looping through each log entry and displaying it in chat. Contains options for different levels of logs and a line limit.
 displayLogFiltered`
+    # Remove the possibly trailing scoreboard and data storage.
+    scoreboard objectives remove ${ns}-debug
+    data remove storage ${ns}:debug temp.log
     # Create a temporary scoreboard to pull filtering options into.
     scoreboard objectives add ${ns}-debug dummy
     $scoreboard players set .level ${ns}-debug $(level)
@@ -138,9 +143,11 @@ for (const { name, level, color, symbol, special } of debugTypes) {
         `;
     } else if (special === "store_data") {
         folder[`${name}`]`
+            # Remove possibly trailing data
+            data remove storage ${ns}:debug temp
             # Display the debug message only if the debug level is high enough.
             $execute if score #debug ${ns} matches ${level}.. run tellraw @a [{text: "${ns}: (${symbol}) ", color: "${color}"}, {type: "nbt", source: "$(source)", nbt: "$(path)", $(source): "$(location)", interpret: false}]
-            # Store this debug message in the debug log. Grab as text to resolute value.
+            # Store this debug message in the debug log. Grab as text to resolve value.
             $data modify storage ${ns}:debug temp set from $(source) $(location) $(path)
             ${a`
                 $data modify storage ${ns}:debug log append value {text: {text: '${ns}: (${symbol}) $(temp)', color: "${color}"}, level: ${level}}

@@ -52,6 +52,7 @@ grabAnimationData`
     $${debug.run} {input: "grabAnimationData for $(currentAnim)"}
     # Warn if animation data is already present in the new namespace.
     execute if data storage ${ns}:animation_data new run ${debug.warn} {input: "New contains data already, overriding..."}
+    execute if data storage ${ns}:animation_data new run data remove storage ${ns}:animation_data new
     # Error if the animation requested doesn't exist.
     $execute unless data storage ${ns}:animation_data animations[{name:$(currentAnim)}].data run return run ${debug.error} {input: "Animation $(currentAnim) does not exist."}
     $data modify storage ${ns}:animation_data new set from storage ${ns}:animation_data animations[{name:$(currentAnim)}].data

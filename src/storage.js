@@ -22,6 +22,9 @@ allocAnimation`
     ${debug.path} {input: "-> recFindNextEmptyLane (found lane)"}
     # Error and return if this animation already has a lane.
     execute if data storage ${ns}:animation_data new.storageid run return run ${debug.error} {input: "Animation already has a lane!"}
+    # Remove possibly trailing data.
+    data remove storage ${ns}:temp alloca
+    scoreboard objectives remove ${ns}-alloca
     scoreboard objectives add ${ns}-alloca dummy
     execute store result storage ${ns}:temp alloca.lane int 1 run scoreboard players set lane ${ns}-alloca 0
     # Find the next available lane by searching the storage dimension for an empty spot (no bedrock).
@@ -118,6 +121,9 @@ storeFrame`
     ${debug.path} {input: "-> pullStoreCoords -> macroPlaceFrame -> | store entity -> | cleanKill x2"}
     # Error if animation is missing name
     execute unless data storage ${ns}:animation_data new.name run return run ${debug.error} {input:"Current animation is missing a name!"}
+    # Remove possibly trailing data
+    data remove storage ${ns}:temp storeframe
+    scoreboard objectives remove ${ns}-storeframe
     # Setup scoreboard
     scoreboard objectives add ${ns}-storeframe dummy
     $${pullStoreCoords} {namespace: "storeframe", framenum: $(framenum)}
@@ -199,6 +205,9 @@ retrieveFrame`
     ${debug.path} {input: "-> pullStoreCoords -> ^ frameExistenceCheck -> | non-base frame -> macroStoreFrame -> | recRetrieveFrames (place and configure) -> | cleanKill"}
     # Error if animation is missing name
     execute unless data storage ${ns}:animation_data new.name run return run ${debug.error} {input:"Current animation is missing a name!"}
+    # Remove possibly trailing data
+    data remove storage ${ns}:temp retrieveframe
+    scoreboard objectives remove ${ns}-retrieveframe
     # Setup scoreboard
     scoreboard objectives add ${ns}-retrieveframe dummy
     # Grab the necessary data to know where in the storage dimension the frame is.
@@ -300,6 +309,9 @@ removeFrame`
     $${debug.run} {input: "removeFrame for $(framenum)"}
     # Log the expected function path.
     ${debug.path} {input: "-> pullStoreCoords -> macroRemoveFrame"}
+    # Remove possibly trailing data
+    data remove storage ${ns}:temp removeframe
+    scoreboard objectives remove ${ns}-removeframe
     # Setup scoreboard
     scoreboard objectives add ${ns}-removeframe dummy
     # Grab the necessary data to know where in the storage dimension the frame is.
@@ -325,6 +337,9 @@ storeFrameInTemp`
     $${debug.run} {input: "storeFrameInTemp for $(framenum)"}
     # Log the expected function path.
     ${debug.path} {input:"-> pullStoreCoords -> copy blocks to"}
+    # Clear possibly trailing data
+    data remove storage ${ns}:temp storetemp
+    scoreboard objectives remove ${ns}-storetemp
     # Setup scoreboard
     scoreboard objectives add ${ns}-storetemp dummy
     # Grab the necessary data to know where in the storage dimension the frame is.
@@ -358,6 +373,9 @@ retrieveFrameFromTemp`
     $${debug.run} {input: "retrieveFrameFromTemp at $(framenum)"}
     # Log the expected function path.
     ${debug.path} {input:"-> pullStoreCoords -> copy blocks from"}
+    # Clear possibly trailing data
+    data remove storage ${ns}:temp retrievetemp
+    scoreboard objectives remove ${ns}-retrievetemp
     # Setup scoreboard
     scoreboard objectives add ${ns}-retrievetemp dummy
     # Grab the necessary data to know where in the storage dimension the frame is.
@@ -393,6 +411,8 @@ clearOutTempStorage`
     execute unless data storage ${ns}:animation_data new.name run return run ${debug.error} {input: "Animation in new has no name! Returning..."}
     # Error if this animation has no storageid
     execute unless data storage ${ns}:animation_data new.storageid run return run ${debug.error} {input: "Animation in new has no storageid! Returning..."}
+    # Clear possibly trailing data
+    data remove storage ${ns}:temp cleartemp
     # Grab the x of this animation
     execute store result storage ${ns}:temp cleartemp.x int 48 run data get storage ${ns}:animation_data new.storageid
     # Grab the animation's name

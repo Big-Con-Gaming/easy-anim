@@ -29,6 +29,8 @@ setName`
     $${debug.run} {input: "setName with $(name)"}
     # Log the expected function path.
     ${debug.path} {input: "-> replaceAllInString -> toLowerCase -> ^ check duplicate -> set up data -> createSelection"}
+    # Remove possibly trailing data.
+    data remove storage ${ns}:temp formatted
     $${replaceAllInString} {input:"$(name)", find:" ", replace:"_", output:"storage ${ns}:temp formatted.name"}
     ${a`
         # Log the function call
@@ -61,9 +63,8 @@ createSelection`
     ${debug.path} {input: "-> saveInventory -> workingHotbar"}
     # Save all inventory items into current, and then append current into players. Key UUID can be used to retrieve.
     ${saveInventory}
-    # Remove all items and the temporary current player data.
+    # Remove all items.
     clear @s *
-    data remove storage ${ns}:player_data current
     # Give player our full hotbar.
     $${workingHotbar} {name:$(name)}
     # Add the owner to the newly created animation
@@ -85,6 +86,8 @@ displayAnimationsDialog`
     # If there are no animations available, warn, let the player know and return.
     execute unless data storage ${ns}:animation_data animations[0] run ${debug.warn} {input:"No animations exist! Letting player know and exiting..."}
     execute unless data storage ${ns}:animation_data animations[0] run return run tellraw @s {text:"There are no existing animations! Create one first.", color:"red"}
+    # Remove possibly trailing data
+    data remove storage ${ns}:temp displayanimationsdialog
     # Grab the animations list in a temporary storage location.
     data modify storage ${ns}:temp displayanimationsdialog.list set from storage ${ns}:animation_data animations
     # Set up a temporary storage location to hold all of the button creating dialogs
@@ -167,6 +170,9 @@ displayModifySelectDialog`
     ${debug.run} {input: "displayModifySelectDialog"}
     # Log the expected function path.
     ${debug.path} {input: "-> (countSelected -> | appending to end)"}
+    # Clear possibly trailing data
+    scoreboard objectives remove ${ns}-dmsd
+    data remove storage ${ns}:temp dmsd
     # Grab animation data
     ${grabAnimationFromUuid} with entity @s
     # Create a temporary scoreboard
@@ -232,6 +238,8 @@ moveFramesShowDialog`
         # Warn the user that they must select frames first.
         tellraw @s {text: "Please select some frames first!", color:red}
     `}
+    # Clean up possibly trailing data
+    data remove storage ${ns}:temp csfbounds
     # Execute operationOnSelectedFrames with the calcBounds operation.
     ${operationOnSelectedFrames} {mode: "calcBounds"}
     # Create an offset macro key insert in storage for the dialog to use.
@@ -248,6 +256,8 @@ moveFramesShowDialog`
 grabOffsetAndOperate`
     # Log the function call
     $${debug.run} {input: "grabOffsetAndOperate with offset $(offset)"}
+    # remove possibly trailing data
+    scoreboard objectives remove ${ns}-gao
     # Create a scoreboard to test offset's sign
     scoreboard objectives add ${ns}-gao dummy
     # Store this offset into carryover for operationOnSelectedFrames to use.
@@ -276,6 +286,9 @@ modifyFrameDurationDialog`
     $${debug.run} {input: "modifyFrameDurationDialog setting to either $(slider) or $(text) if valid"}
     # Log the expected function path.
     ${debug.path} {input: "-> | testIfInt -> operationOnSelectedFrames"}
+    # Cleanup possibly trailing data
+    scoreboard objectives remove ${ns}-mfdd
+    data remove storage ${ns}:temp carryover
     # Create temporary scoreboard
     scoreboard objectives add ${ns}-mfdd dummy
     # Set a player within the objective to the value of the text input. If the text input is empty or invalid, it will be set to 0.

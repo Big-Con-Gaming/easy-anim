@@ -28,6 +28,8 @@ startRender`
     execute unless data storage ${ns}:animation_data new.anchor run return run ${debug.error} {input: "Player's currentAnim is missing anchor data!"}
     execute unless data storage ${ns}:animation_data new.size run return run ${debug.error} {input: "Player's currentAnim is missing size data!"}
     execute unless data storage ${ns}:animation_data new.camera run return run ${debug.error} {input: "Player's currentAnim is missing camera data!"}
+    # Clean up possibly trailing data
+    data remove storage ${ns}:temp str
     # Set this animation's location to "render"
     data modify storage ${ns}:animation_data new.location set value "render"
     # Give the player an editor lane, if missing.
@@ -103,6 +105,8 @@ renderCheck`
     # ${debug.path} {input: "-> ^ render_queue empty -> recCheck ( | specificFrameRender)"}
     # Exit this function entirely if the render_queue is empty. (I would have a warn but we're entering from tick)
     execute unless data storage ${ns}:animation_data render_queue[0] run return 0
+    # Remove possibly trailing data
+    data remove storage ${ns}:temp rendercheck
     # Set up a recursive function to go through all animations within render_queue, passing their names as a macro
     data modify storage ${ns}:temp rendercheck.queue set from storage ${ns}:animation_data render_queue
     data modify storage ${ns}:temp rendercheck.name set from storage ${ns}:temp rendercheck.queue[0].name
@@ -144,6 +148,9 @@ specificFrameRenderCommands.push(`
     # Pull the framenum from the scoreboard, increase it, and place it into storage
     # Error if there's no framenum to pull from.
     $execute unless score #$(name)_frame ${ns} matches -1.. run return run ${debug.error} {input: "#$(name)_frame score is missing!"}
+    # Remove possibly trailing data
+    data remove storage ${ns}:temp grabsizeanchor
+    scoreboard objectives remove ${ns}-render
     $execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players add #$(name)_frame ${ns} 1
     # If this framenum exceeds the animation's total frames, then we'll need to exit the render.
     scoreboard objectives add ${ns}-render dummy
@@ -221,6 +228,9 @@ exitRender`
     $${debug.run} {input:"exitRender for $(name)"}
     # Log the expected function path
     ${debug.path} {input:"-> grabStrBlockPos -> calculateLaneX -> replace original stuff -> grabPlayerData -> cleanUpNewAnimationData"}
+    # remove possibly trailing data
+    data remove storage ${ns}:temp str
+    scoreboard objectives remove ${ns}-render
     # Pull animation data if it is missing
     $execute unless data storage ${ns}:animation_data new run ${grabAnimationData} {currentAnim: $(name)}
     # Structure block save the anchor location in the overworld
@@ -258,8 +268,8 @@ exitRender`
         # Unclaim the player's lane
         $${grabPlayerData} {UUID: $(UUID)}
         execute in ${ns}:editor run ${unclaimLane}
-        # Remove this animation from currentAnim
-        $data remove storage ${ns}:player_data players[{UUID: $(UUID)}].currentAnim
+        # Remove this player's data
+        $data remove storage ${ns}:player_data players[{UUID: $(UUID)}]
         # Unforceload the entire animation
         $execute in $(dimension) positioned $(x) $(y) $(z) run forceload remove ~ ~
         $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 run forceload remove ~ ~ ~$(sx) ~$(sz)

@@ -66,6 +66,11 @@ operationOnSelectedFrames`
     $${debug.run} {input: "operationOnSelectedFrames executing $(mode)"}
     # Log the expected function path.
     $${debug.path} {input: "-> grabAnimationFromUuid -> stringEquals -> | (recSelectCheck -> | count consecutive) -> | grabSizeAnchorEditor -> (recOperate -> | $(mode) -> ^ grabSizeAnchorEditor)"}
+    # Clean up possibly trailing data
+    scoreboard objectives remove ${ns}-operation
+    data remove storage ${ns}:temp grabsizeanchor
+    data remove storage ${ns}:temp selectedframes
+    # data remove storage ${ns}:temp carryover - Obviously, NEEDED FOR FUNCTIONALITY BELOW!
     # Set up a specific flag for this mode (so that we don't have the use the macro more than twice)
     $data modify storage ${ns}:temp selectedframes.$(mode) set value true
     # Create a temporary score

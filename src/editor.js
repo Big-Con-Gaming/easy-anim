@@ -49,6 +49,9 @@ enterEditor`
     ${debug.path} {input: "-> grabPlayerAndAnimation -> | newPlayerLane -> | findPlayerAxisOffset -> calculateLaneX -> recPlaceFrames (retrieveFrame -> editorAnchorInData -> regroupEntities) -> [exitSelection | cleanRemainder -> appendAllDataChanges] -> tpIntoEditor"}
     # Error if the player doesn't have a current animation.
     $execute unless data storage ${ns}:player_data players[{UUID:$(UUID)}].currentAnim run return run ${debug.error} {input: "Player has no current animation!"}
+    # Remove possibly trailing data.
+    data remove storage ${ns}:temp eemacro
+    scoreboard objectives remove ${ns}-temp
     # Load the player's and animation's data.
     $${grabPlayerAndAnimation} {UUID:$(UUID)}
     # Warn if the player doesn't have a lane, and assign them one if so.
@@ -178,6 +181,8 @@ exitCommands.push(`
     $execute unless data storage ${ns}:player_data players[{UUID:$(UUID)}].prevDim run return run ${debug.error} {input: "No prevDim data for player!"}
     # Warn if the player is missing the inEditor tag.
     execute unless entity @s[tag=${ns}-inEditor] run ${debug.warn} {input: "Player is missing inEditor tag! Continuing anyway..."} 
+    # Remove possibly trailing data.
+    data remove storage ${ns}:temp exit
     # Grab animation data using UUID.
     $${grabAnimationFromUuid} {UUID:$(UUID)}
     # Warn if the animation has no frames.

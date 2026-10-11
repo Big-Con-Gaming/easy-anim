@@ -93,6 +93,8 @@ handleSummonCommands.push(`
     execute unless data storage ${ns}:animation_data new.anchor run return run ${debug.error} {input: "No anchor found within animation_data new!"}
     execute unless data storage ${ns}:animation_data new.size run ${debug.warn} {input: "No size found within animation_data new! Assuming a size of 1..."}
     execute unless data storage ${ns}:animation_data new.name run return run ${debug.error} {input: "No name found within animation_data new!"}
+    # Remove possibly trailing data
+    scoreboard objectives remove ${ns}-handle
     scoreboard objectives add ${ns}-handle dummy
     # setup a constant 0, 1, and 2 for division and multiplcation
     scoreboard players set 0 ${ns}-handle 0
@@ -179,6 +181,8 @@ handleExecutionCommands.push(`
     # Check if animation_data new has anchor, otherwise error. Warn if size is missing, and assume a size of 1.
     execute unless data storage ${ns}:animation_data new.anchor run return run ${debug.error} {input: "No anchor found within animation_data new!"}
     execute unless data storage ${ns}:animation_data new.size run ${debug.warn} {input: "No size found within animation_data new! Assuming size 1..."}
+    # Clean up possibly trailing scoreboard
+    scoreboard objectives remove ${ns}-handle-detect
     # Set up the temporary scoreboard with constants needed for multiplication.
     scoreboard objectives add ${ns}-handle-detect dummy
     scoreboard players set -1 ${ns}-handle-detect -1

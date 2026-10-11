@@ -27,6 +27,8 @@ calculateLaneX`
     $${debug.run} {input: "calculateLaneX outputting to $(output)"}
     # Log the expected function path.
     ${debug.path} {input: "-> | grabPlayerDataFromOwner"}
+    # Clear possibly trailing data
+    scoreboard objectives remove ${ns}-lane
     execute unless data storage ${ns}:player_data current run ${grabPlayerDataFromOwner}
     # Error if the player doesn't have a lane.
     execute unless data storage ${ns}:player_data current.lane run return run ${debug.error} {input:"Player does not have an editor lane!"}
@@ -50,6 +52,8 @@ findPlayerAxisOffset`
     ${debug.path} {input: "-> recEditorSearch (^ found empty lane)"}
     # Error if the player already has a lane
     execute if data storage ${ns}:player_data current.lane run return run ${debug.error} {input:"Player already has a lane!"}
+    # Remove possibly trailing data
+    scoreboard objectives remove ${ns}-lane
     scoreboard objectives add ${ns}-lane dummy
     scoreboard players set current-lane ${ns}-lane 0
     execute unless data storage ${ns}:player_data current.lane in ${ns}:editor positioned 0 1 0 run ${recEditorSearch`
@@ -78,6 +82,8 @@ unclaimLane`
     ${debug.run} {input: "unclaimLane"}
     # Log the expected function path.
     ${debug.path} {input: "-> calculateLaneX -> macroUnclaim"}
+    # Remove possibly trailing data
+    data remove storage ${ns}:temp macro_unclaim
     ${calculateLaneX} {output:"${ns}:temp macro_unclaim.pos int"}
     ${macroUnclaim`
         # Log the function call

@@ -124,6 +124,9 @@ cameraLoadFrame`
     # ${debug.path} {input: "-> ^ load_queue empty -> (recLoad -> | place camera)"}
     # If the load_queue is empty, instantly return to save processing power
     execute unless data storage ${ns}:animation_data load_queue[0] run return 0
+    # Clean up possibly trailing data
+    scoreboard objectives remove ${ns}-clf
+    data remove storage ${ns}:temp clf
     # Otherwise, recursively go through each entry and either place the player at their camera or decrease their duration if duration is present.
     data modify storage ${ns}:temp clf.queue set from storage ${ns}:animation_data load_queue
     # Temporary scoreboard
@@ -182,6 +185,8 @@ toggleHighlightFrame`
         ${debug.error} {input: "No camera data to highlight for frame!"}
         tellraw @s {text:"No camera data to highlight for this frame!",color:red}
     `}
+    # Clean up possibly trailing data.
+    data remove storage ${ns}:temp camera
     data merge storage ${ns}:temp {camera:{pos:[0.0d, 0.0d, 0.0d]}}
     # Turn the data above into real world coordinates.
     $${constructRealCoordinates} {arrayformat:1, input:"storage ${ns}:animation_data new.frames[$(framenum)].camera.pos[", output:"storage ${ns}:temp camera.pos[", type:"frames[$(framenum)].ea"}

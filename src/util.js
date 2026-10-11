@@ -31,6 +31,9 @@ replaceAllInString`
     $${debug.run} {input: "replaceAllInString in $(input) find $(find) replace with $(replace)"}
     # Log the expected function path.
     ${debug.path} {input: "-> incrementIdx -> recCharTest (appending Char -> incrementIdx)"}
+    # Remove possibly trailing data.
+    scoreboard objectives remove ${ns}-util-string
+    data remove storage ${ns}:util temp
     # Place the input string into a temporary storage location.
     $data modify storage ${ns}:util temp.input set value "$(input)"
     $data modify storage ${ns}:util temp.find set value "$(find)"
@@ -88,6 +91,8 @@ toLowerCaseCommands.push(`
     $${debug.run} {input: "toLowerCase with $(input)"}
     # Log the expected function path.
     ${debug.path} {input: "path: -> replaceAllInString x26"}
+    # Remove possibly trailing data.
+    data remove storage ${ns}:util lowercase
     $data modify storage ${ns}:util lowercase.input set value "$(input)"
     data modify storage ${ns}:util lowercase.output set value "storage ${ns}:util lowercase.input"
 `);
@@ -124,6 +129,8 @@ stringConcat`
     $${debug.run} {input: "stringConcat using $(front) and $(back) at $(output)"}
     # Log the expected function path.
     ${debug.path} {input: "-> rawConcat"}
+    # Remove possibly trailing data.
+    data remove storage ${ns}:util stringConcat
     $data modify storage ${ns}:util stringConcat.output set value "$(output)"
     $data modify storage ${ns}:util stringConcat.front set from storage $(front)
     $data modify storage ${ns}:util stringConcat.back set from storage $(back)
@@ -135,6 +142,9 @@ stringConcat`
 stringEquals`
     # Log the function call
     $${debug.run} {input: "stringEquals using $(input1) and $(input2) placing into $(output)"}
+    # Remove possibly trailing data
+    scoreboard objectives remove ${ns}-string-equals
+    data remove storage ${ns}:util stringEquals
     scoreboard objectives add ${ns}-string-equals dummy
     # place the input and output strings into temporary storage.
     $data modify storage ${ns}:util stringEquals.input1 set value "$(input1)"
@@ -154,6 +164,8 @@ pullDataStringEquals`
     $${debug.run} {input: "pullDatastringEquals from $(input1) and $(input2) placing into $(output)"}
     # Log the path
     ${debug.path} {input: "-> stringEquals"}
+    # Remove possibly trailing data
+    data remove storage ${ns}:util pullDataStringEquals
     $data modify storage ${ns}:util pullDataStringEquals.input1 set from $(input1)
     $data modify storage ${ns}:util pullDataStringEquals.input2 set from $(input2)
     $data modify storage ${ns}:util pullDataStringEquals.output set value "$(output)"
@@ -168,6 +180,10 @@ pullDataStringEquals`
 testIfInt`
     # Log the function call
     $${debug.run} {input: "testIfInt with $(input) (succeeded)"}
+    # Clear possibly trailing data - Actually the value of test does NOT matter ot us here.
+    # So, there's no harm in trailing data, we are testing if the macro completes or not.
+    # Keeping this here as an example.
+    # scoreboard objectives remove ${ns}-util-string
     # Create a temporary scoreboard.
     scoreboard objectives add ${ns}-util-string dummy
     # Store the input as a data string
@@ -182,6 +198,8 @@ testIfInt`
 arrayMoveEntry`
     # Log the function call
     $${debug.run} {input: "arrayMoveEntry with $(array) placing $(source) at $(target)"}
+    # Clear possibly trailing data
+    data remove storage ${ns}:util arrayMoveEntry
     # Copy the value at source into temporary storage
     $data modify storage ${ns}:util arrayMoveEntry.sourceValue set from storage $(array)[$(source)]
     # Remove the source entry

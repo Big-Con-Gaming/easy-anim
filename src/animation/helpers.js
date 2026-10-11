@@ -27,6 +27,8 @@ renumberFrame`
     $${debug.run} {input: "renumberFrame placing $(input) at $(output) for $(name) within $(sx) $(sy) $(sz)"}
     # Log the expected function path.
     ${debug.path} {input: "-> retrieveFrame -> removeFrame -> cleanKill -> storeFrame"}
+    # Remove possibly trailing data.
+    data remove storage ${ns}:temp renumber
     # Make sure the area we're going to place the structures is forceloaded.
     execute in ${ns}:editor positioned 0 0 -48 run forceload add ~ ~ ~47 ~47
     # Retrieve structure data in case it was unloaded.
@@ -161,6 +163,9 @@ insertSpace`
     $${debug.run} {input: "insertSpace at $(framenum) size $(sz)"}
     # Log the expected function path
     ${debug.path} {input: " -> pullNextFrameData -> (recMoveFrames)"}
+    # Clean up possibly trailing data
+    scoreboard objectives remove ${ns}-is
+    data remove storage ${ns}:temp is
     # Create a temporary scoreboard.
     scoreboard objectives add ${ns}-is dummy
     # Set up required data for pullNextFrameData and recMoveFrames
@@ -188,6 +193,8 @@ insertSpace`
 calculateSelectedFrameBounds`
     # Log the function call
     $${debug.run} {input: "calculateSelectedFrameBounds with frame $(framenum)"}
+    # Clear the scoreboard in case it has trailing data.
+    scoreboard objectives remove ${ns}-csfb
     # Create a scoreboard
     scoreboard objectives add ${ns}-csfb dummy
     # Save the framenum as a score
@@ -222,6 +229,9 @@ moveFrameCommands.push(`
     $${debug.run} {input: "moveFrame $(framenum) to $(targetframe)"}
     # Log the expected path
     ${debug.path} {input: "-> moving the frame -> recSplitGroups -> regroupEntities -> renumberFrame"}
+    # Clean up possibly trailing data
+    data remove storage ${ns}:temp moveFrame
+    scoreboard objectives remove ${ns}-mf
     # We're going to make the assumption that this method is being used elsewhere where animation_data is open already and will be closed on its own
     # Open a scoreboard
     scoreboard objectives add ${ns}-mf dummy

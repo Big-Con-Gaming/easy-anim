@@ -55,6 +55,9 @@ deselectFrame`
 toggleSelectionState`
     # Log the function call
     $${debug.run} {input: "toggleSelectionState for frame $(framenum)"}
+    # Clean up possibly trailing data
+    scoreboard objectives remove ${ns}-tss
+    data remove storage ${ns}:temp grabsizeanchor
     # Error if frame data is missing (in general).
     $execute unless data storage ${ns}:animation_data new.frames[$(framenum)] run return run ${debug.error} {input: "Frame is missing all data!"}
     # Stores the current state and flips depending on that old state.
@@ -82,6 +85,9 @@ selectInPlayerFrame`
     $${debug.run} {input: "selectInPlayerFrame for $(UUID)"}
     # Log the expected function path.
     ${debug.path} {input: "-> grabAnimationFromUuid -> grabSizeAnchorEditor -> recPlayerSearch (^ toggleSelectionState -> grabSizeAnchorEditor) -> cleanUpNewAnimationData"}
+    # Clean up possibly trailing data
+    data remove storage ${ns}:temp grabsizeanchor
+    scoreboard objectives remove ${ns}-sipf
     # Grab animation_data using UUID
     $${grabAnimationFromUuid} {UUID:$(UUID)}
     # Error but don't return if the animation has no frames.
@@ -126,6 +132,9 @@ parseToggleSingleSelectFrame`
     $${debug.run} {input: "parseToggleSingleSelectFrame for frame $(firstselectbar) or $(firstselecttext) for $(UUID)"}
     # Log the expected function path.
     ${debug.path} {input: "-> | testIfInt -> grab size -> toggleSelectionState"}
+    # Clean up possibly trailing data
+    data remove storage ${ns}:temp temptoggle
+    scoreboard objectives remove ${ns}-ptssf
     # Need to figure out which input is used, use text first but if empty use bar, place the frame's size into a macro for toggleSelectionState and then clean up the data after.
     # Create a temporary scoreboard.
     scoreboard objectives add ${ns}-ptssf dummy
@@ -160,6 +169,9 @@ parseToggleRangeSelectFrame`
     $${debug.run} {input: "parseToggleRangeSelectFrame from frame $(firstselectbar) or $(firstselecttext) to frame $(secondselectbar) or $(secondselecttext) for $(UUID)"}
     # Log the expected function path.
     ${debug.path} {input: "-> | testIfInt x2 -> grabAnimationFromUuid -> (recToggle -> toggleSelectionState)"}
+    # Clean up possibly trailing data
+    data remove storage ${ns}:temp temptoggle
+    scoreboard objectives remove ${ns}-temptoggle
     # Need to figure out which input is used, use text first but if empty use bar, place the frame's size into a macro for toggleSelectionState and then clean up the data after.
     # Create a temporary scoreboard.
     scoreboard objectives add ${ns}-temptoggle dummy
@@ -211,6 +223,9 @@ toggleAllSelectFrame`
     $${debug.run} {input: "toggleAllSelectFrame for $(UUID)"}
     # Log the expected function path.
     ${debug.path} {input: "-> grabAnimationFromUuid -> (recToggle -> toggleSelectionState)"}
+    # Clean up possibly trailing data
+    data remove storage ${ns}:temp temptoggle
+    scoreboard objectives remove ${ns}-temptoggle
     # Grab animation_data
     $${grabAnimationFromUuid} {UUID:$(UUID)}
     # Create a temporary scoreboard.
@@ -241,6 +256,9 @@ selectAllFrames`
     $${debug.run} {input: "selectAllFrames for $(UUID) select(1)/deselect(-1): $(select)"}
     # Log the expected function path.
     ${debug.path} {input: "-> grabAnimationFromUuid -> grabSizeAnchorEditor -> (recSelectAll)"}
+    # Clean up possibly trailing data
+    scoreboard objectives remove ${ns}-temptoggle
+    data remove storage ${ns}:temp grabsizeanchor
     # Create a temporary scoreboard
     scoreboard objectives add ${ns}-temptoggle dummy
     # Place select into this scoreboard

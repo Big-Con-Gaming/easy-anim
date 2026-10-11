@@ -74,6 +74,8 @@ anchorDifferenceCommands.push(`
     $${debug.run} {input: "anchorDifference with $(input) placing into $(output) depending on arrayformat: $(arrayformat), anchor from: $(type)"}
     # Log the expected function path.
     ${debug.path} {input: "-> [storeArrayMacro | storeAxisMacro] X3"}
+    # Remove possibly trailing data
+    scoreboard objectives remove ${ns}-diffmath
     scoreboard objectives add ${ns}-diffmath dummy
     scoreboard players set 0 ${ns}-diffmath 0
     scoreboard players set 1 ${ns}-diffmath 1
@@ -126,6 +128,8 @@ constructRealCoordinatesCommands.push(`
     $${debug.run} {input: "constructRealCoordinates with $(input) placing into $(output) depending on arrayformat: $(arrayformat), anchor from: $(type)"}
     # Log the expected function path.
     ${debug.path} {input: "-> [storeArrayMacro | storeAxisMacro] X3"}
+    # Remove possibly trailing data
+    scoreboard objectives remove ${ns}-realmath
     scoreboard objectives add ${ns}-realmath dummy
     scoreboard players set 0 ${ns}-realmath 0
     scoreboard players set 1 ${ns}-realmath 1
@@ -199,7 +203,8 @@ twoPointCommands.push(`
     ${debug.path} {input: "-> [calcSizeCurrentPos_\${axis} | calcSizeCurrentNeg_\${axis}] X3"}
     # Check if anchor exists, error if not
     execute unless data storage ${ns}:animation_data new.anchor run return run ${debug.error} {input: "No anchor found within animation_data new!"}
-
+    # Remove possibly trailing data
+    scoreboard objectives remove ${ns}-twopoint
     scoreboard objectives add ${ns}-twopoint dummy
 `)
 // Add all axis-specific commands from the function above.
@@ -275,6 +280,8 @@ updateSelectionCommands.push(`
     # Check if animation_data new has anchor and size, otherwise error.
     execute unless data storage ${ns}:animation_data new.anchor run return run ${debug.error} {input: "No anchor found within animation_data new!"}
     execute unless data storage ${ns}:animation_data new.size run return run ${debug.error} {input: "No size found within animation_data new!"}
+    # Remove possibly trailing data
+    scoreboard objectives remove ${ns}-math
     scoreboard objectives add ${ns}-math dummy
     scoreboard players set inside-cube ${ns}-math 0
 `)
@@ -298,6 +305,9 @@ removeOldSelectionCommands.push(`
     ${debug.run} {input: "removeOldSelection"}
     # Log the expected function path
     ${debug.path} {input: "-> grabStrBlockPos -> calculateLaneX -> resetCornerBlock -> kill old handles"}
+    # Remove possibly trailing data
+    data remove storage ${ns}:temp str
+    scoreboard objectives remove ${ns}-remove-handles
     scoreboard objectives add ${ns}-remove-handles dummy
     ${grabStrBlockPos}
     ${calculateLaneX} {output:"${ns}:temp str.lanex int"}

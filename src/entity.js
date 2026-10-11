@@ -22,6 +22,9 @@ const recSplitGroupsCommands = [];
 recSplitGroupsCommands.push(`
     # Log the function call
     $${debug.run} {input: "recSplitGroups with id $(id) within $(sx) $(sy) $(sz)"}
+    # Remove possibly trailing data.
+    scoreboard objectives remove ${ns}-rsg
+    data remove storage ${ns}:temp rsg
     # Create the objective used to count groupid if it doesn't already exist.
     scoreboard objectives add ${ns}-rsg dummy
     $execute store result storage ${ns}:temp rsg.id int 1 run scoreboard players set groupid ${ns}-rsg $(id)
@@ -125,7 +128,8 @@ turnEntityDocileCommands.push(`
     # ${debug.run} {input: "turnEntityDocile"}
     # Warn if the entity is already docile.
     execute unless entity @s[type=item] if entity @s[tag=${ns}-entity-turned-docile] run ${debug.warn} {input: "Non-item entity is already docile, continuing anyway."}
-
+    # Remove possibly trailing data
+    scoreboard objectives remove ${ns}-entity-docile
     scoreboard objectives add ${ns}-entity-docile dummy
 `);
 
@@ -176,6 +180,8 @@ skipDocile`
 mainDocileLoop`
     # Remove all docile entities.
     execute as @e[tag=${ns}-entity-turned-docile] run ${removeDocile}
+    # Remove possibly trailing data.
+    data remove storage ${ns}:temp docileSearch
     # If an entity is inside the newly created selection radius, make them docile.
     data modify storage ${ns}:temp docileSearch set from storage ${ns}:animation_data animations
     # Recursive, is called until temporary list docileSearch in animationData is empty. Goes through each animation and turns entities docile within each.
@@ -192,6 +198,8 @@ mainDocileLoop`
         execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} unless data storage ${ns}:temp docileSearch[0].data.frames[0] run return run ${skipDocile}
         execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} run ${a`
             ${grabSizeAnchorEditor} {framenum:0}
+            # Remove possibly trailing data.
+            scoreboard objectives remove ${ns}-recDocile
             scoreboard objectives add ${ns}-recDocile dummy
             # framenum is set to 1 as an advanced increment so that new data is pulled immediately.
             execute store result score framenum ${ns}-recDocile run data modify storage ${ns}:temp grabsizeanchor.framenum set value 1

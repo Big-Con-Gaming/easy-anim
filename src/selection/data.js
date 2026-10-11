@@ -35,6 +35,8 @@ function createGrabSizeAnchorCommands({axis, i}){
 grabSizeAnchorCommands.push(`
     # Log the function call - Removed for running every frame
     # ${debug.run} {input: "grabSizeAnchor"}
+    # Remove possibly trailing data
+    scoreboard objectives remove ${ns}-grabSizeAnchor
     scoreboard objectives add ${ns}-grabSizeAnchor dummy
     # Error if animation_data new does not exist. (not checking anchor and size individually because 1. floods chat and 2. can run without them. Would be a warn) (contains the function name due to missing run log, because it runs every frame.)
     execute unless data storage ${ns}:animation_data new run return run ${debug.error} {input: "grabSizeAnchor: No data found in new"}
@@ -63,6 +65,8 @@ function createGrabSizeAnchorEditorCommands({axis, i}){
 grabSizeAnchorEditorCommands.push(`
     # Log the function call - Removed for running every frame
     # $${debug.run} {input: "grabSizeAnchorEditor for frame $(framenum)"}
+    # Remove possibly trailing data
+    scoreboard objectives remove ${ns}-grabSizeAnchorEditor
     scoreboard objectives add ${ns}-grabSizeAnchorEditor dummy
     # Error if animation_data new.frames[$(framenum)] does not exist. (not checking anchor and size individually because 1. floods chat and 2. can run without them. Would be a warn) (contains the function name due to missing run log, because it runs every frame.)
     $execute unless data storage ${ns}:animation_data new.frames[$(framenum)] run return run ${debug.error} {input: "grabSizeAnchorEditor: No data found in new.frames[$(framenum)]"}
@@ -97,6 +101,8 @@ function calculategrabStrBlockPosCommands({axis, i}) {
 grabStrBlockPosCommands.push(`
     # Log the function call
     ${debug.run} {input: "grabStrBlockPos"}
+    # Clear possibly trailing data
+    scoreboard objectives remove ${ns}-calculategrabStrBlockPosCommands
     scoreboard objectives add ${ns}-calculategrabStrBlockPosCommands dummy
     # Check if animation_data new has anchor, otherwise error. Warn if size or dimension is missing.
     execute unless data storage ${ns}:animation_data new.anchor run return run ${debug.error} {input: "No anchor found within animation_data new!"}

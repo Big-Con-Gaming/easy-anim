@@ -31,6 +31,8 @@ displayBoxCommands.push(`
     ${debug.path} {input: "-> grabStrBlockPos -> calculateLaneX -> placeStructureBlock -> handleSummon"}
     # Error if name is missing from animation_data new.
     execute unless data storage ${ns}:animation_data new.name run return run ${debug.error} {input: "No name found within animation_data new!"}
+    # Remove possibly trailing data.
+    data remove storage ${ns}:temp str
     # Save the block at the neg neg neg corner (outside of region) to the editor dimension and place in a new structure block
     ${grabStrBlockPos}
     ${calculateLaneX} {output:"${ns}:temp str.lanex int"}

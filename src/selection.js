@@ -35,6 +35,8 @@ exitCommands.push(`
     $${debug.run} {input: "exitSelection for $(UUID)"}
     # Log the expected function path.
     ${debug.path} {input: "-> grabAnimationFromUuid -> loadInventory -> grabStrBlockPos -> calculateLaneX -> resetCornerBlock -> | unclaimLane -> kill handles -> cleanUpNewAnimationData -> | remove selection data"}
+    # Remove possibly trailing data.
+    data remove storage ${ns}:temp str
     # Load the player's inventory from storage.
     $${grabAnimationFromUuid} {UUID:$(UUID)}
     # Load the items into the player's inventory

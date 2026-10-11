@@ -45,6 +45,8 @@ createAnimation`
         data remove storage ${ns}:animation_data new
         dialog show @s ${ns}:no_camera_saved    
     `}
+    # Remove the possibly trailing data locations.
+    data remove storage ${ns}:temp str
     # Save the block at the neg neg neg corner (outside of region) to the editor dimension and place in a new structure block
     ${grabStrBlockPos}
     ${calculateLaneX} {output:"${ns}:temp str.lanex int"}
@@ -122,6 +124,8 @@ deleteAnimation`
     # If the animation is being displayed somewhere (location != none), then return and tell the player.
     $execute unless data storage ${ns}:animation_data animations[{name:$(anim),data:{location:"none"}}] run return run ${noticeAnimInUse}
     # Possible extension of function: If location is editor, run exit editor on owner. (In multiplayer, permission check?)
+    # Remove possibly trailing placeholder data
+    data remove storage ${ns}:temp deleteAnimation
     # Clear all of the frames from storage (removeFrame works on a one frame at a time basis)
     # Warn if the animation has no frames
     $execute unless data storage ${ns}:animation_data animations[{name:$(anim)}].data.frames run ${debug.warn} {input: "Animation has no frames! Skipping deletion..."}
@@ -180,6 +184,9 @@ cameraSaveFrameEnterIterate`
     $${debug.run} {input: "cameraSaveFrameEnterIterate with note $(note)"}
     # Log the expected function path.
     ${debug.path} {input: "operationOnSelectedFrames -> grabAnimationFromUuid -> cameraSaveFrame -> cleanUpNewAnimationData -> operationOnSelectedFrames"}
+    # Remove the possibly trailing scoreboard and other trailing data.
+    data remove storage ${ns}:temp csf
+    scoreboard objectives remove ${ns}-camclose
     # Create a temporary scoreboard and store -1 for later.
     scoreboard objectives add ${ns}-camclose dummy
     scoreboard players set -1 ${ns}-camclose -1

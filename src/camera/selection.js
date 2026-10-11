@@ -74,6 +74,8 @@ cameraLoad`
     $${debug.run} {input: "cameraLoad for $(UUID)"}
     # Log the expected function path.
     ${debug.path} {input: "grabAnimationFromUuid -> constructRealCoordinates -> place player at camera -> cleanUpNewAnimationData"}
+    # Remove all possibly trailing data.
+    data remove storage ${ns}:temp camera
     # Grab the player's animation data and insert it into new.
     $${grabAnimationFromUuid} {UUID:$(UUID)}
     # Error if no camera data exists yet.
@@ -106,6 +108,8 @@ cameraHighlight`
     $${debug.run} {input: "cameraHighlight for $(UUID)"}
     # Log the expected function path.
     ${debug.path} {input: "-> ^ if already in camera view -> grabAnimationFromUuid -> ^ exit if no camera -> constructRealCoordinates -> place camera in world -> particles -> cleanUpNewAnimationData"}
+    # Remove all possibly trailing data.
+    data remove storage ${ns}:temp camera
     # If the player is already in camera view, remove the highlight and exit.
     execute if entity @s[tag=${ns}-camera-view] run return run ${cameraRemoveHighlight} with entity @s
     # Grab Animation Data from UUID
