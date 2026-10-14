@@ -43,6 +43,14 @@ tick`
     ${renderCheck}
     # Similar to rendercheck, cameraLoadFrame will update the player's position in the editor to the next frame accurately, while also decreasing durations.
     ${cameraLoadFrame}
+    # This part handles any changes made to a selection
+    ${select}
+    # This part will update selections if changes were made using handles
+    # This will increase right-click score if items were used on handles, so it needs to happen BEFORE right click commands are ran.
+    ${handleDetection}
+    # Resets all handles interactions.
+    execute as @e[type=interaction, tag=${ns}-handle] if data entity @s interaction run data remove entity @s interaction
+    execute as @e[type=interaction, tag=${ns}-handle] if data entity @s attack run data remove entity @s attack
     # Checks if the player has right-clicked with any of the selection items, and executes commands based on that.
     ${toolbarRightClick}
     # Manually added the editor menu item here. Opens the editor menu within the editor, and the main menu outside of it.
@@ -50,13 +58,7 @@ tick`
     execute as @a[nbt={SelectedItem:{id:"minecraft:carrot_on_a_stick", components:{"minecraft:item_model":"minecraft:test_instance_block","minecraft:item_name":{italic:false,text:"Editor Menu"}}}}, scores={${ns}-right-click=1..}] at @s unless dimension ${ns}:editor run dialog show @s ${ns}:main_menu
     # Resets right click detection
     execute as @a[scores={${ns}-right-click=1..}] run scoreboard players set @s ${ns}-right-click 0
-    # This part handles any changes made to a selection
-    ${select}
-    # This part will update selections if changes were made using handles
-    ${handleDetection}
-    # Resets all handles interactions.
-    execute as @e[type=interaction, tag=${ns}-handle] if data entity @s interaction run data remove entity @s interaction
-    execute as @e[type=interaction, tag=${ns}-handle] if data entity @s attack run data remove entity @s attack
+    
     # Sends out a raycast from every player and executes the raycast commands.
     execute as @a at @s anchored eyes positioned ^ ^ ^ summon minecraft:interaction run ${raycast} with entity @p
     # Deletes any remaining hover blocks that are no longer looked at (detected through raycast, listed above.)

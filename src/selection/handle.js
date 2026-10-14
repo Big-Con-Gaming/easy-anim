@@ -208,8 +208,12 @@ handleExecution`${handleExecutionCommands.join('\n')}`;
 
 // For both left and right clicks of the interaction entity, run the handle commands.
 handleDetection`
-    execute as @e[type=interaction, tag=${ns}-handle] if data entity @s interaction run ${handleExecution}
-    execute as @e[type=interaction, tag=${ns}-handle] if data entity @s attack run ${handleExecution}
+    execute as @e[type=interaction, tag=${ns}-handle] if data entity @s interaction at @s on target unless items entity @s weapon.* minecraft:carrot_on_a_stick[minecraft:custom_data={${ns}-hotbar:1b}] as @n[type=minecraft:interaction, tag=${ns}-handle, distance=..0.1] run ${handleExecution}
+    execute as @e[type=interaction, tag=${ns}-handle] if data entity @s attack at @s on attacker unless items entity @s weapon.* minecraft:carrot_on_a_stick[minecraft:custom_data={${ns}-hotbar:1b}] as @n[type=minecraft:interaction, tag=${ns}-handle, distance=..0.1] run ${handleExecution}
+    # We only block carrot on a stick interactions so that we can actually run their commands next. I think using the select item on the arrows makes sense to me, so I allow that interaction.
+    # To make sure these items still register their right clicks, we'll increase their right click scores manually.
+    execute as @e[type=interaction, tag=${ns}-handle] if data entity @s interaction at @s on target if items entity @s weapon.* minecraft:carrot_on_a_stick[minecraft:custom_data={${ns}-hotbar:1b}] run scoreboard players set @s ${ns}-right-click 1
+    execute as @e[type=interaction, tag=${ns}-handle] if data entity @s attack at @s on attacker if items entity @s weapon.* minecraft:carrot_on_a_stick[minecraft:custom_data={${ns}-hotbar:1b}] run scoreboard players set @s ${ns}-right-click 1
     # Make all handles not glowing by default.
     execute as @e[type=item_display, tag=${ns}-handle] run data merge entity @s {Glowing:0b}
 `;

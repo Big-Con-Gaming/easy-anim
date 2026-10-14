@@ -75,19 +75,19 @@ function createHotbarCommands({slot, name, display, action, dimension, placeable
         if (entity_data.includes("$(")) {
             return `
                 ${itemReplaceWarn}
-                $item replace entity @s hotbar.${slot} with ${itemId}[item_model="${display}",item_name={text:"${name}"}, entity_data=${entity_data}]
+                $item replace entity @s hotbar.${slot} with ${itemId}[item_model="${display}",item_name={text:"${name}"}, entity_data=${entity_data}, custom_data={${ns}-hotbar:1b}]
             `;
         } else {
             return `
                 ${itemReplaceWarn}
-                item replace entity @s hotbar.${slot} with ${itemId}[item_model="${display}",item_name={text:"${name}"}, entity_data=${entity_data}]
+                item replace entity @s hotbar.${slot} with ${itemId}[item_model="${display}",item_name={text:"${name}"}, entity_data=${entity_data}, custom_data={${ns}-hotbar:1b}]
             `;
         }
         
     } else {
         return `
             ${itemReplaceWarn}
-            item replace entity @s hotbar.${slot} with ${itemId}[item_model="${display}",item_name={text:"${name}"}]
+            item replace entity @s hotbar.${slot} with ${itemId}[item_model="${display}",item_name={text:"${name}"}, custom_data={${ns}-hotbar:1b}]
         `;
     }
 }
