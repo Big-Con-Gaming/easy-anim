@@ -4,7 +4,7 @@
 import mcf from './mcf.js';
 // Import functions needed here:
 import * as debug from './debug.js';
-import { grabAnimationFromUuid, grabPlayerAndAnimation, cleanUpNewAnimationData } from './data.js';
+import { grabAnimationFromUuid, grabPlayerAndAnimation, cleanUpNewAnimationData, grabPlayerData } from './data.js';
 import { regroupEntities } from './entity.js';
 import { exitSelection } from './selection.js';
 import { retrieveFrame } from './storage.js';
@@ -16,7 +16,7 @@ import { axis } from './util.js';
 const folder = mcf.editor;
 
 // Define functions you want other files to use here:
-export const { enterEditor, exit } = folder;
+export const { enterEditor, exit, reEnterEditor } = folder;
 
 // Define local functions here:
 const { anonymous: a, recPlaceFrames, recRemoveFrames, tpIntoEditor, newPlayerLane, editorAnchorInData, cleanRemainder, eemacroSize, pullAnchorSizeExit } = folder;
@@ -150,6 +150,26 @@ enterEditor`
     scoreboard objectives remove ${ns}-temp
     # Give them the quick menu item. This item's data is stored as a constant above.
     execute unless items entity @s inventory.* ${editor_menu_item} unless items entity @s hotbar.* ${editor_menu_item} unless items entity @s weapon.* ${editor_menu_item} run give @s ${editor_menu_item}
+`;
+
+reEnterEditor`
+    # Log the function call
+    ${debug.run} {input: "reEnterEditor"}
+    # Log the function path
+    ${debug.path} {input: "-> grabPlayerData -> calculateLaneX -> tpIntoEditor"}
+    # Remove possibly trailing data
+    data remove storage ${ns}:temp ree
+    # Grab player data from UUID
+    ${grabPlayerData} with entity @s
+    # Grab the lane's X and store it within temporary storage for a macro.
+    ${calculateLaneX} {output: "${ns}:temp ree.x int"}
+    # Teleport the player back into the editor at their animation
+    ${tpIntoEditor} with storage ${ns}:temp ree
+    # Remove temporary data
+    data remove storage ${ns}:temp ree
+    data remove storage ${ns}:player_data current
+    # Let the player know that if they want to leave they must exit through the editor item.
+    tellraw @s {text:"If you wish to exit the editor, please use the editor menu to do such!", color:"red"}
 `;
 
 // Allows the player to exit the editor dimension.

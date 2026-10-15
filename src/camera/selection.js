@@ -63,7 +63,7 @@ cameraSaveFinish`
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     # If cs.reenteranim is set, then the player was trying to save an animation without a camera, so we let them do that right now.
     execute if data storage ${ns}:temp cs.reenteranim run ${createAnimation} with entity @s
-    execute if data storage ${ns}:temp cs.reenteranim run data remove storage ${ns}:temp cs.reenteranim
+    execute if data storage ${ns}:temp cs.reenteranim run data remove storage ${ns}:temp cs
 `;
 
 // Takes the camera data from the animation_data and places the player at that position and rotation, along with displaying the note if there is one. Finally, puts the player into spectator mode and adds the camera view tag.

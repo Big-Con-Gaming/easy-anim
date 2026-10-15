@@ -85,9 +85,11 @@ unclaimLane`
     # Remove possibly trailing data
     data remove storage ${ns}:temp macro_unclaim
     ${calculateLaneX} {output:"${ns}:temp macro_unclaim.pos int"}
-    ${macroUnclaim`
+    execute in ${ns}:editor run ${macroUnclaim`
         # Log the function call
         $${debug.run} {input: "macroUnclaim at x value: $(pos)"}
+        # Forceload the position in case it got unloaded
+        $execute positioned $(pos) 1 0 unless loaded ~ ~ ~ run forceload add ~ ~
         # Warn if non-bedrock block is placed here.
         $execute unless block $(pos) 1 0 minecraft:bedrock run ${debug.warn} {input:"Expected bedrock at $(pos) 1 0! Overwriting..."}
         $setblock $(pos) 1 0 minecraft:air

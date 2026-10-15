@@ -5,7 +5,7 @@
 import mcf from './mcf.js';
 import * as debug from './debug.js';
 import './data.js';
-import './editor.js';
+import { reEnterEditor } from './editor.js';
 import './entity.js';
 import { toolbarRightClick } from './inventory/hotbar.js';
 import { handleDetection, handleHighlight } from './selection/handle.js';
@@ -31,14 +31,16 @@ const ns = 'easy-anim';
 tick`
     # Forceload the main chunk in the editor dimension so the inventory barrel at the bottom of the world is always loaded and can be used.
     execute in ${ns}:editor unless loaded 0 0 0 run forceload add 0 0
-    # Forceload 3 chunks in the editor for storing and retrieving frames from storage.
+    # Forceload 9 chunks in the editor for storing and retrieving frames from storage.
     execute in ${ns}:editor run forceload add 0 -48 48 0
     # Place a block at 0 2 0 in the editor to indicate it is the first lane (needed for recursive functions and to prevent forceload from being removed)
     execute in ${ns}:editor unless block 0 2 0 minecraft:obsidian run setblock 0 2 0 minecraft:obsidian
     # Place a warning block inside of the editor so that the player knows not to trust the blocks and entities further north.
     execute in ${ns}:editor unless block 0 3 0 minecraft:pale_oak_sign run setblock 0 3 0 minecraft:pale_oak_sign{back_text:{color:"black",has_glowing_text:0b,messages:["Warning: Blocks","and entities","further North","may be modified"]},components:{},front_text:{color:"black",has_glowing_text:0b,messages:["Warning: Blocks","and entities","further North","may be modified"]},id:"minecraft:sign",is_waxed:0b,x:0,y:3,z:0} strict
-    # Give players in the editor night vision in case the world is night.
-    effect give @a[tag=${ns}-inEditor] minecraft:night_vision 5 0 true
+    # Give players in the editor night vision in case the world is night. - Useless since the editor has fixed day time anyways.
+    # effect give @a[tag=${ns}-inEditor] minecraft:night_vision 10 0 true
+    # If a player has inEditor but isn't in the editor but a currentAnim, call reEnterEditor on them.
+    execute as @a[tag=${ns}-inEditor] at @s unless dimension ${ns}:editor run ${reEnterEditor}
     # Checks through all animations in the render_queue to update to the next frame if ready. Also decreases all of their durations.
     ${renderCheck}
     # Similar to rendercheck, cameraLoadFrame will update the player's position in the editor to the next frame accurately, while also decreasing durations.
@@ -63,11 +65,13 @@ tick`
     execute as @a at @s anchored eyes positioned ^ ^ ^ summon minecraft:interaction run ${raycast} with entity @p
     # Deletes any remaining hover blocks that are no longer looked at (detected through raycast, listed above.)
     execute as @e[type=interaction, tag=${ns}-hover-select-delete] run ${removeHovers}
+    # Disables the trigger command for those who aren't supposed to have access to it
+    execute as @a[tag=${ns}-disable] run trigger ${ns} set 0
     # Sets up a trigger command to access the main menu or editor menu within the editor. A tag called ${ns}-disable is preconfigured so players with this tag can't access the menu, in case of survival and creative gameplay mixtures.
     execute as @a[scores={${ns}=1..}] at @s unless dimension ${ns}:editor run dialog show @s ${ns}:main_menu
     execute as @a[scores={${ns}=1..}] at @s if dimension ${ns}:editor run dialog show @s ${ns}:editor_menu
     execute as @a[scores={${ns}=1..}] run scoreboard players reset @s ${ns}
-    # Reenables the trigger command for all who are allowed to use it
+    # reenables the trigger command for all who are allowed to use it
     scoreboard players enable @a[tag=!${ns}-disable] ${ns}
     # Takes any camera players that moved out of camera view
     execute as @a[tag=${ns}-camera-view] if predicate ${ns}:any_input run ${exitCamera}
