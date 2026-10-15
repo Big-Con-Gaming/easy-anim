@@ -7,7 +7,7 @@ import * as debug from './debug.js';
 
 const folder = mcf.error;
 export const {
-    noticeAnimInUse
+    noticeAnimInUse, errorNoAnchor
 } = folder;
 
 const {
@@ -20,6 +20,12 @@ const ns = 'easy-anim';
 noticeAnimInUse`
     ${debug.error} {input: "Animation is currently in use!"}
     tellraw @s {text: "Animation is currently in use!", color: "red"}
+`
+
+errorNoAnchor`
+    ${debug.error} {input: "Selection is missing an anchor!"}
+    tellraw @s {text: "Please select some blocks before creating an animation.", color: "red"}
+    data remove storage ${ns}:animation_data new
 `
 
 // I PLAN TO MOVE MANY OTHER COMMON ERRORS HERE TOO!
