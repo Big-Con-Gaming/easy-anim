@@ -30,7 +30,7 @@ const rightClickCommands = [];
 // Specify the hotbar tools with their display item, name, slot within the hotbar, and the function that is ran on right click.
 const hotbarTools = [
     {display:`minecraft:structure_void`, name:"Select", slot:0, placeable:true, entity_data:`{id:"minecraft:item_frame",Invisible:1b,Tags:["${ns}-edge"],data:{currentAnim:$(name)}}`, on_hover:`anchored eyes positioned ^ ^ ^5 if block ~ ~ ~ minecraft:air run ${placeGhost}`, on_not_hover:`as @e[type=interaction,tag=${ns}-hover-select] run ${removeHovers}`},
-    {display:`minecraft:dispenser`, name:"Set Camera", slot:1, action:`${cameraSave} with entity @s`},
+    {display:`minecraft:dispenser`, name:"Set Camera", slot:1, action:`${cameraSave}`},
     {display:`minecraft:observer`, name:"Load Camera", slot:2, action:`${cameraLoad} with entity @s`, on_hover:`run ${cameraHighlight} with entity @s`, on_not_hover:`unless entity @s[tag=${ns}-inEditor] run ${cameraRemoveHighlight} with entity @s`},
     {display:`minecraft:paper`, name:"Create Animation", slot:7, action:`${createAnimation} with entity @s`},
     {display:`minecraft:barrier`, name:"Exit", slot:8, action: `${exitSelection} with entity @s`, dimension: `${ns}:editor`}

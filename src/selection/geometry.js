@@ -25,44 +25,45 @@ const ns = 'easy-anim';
 // places data into an output array location dependent on an iterative varible i. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
 storeArrayMacro`
     # Log the function call
-    $${debug.run} {input: "storeArrayMacro into $(output)$(i)] from $(namespace)$(axis) ${ns}-$(namespace)math"}
-    $execute store result $(output)$(i)] double 0.0001 run scoreboard players get $(namespace)$(axis) ${ns}-$(namespace)math
+    $${debug.run} {input: "storeArrayMacro into $(output)$(i)] from $(namespace)$(axis) ${ns}-$(namespace)Math"}
+    $execute if data storage ${ns}:temp $(namespace).zero run return run data modify $(output)$(i)] set value 0.0d
+    $execute store result $(output)$(i)] double 0.0001 run scoreboard players get $(namespace)$(axis) ${ns}-$(namespace)Math
 `;
 
 // places data into an output object location dependent on a string varible axis. It scales down the value by 0.0001 from a scoreboard that is named based on axis, and is in an objective suffixed with math.
 storeAxisMacro`
     # Log the function call
-    $${debug.run} {input: "storeAxisMacro into $(output)$(axis) from $(namespace)$(axis) ${ns}-$(namespace)math"}
-    $execute store result $(output)$(axis) double 0.0001 run scoreboard players get $(namespace)$(axis) ${ns}-$(namespace)math
+    $${debug.run} {input: "storeAxisMacro into $(output)$(axis) from $(namespace)$(axis) ${ns}-$(namespace)Math"}
+    $execute if data storage ${ns}:temp $(namespace).zero run return run data modify $(output)$(axis) set value 0.0d
+    $execute store result $(output)$(axis) double 0.0001 run scoreboard players get $(namespace)$(axis) ${ns}-$(namespace)Math
 `;
 
 // Takes an input storage location and calculates the difference between that location and the anchor location from the new selection.
-// Needs macro: $(type) = "a" or "frames[0].ea" to refer to either the animation's anchor or a frame's editor anchor.
+// Needs macros:
+// $(input) = array to find the numbers to convert. For example, "Pos[". Leave it as an open bracket.
+// $(output) = storage location that points to either an array or a space to place axis tags (ax, ay, az). Example: "storage namespace:temp a" "storage namespace:temp Pos["
+// $(arrayformat) = 0/1, 1 if output is an array "storage namespace:tmep Pos[", 0 if output is a place for tags "storage namespace:temp a"
+// $(type) = "a" or "frames[0].ea" to refer to either the animation's anchor or a frame's editor anchor.
 const anchorDifferenceCommands = [];
 
 function createAnchorDifferenceCommands({axis, i}) {
     return`
         # Grab the coordinates that need to be converted. They're assumed to be within an array.
-        $execute store result score diff${axis} ${ns}-diffmath run data get $(input)${i}] 10000
+        $execute store result score anchorDifference${axis} ${ns}-anchorDifferenceMath run data get $(input)${i}] 10000
         # Grab the anchor coordinates.
-        $execute store result score anchor${axis} ${ns}-diffmath run data get storage ${ns}:animation_data new.$(type)nchor[${i}] 10000
+        $execute store result score anchor${axis} ${ns}-anchorDifferenceMath run data get storage ${ns}:animation_data new.$(type)nchor[${i}] 10000
         # Subtract anchor from the input coordinates to get the difference.
-        scoreboard players operation diff${axis} ${ns}-diffmath -= anchor${axis} ${ns}-diffmath
+        scoreboard players operation anchorDifference${axis} ${ns}-anchorDifferenceMath -= anchor${axis} ${ns}-anchorDifferenceMath
+        # If this result is exactly zero, then we need to add decimal precision later so that tp commands are actually accurate.
+        execute if score anchorDifference${axis} ${ns}-anchorDifferenceMath matches 0 run data modify storage ${ns}:temp anchorDifference.zero set value true
         # Toss the axis, iterative variable, namespace, and output into temp storage for the macro.
         data modify storage ${ns}:temp anchorDifference.axis set value ${axis}
         data modify storage ${ns}:temp anchorDifference.i set value ${i}
-        data modify storage ${ns}:temp anchorDifference.namespace set value "diff"
+        data modify storage ${ns}:temp anchorDifference.namespace set value "anchorDifference"
         $data modify storage ${ns}:temp anchorDifference.output set value "$(output)"
-        # Check if output ends with an opening bracket while arrayformat equals 1, if either are wrong then Error.
-        data modify storage ${ns}:temp anchorDifference.sanityCheck set string storage ${ns}:temp anchorDifference.output -1
-        data modify storage ${ns}:temp anchorDifference.reference set value "["
-        ${pullDataStringEquals} {input1: "storage ${ns}:temp anchorDifference.sanityCheck", input2: "storage ${ns}:temp anchorDifference.reference", output: "score sanitycheck ${ns}-diffmath"}
-        # arrayformat is 1 when we want to use the arraymacro. sanitycheck is equal to 0 when a bracket is present.
-        $execute if score $(arrayformat) ${ns}-diffmath matches 1 if score sanitycheck ${ns}-diffmath matches 1 run return run ${debug.error} {input: "Arrayformat and output format mismatch! Missing bracket."}
-        $execute if score $(arrayformat) ${ns}-diffmath matches 0 if score sanitycheck ${ns}-diffmath matches 0 run return run ${debug.error} {input: "Arrayformat and output format mismatch! Trailing bracket."}
         # If arrayformat is 1, use the array macro (place each coordinate into an array with a length of 3), otherwise use the axis macro (apply x, y, and z to the end of output).
-        $execute if score $(arrayformat) ${ns}-diffmath matches 1 run ${storeArrayMacro} with storage ${ns}:temp anchorDifference
-        $execute if score $(arrayformat) ${ns}-diffmath matches 0 run ${storeAxisMacro} with storage ${ns}:temp anchorDifference
+        $execute if score $(arrayformat) ${ns}-anchorDifferenceMath matches 1 run ${storeArrayMacro} with storage ${ns}:temp anchorDifference
+        $execute if score $(arrayformat) ${ns}-anchorDifferenceMath matches 0 run ${storeAxisMacro} with storage ${ns}:temp anchorDifference
         # Remove temporary data.
         data remove storage ${ns}:temp anchorDifference
     `;
@@ -75,48 +76,56 @@ anchorDifferenceCommands.push(`
     # Log the expected function path.
     ${debug.path} {input: "-> [storeArrayMacro | storeAxisMacro] X3"}
     # Remove possibly trailing data
-    scoreboard objectives remove ${ns}-diffmath
-    scoreboard objectives add ${ns}-diffmath dummy
-    scoreboard players set 0 ${ns}-diffmath 0
-    scoreboard players set 1 ${ns}-diffmath 1
+    scoreboard objectives remove ${ns}-anchorDifferenceMath
+    data remove storage ${ns}:temp anchorDifference
+    scoreboard objectives add ${ns}-anchorDifferenceMath dummy
+    scoreboard players set 0 ${ns}-anchorDifferenceMath 0
+    scoreboard players set 1 ${ns}-anchorDifferenceMath 1
+    $data modify storage ${ns}:temp anchorDifference.output set value "$(output)"
+    # Check if output ends with an opening bracket while arrayformat equals 1, if either are wrong then Error.
+    data modify storage ${ns}:temp anchorDifference.sanityCheck set string storage ${ns}:temp anchorDifference.output -1
+    data modify storage ${ns}:temp anchorDifference.reference set value "["
+    ${pullDataStringEquals} {input1: "storage ${ns}:temp anchorDifference.sanityCheck", input2: "storage ${ns}:temp anchorDifference.reference", output: "score sanitycheck ${ns}-anchorDifferenceMath"}
+    # arrayformat is 1 when we want to use the arraymacro. sanitycheck is equal to 0 when a bracket is present.
+    $execute if score $(arrayformat) ${ns}-anchorDifferenceMath matches 1 if score sanitycheck ${ns}-anchorDifferenceMath matches 1 run return run ${debug.error} {input: "Arrayformat and output format mismatch! Missing bracket."}
+    $execute if score $(arrayformat) ${ns}-anchorDifferenceMath matches 0 if score sanitycheck ${ns}-anchorDifferenceMath matches 0 run return run ${debug.error} {input: "Arrayformat and output format mismatch! Trailing bracket."}
 `);
 
 anchorDifferenceCommands.push(...axis.map(createAnchorDifferenceCommands));
 
 // Remove the temporary scoreboard.
 anchorDifferenceCommands.push(`
-    scoreboard objectives remove ${ns}-diffmath
+    scoreboard objectives remove ${ns}-anchorDifference
 `);
 
 anchorDifference`${anchorDifferenceCommands.join('\n')}`;
 
 // Takes an input storage location and calculates the real world coordinates by adding the anchor coordinates from the new selection.
-// Needs macro: $(type) = "a" or "frames[0].ea" to refer to either the animation's anchor or a frame's editor anchor.
+// Needs macros:
+// $(input) = array to find the numbers to convert. For example, "Pos[". Leave it as an open bracket.
+// $(output) = storage location that points to either an array or a space to place axis tags (ax, ay, az). Example: "storage namespace:temp a" "storage namespace:temp Pos["
+// $(arrayformat) = 0/1, 1 if output is an array "storage namespace:tmep Pos[", 0 if output is a place for tags "storage namespace:temp a"
+// $(type) = "a" or "frames[0].ea" to refer to either the animation's anchor or a frame's editor anchor.
 const constructRealCoordinatesCommands = [];
 
 function createConstructRealCoordinatesCommands({axis, i}) {
     return`
         # Grab the coordinates that need to be converted. They're assumed to be within an array.
-        $execute store result score real${axis} ${ns}-realmath run data get $(input)${i}] 10000
+        $execute store result score constructRealCoordinates${axis} ${ns}-constructRealCoordinatesMath run data get $(input)${i}] 10000
         # Grab the anchor coordinates from the new selection.
-        $execute store result score anchor${axis} ${ns}-realmath run data get storage ${ns}:animation_data new.$(type)nchor[${i}] 10000
+        $execute store result score anchor${axis} ${ns}-constructRealCoordinatesMath run data get storage ${ns}:animation_data new.$(type)nchor[${i}] 10000
         # Add the anchor coordinate to the input difference to get the real world coordinate.
-        scoreboard players operation real${axis} ${ns}-realmath += anchor${axis} ${ns}-realmath
+        scoreboard players operation constructRealCoordinates${axis} ${ns}-constructRealCoordinatesMath += anchor${axis} ${ns}-constructRealCoordinatesMath
+        # If this result is exactly zero, then we need to add decimal precision later so that tp commands are actually accurate.
+        execute if score constructRealCoordinates${axis} ${ns}-constructRealCoordinatesMath matches 0 run data modify storage ${ns}:temp constructRealCoordinates.zero set value true
         # Toss the axis, iterative variable, namespace, and output into temp storage for the macro.
         data modify storage ${ns}:temp constructRealCoordinates.axis set value ${axis}
         data modify storage ${ns}:temp constructRealCoordinates.i set value ${i}
-        data modify storage ${ns}:temp constructRealCoordinates.namespace set value "real"
+        data modify storage ${ns}:temp constructRealCoordinates.namespace set value "constructRealCoordinates"
         $data modify storage ${ns}:temp constructRealCoordinates.output set value "$(output)"
-        # Check if output ends with an opening bracket while arrayformat equals 1, if either are wrong then Error.
-        data modify storage ${ns}:temp constructRealCoordinates.sanityCheck set string storage ${ns}:temp constructRealCoordinates.output -1
-        data modify storage ${ns}:temp constructRealCoordinates.reference set value "["
-        ${pullDataStringEquals} {input1: "storage ${ns}:temp constructRealCoordinates.sanityCheck", input2: "storage ${ns}:temp constructRealCoordinates.reference", output: "score sanitycheck ${ns}-realmath"}
-        # arrayformat is 1 when we want to use the arraymacro. sanitycheck is equal to 0 when a bracket is present.
-        $execute if score $(arrayformat) ${ns}-realmath matches 1 if score sanitycheck ${ns}-realmath matches 1 run return run ${debug.error} {input: "Arrayformat and output format mismatch! Missing bracket."}
-        $execute if score $(arrayformat) ${ns}-realmath matches 0 if score sanitycheck ${ns}-realmath matches 0 run return run ${debug.error} {input: "Arrayformat and output format mismatch! Trailing bracket."}
         # If arrayformat is 1, use the array macro (place each coordinate into an array with a length of 3), otherwise use the axis macro (apply x, y, and z to the end of output).
-        $execute if score $(arrayformat) ${ns}-realmath matches 1 run ${storeArrayMacro} with storage ${ns}:temp constructRealCoordinates
-        $execute if score $(arrayformat) ${ns}-realmath matches 0 run ${storeAxisMacro} with storage ${ns}:temp constructRealCoordinates
+        $execute if score $(arrayformat) ${ns}-constructRealCoordinatesMath matches 1 run ${storeArrayMacro} with storage ${ns}:temp constructRealCoordinates
+        $execute if score $(arrayformat) ${ns}-constructRealCoordinatesMath matches 0 run ${storeAxisMacro} with storage ${ns}:temp constructRealCoordinates
         # Remove temporary data.
         data remove storage ${ns}:temp constructRealCoordinates
     `;
@@ -129,17 +138,26 @@ constructRealCoordinatesCommands.push(`
     # Log the expected function path.
     ${debug.path} {input: "-> [storeArrayMacro | storeAxisMacro] X3"}
     # Remove possibly trailing data
-    scoreboard objectives remove ${ns}-realmath
-    scoreboard objectives add ${ns}-realmath dummy
-    scoreboard players set 0 ${ns}-realmath 0
-    scoreboard players set 1 ${ns}-realmath 1
+    scoreboard objectives remove ${ns}-constructRealCoordinatesMath
+    data remove storage ${ns}:temp constructRealCoordinates
+    scoreboard objectives add ${ns}-constructRealCoordinatesMath dummy
+    scoreboard players set 0 ${ns}-constructRealCoordinatesMath 0
+    scoreboard players set 1 ${ns}-constructRealCoordinatesMath 1
+    $data modify storage ${ns}:temp constructRealCoordinates.output set value "$(output)"
+    # Check if output ends with an opening bracket while arrayformat equals 1, if either are wrong then Error.
+    data modify storage ${ns}:temp constructRealCoordinates.sanityCheck set string storage ${ns}:temp constructRealCoordinates.output -1
+    data modify storage ${ns}:temp constructRealCoordinates.reference set value "["
+    ${pullDataStringEquals} {input1: "storage ${ns}:temp constructRealCoordinates.sanityCheck", input2: "storage ${ns}:temp constructRealCoordinates.reference", output: "score sanitycheck ${ns}-constructRealCoordinatesMath"}
+    # arrayformat is 1 when we want to use the arraymacro. sanitycheck is equal to 0 when a bracket is present.
+    $execute if score $(arrayformat) ${ns}-constructRealCoordinatesMath matches 1 if score sanitycheck ${ns}-constructRealCoordinatesMath matches 1 run return run ${debug.error} {input: "Arrayformat and output format mismatch! Missing bracket."}
+    $execute if score $(arrayformat) ${ns}-constructRealCoordinatesMath matches 0 if score sanitycheck ${ns}-constructRealCoordinatesMath matches 0 run return run ${debug.error} {input: "Arrayformat and output format mismatch! Trailing bracket."}
 `);
 
 constructRealCoordinatesCommands.push(...axis.map(createConstructRealCoordinatesCommands));
 
 // Remove the temporary scoreboard.
 constructRealCoordinatesCommands.push(`
-    scoreboard objectives remove ${ns}-realmath
+    scoreboard objectives remove ${ns}-constructRealCoordinatesMath
 `);
 
 constructRealCoordinates`${constructRealCoordinatesCommands.join('\n')}`;

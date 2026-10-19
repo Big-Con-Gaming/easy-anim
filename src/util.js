@@ -2,7 +2,10 @@
 import mcf from './mcf.js';
 import * as debug from './debug.js';
 const folder = mcf.util;
-export const { replaceAllInString, toLowerCase, stringConcat, stringEquals, pullDataStringEquals, testIfInt, arrayMoveEntry } = folder;
+export const {
+    replaceAllInString, toLowerCase, stringConcat, stringEquals,
+    pullDataStringEquals, testIfInt, arrayMoveEntry, quaternionToEulerNbt
+} = folder;
 const { anonymous: a, incrementIdx, recCharTest, lowerCaseMacro, rawConcat } = folder;
 const ns = 'easy-anim';
 
@@ -209,3 +212,116 @@ arrayMoveEntry`
     # Clear trailing data
     data remove storage ${ns}:util arrayMoveEntry
 `
+
+// Takes a location of a quaternion as input and outputs the equivalent euler rotations (only pitch and yaw) to the given output location.
+// These must be data locations for my method (entity, block, storage.)
+// For my methods, I will be calculating atan In-game in a custom dimension where I know it will be safe to do so.
+
+const forceloadChunk = "0 -48";
+const centerOfForceloadedChunk = "8 8 -40";
+const quatToVars = [
+    {rep: "a", posInArray: "3"},
+    {rep: "b", posInArray: "0"},
+    {rep: "c", posInArray: "1"},
+    {rep: "d", posInArray: "2"}
+];
+const coordNumToAxis = [
+    {name: "first", axis: "x"},
+    {name: "second", axis: "y"},
+    {name: "third", axis: "z"}
+];
+const quaternionToEulerNbtCommands = [];
+
+quaternionToEulerNbtCommands.push(`
+    # Log the function call
+    $${debug.run} {input: "quaternionToEulerNbt using $(input) into $(output)"}
+    # clear possibly trailing data.
+    data remove storage ${ns}:temp qte
+    scoreboard objectives remove ${ns}-qte
+    # Set up scoreboard.
+    scoreboard objectives add ${ns}-qte dummy
+    # Grab our input data, split it into scores. Var names follow the [b, c, d, a] format. Scaled up to retain decimal places.
+    $data modify storage ${ns}:temp qte.rawdata set from $(input)
+`);
+
+function qtePullData({rep, posInArray}) {
+    return`
+        execute store result score ${rep} ${ns}-qte run data get storage ${ns}:temp qte.rawdata[${posInArray}] 1000
+    `;
+}
+
+quaternionToEulerNbtCommands.push(...quatToVars.map(qtePullData));
+
+quaternionToEulerNbtCommands.push(`
+    # Store some constants
+    scoreboard players set 2 ${ns}-qte 2
+    # First step: Calculate -2(bd + ac)
+    scoreboard players operation bd ${ns}-qte = b ${ns}-qte
+    scoreboard players operation bd ${ns}-qte *= d ${ns}-qte
+
+    scoreboard players operation ac ${ns}-qte = a ${ns}-qte
+    scoreboard players operation ac ${ns}-qte *= c ${ns}-qte
+
+    scoreboard players operation firstCoord ${ns}-qte = bd ${ns}-qte
+    scoreboard players operation firstCoord ${ns}-qte += ac ${ns}-qte
+    scoreboard players operation firstCoord ${ns}-qte *= 2 ${ns}-qte
+    # Second step: Calculate 2(cd - ab)
+    scoreboard players operation cd ${ns}-qte = c ${ns}-qte
+    scoreboard players operation cd ${ns}-qte *= d ${ns}-qte
+
+    scoreboard players operation ab ${ns}-qte = a ${ns}-qte
+    scoreboard players operation ab ${ns}-qte *= b ${ns}-qte
+
+    scoreboard players operation secondCoord ${ns}-qte = cd ${ns}-qte
+    scoreboard players operation secondCoord ${ns}-qte -= ab ${ns}-qte
+    scoreboard players operation secondCoord ${ns}-qte *= 2 ${ns}-qte
+    # Third step: -(a^2 - b^2 - c^2 + d^2)
+    scoreboard players operation aa ${ns}-qte = a ${ns}-qte
+    scoreboard players operation aa ${ns}-qte *= a ${ns}-qte
+
+    scoreboard players operation bb ${ns}-qte = b ${ns}-qte
+    scoreboard players operation bb ${ns}-qte *= b ${ns}-qte
+
+    scoreboard players operation cc ${ns}-qte = c ${ns}-qte
+    scoreboard players operation cc ${ns}-qte *= c ${ns}-qte
+
+    scoreboard players operation dd ${ns}-qte = d ${ns}-qte
+    scoreboard players operation dd ${ns}-qte *= d ${ns}-qte
+
+    scoreboard players operation thirdCoord ${ns}-qte = aa ${ns}-qte
+    scoreboard players operation thirdCoord ${ns}-qte -= bb ${ns}-qte
+    scoreboard players operation thirdCoord ${ns}-qte -= cc ${ns}-qte
+    scoreboard players operation thirdCoord ${ns}-qte += dd ${ns}-qte
+    # Turn coordinates into storage, with proper scaling.
+`);
+function qteStoreData({name, axis}) {
+    return`
+        execute store result storage ${ns}:temp qte.coords.${axis} float 0.000001 run scoreboard players get ${name}Coord ${ns}-qte
+    `
+}
+quaternionToEulerNbtCommands.push(...coordNumToAxis.map(qteStoreData));
+
+quaternionToEulerNbtCommands.push(`
+    # Forceload a place in the editor to use to calculate these angles. (it was either this or taylor series approximations of atan)
+    execute in ${ns}:editor run forceload add ${forceloadChunk}
+    # Create our 2 markers
+    execute in ${ns}:editor run summon minecraft:marker ${centerOfForceloadedChunk} {Tags:["${ns}-qte-anchor", "${ns}-qte"]}
+    execute in ${ns}:editor run summon minecraft:marker ${centerOfForceloadedChunk} {Tags:["${ns}-qte-measure", "${ns}-qte"]}
+    # Using the above coordinate offsets, move the measure marker based on our calculated distances.
+    execute in ${ns}:editor positioned ${centerOfForceloadedChunk} as @n[type=minecraft:marker,tag=${ns}-qte-measure] run ${a`
+        $tp @s ~$(x) ~$(y) ~$(z)
+    `} with storage ${ns}:temp qte.coords
+    # Face the anchor marker at the measure marker.
+    execute in ${ns}:editor positioned ${centerOfForceloadedChunk} as @n[type=minecraft:marker,tag=${ns}-qte-anchor] facing entity @n[type=minecraft:marker,tag=${ns}-qte-measure] eyes run tp @s ~ ~ ~ ~ ~
+    # Rip the rotation data off of this entity, storing it in the provided output.
+    $execute in ${ns}:editor positioned ${centerOfForceloadedChunk} run data modify $(output) set from entity @n[type=minecraft:marker,tag=${ns}-qte-anchor] Rotation
+    # Kill off the two entities.
+    execute in ${ns}:editor positioned ${centerOfForceloadedChunk} run kill @e[sort=nearest,limit=2,type=minecraft:marker,tag=${ns}-qte]
+    # Remove forceload
+    execute in ${ns}:editor run forceload remove ${forceloadChunk}
+    # clear trailing data.
+    data remove storage ${ns}:temp qte
+    scoreboard objectives remove ${ns}-qte
+`);
+
+quaternionToEulerNbt(quaternionToEulerNbtCommands.join('\n'));

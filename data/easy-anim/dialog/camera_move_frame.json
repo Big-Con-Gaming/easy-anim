@@ -1,0 +1,21 @@
+{
+	"type": "minecraft:confirmation",
+	"title": {
+		"text": "The camera has moved. Would you like to save any changes made?"
+	},
+	"pause": true,
+	"yes": {
+		"label": "Yes",
+		"action": {
+			"type": "minecraft:run_command",
+			"command": "function easy-anim:camera/frame/camera_save_for_entity_frame"
+		}
+	},
+	"no": {
+		"label": "No",
+		"action": {
+			"type": "minecraft:run_command",
+			"command": "data remove storage easy-anim:temp crh"
+		}
+	}
+}

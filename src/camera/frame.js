@@ -5,20 +5,21 @@
 import mcf from '../mcf.js';
 // Import functions needed here:
 import * as debug from '../debug.js';
+import { grabAnimationFromUuid, cleanUpNewAnimationData } from '../data.js';
 import { anchorDifference, constructRealCoordinates } from '../selection/geometry.js';
 import { axis } from '../util.js';
-import { cameraDisplayParticles } from '../camera.js';
+import { cameraDisplayParticles, defaultCameraTransformation } from '../camera.js';
 
 const folder = mcf.camera.frame;
 
 // Define functions you want other files to use here:
 export const {
-    cameraSaveFrame, cameraClosest, cameraLoadQueueFrame, cameraLoadFrame, toggleHighlightFrame
+    cameraSaveFrame, cameraClosest, cameraLoadQueueFrame, cameraLoadFrame, toggleHighlightFrame, cameraSaveForEntityFrame
 } = folder;
 
 // Define local functions here:
 const {
-    anonymous: a, recLoad
+    anonymous: a, recLoad, cameraRemoveHighlightFrame
 } = folder;
 
 const ns = 'easy-anim';
@@ -137,6 +138,9 @@ cameraLoadFrame`
         # Pass name and UUID down to the macro below
         $data modify storage ${ns}:temp clf.queue[0].data[0].name set value $(name)
         $data modify storage ${ns}:temp clf.queue[0].data[0].UUID set value $(UUID)
+        
+        ${debug.info} {source: "storage", location:"${ns}:temp", path:"clf.queue[0].data[0]"}
+        
         # Place the player at the frame if duration ran out
         $execute unless score #$(name)_load_duration ${ns} matches 1.. run ${a`
             $${debug.run} {input: "place $(UUID) at camera at $(x) $(y) $(z) with rotation $(yaw) $(pitch) displaying note $(note) for anim $(name) for $(duration) ticks"}
@@ -176,9 +180,9 @@ toggleHighlightFrame`
     # Log the expected function path.
     ${debug.path} {input: "-> ^ if already in camera view -> grabAnimationFromUuid -> ^ exit if no camera -> constructRealCoordinates -> place camera in world -> particles -> cleanUpNewAnimationData"}
     # If the player is already in camera view, remove the highlight and exit.
-    $execute if entity @s[tag=${ns}-camera-view] run return run kill @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum: $(framenum)}}]
+    $execute if entity @s[tag=${ns}-camera-view] as @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum: $(framenum)}}] run return run ${cameraRemoveHighlightFrame} 
     # If a camera does exist for this frame, delete the existing highlight and exit.
-    $execute as @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum:$(framenum)}}] run return run kill @s
+    $execute as @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum:$(framenum)}}] run return run ${cameraRemoveHighlightFrame}
     # If there is no camera data, stop.
     $execute unless data storage ${ns}:animation_data new.frames[$(framenum)].camera run return run ${a`
         # Log the function call (in this case an error)
@@ -193,7 +197,7 @@ toggleHighlightFrame`
     # If a camera isn't already made, summon one and merge on all important data (position, rotation, owner).
     $execute unless entity @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum:$(framenum)}}] summon minecraft:item_display run ${a`
         ${debug.run} {input: "placing camera into world"}
-        data merge entity @s {item: {components: {"minecraft:profile": {id: [I; 797692767, 214648518, -2094961131, -1410769773], properties: [{name: "textures", value: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMTQ0MjJhODJjODk5YTljMTQ1NDM4NGQzMmNjNTRjNGFlN2ExYzRkNzI0MzBlNmU0NDZkNTNiOGIzODVlMzMwIn19fQ=="}]}}, count: 1, id: "minecraft:player_head"}, item_display: "ground", transformation: {left_rotation: [0.0f, 1.0f, 0.0f, 0.0f], right_rotation: [0.0f, 0.0f, 0.0f, 1.0f], scale: [1.0f, 1.0f, 1.0f], translation: [0.0f, 0.0f, 0.0f]}, Glowing:1b, Tags: ["${ns}-camera-highlight"]}
+        data merge entity @s {item: {components: {"minecraft:profile": {id: [I; 797692767, 214648518, -2094961131, -1410769773], properties: [{name: "textures", value: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMTQ0MjJhODJjODk5YTljMTQ1NDM4NGQzMmNjNTRjNGFlN2ExYzRkNzI0MzBlNmU0NDZkNTNiOGIzODVlMzMwIn19fQ=="}]}}, count: 1, id: "minecraft:player_head"}, item_display: "ground", transformation: ${defaultCameraTransformation}, Glowing:1b, Tags: ["${ns}-camera-highlight"]}
         data modify entity @s data.owner set from storage ${ns}:animation_data new.owner
         $data modify entity @s data.framenum set value $(framenum)
         data modify entity @s Pos set from storage ${ns}:temp camera.pos
@@ -204,4 +208,37 @@ toggleHighlightFrame`
     $execute at @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] run ${cameraDisplayParticles}
     # Remove all of the extra data generated.
     data remove storage ${ns}:temp camera
+`;
+
+cameraRemoveHighlightFrame`
+    # Log the function call
+    ${debug.run} {input: "cameraRemoveHighlightFrame"}
+    # Check if position or rotation has changed.
+    
+    # Kill the entity
+    kill @s
+`;
+
+// TODO: Make the below actually access framenums, and make the above actually check if pos or rot has changed.
+// Also, we have to do this check for every (selected) frame when a player loads the camera. Or should we just make the
+// changes apply constantly and not ask the user? It would be annoying to also have to ask on exit and to ask once
+// but apply to all on load camera.
+
+cameraSaveForEntityFrame`
+    # Log the entry point
+    ${debug.entry} {input: "from camera_move_frame dialog"}
+    # Log the function call
+    ${debug.run} {input: "cameraSaveForEntityFrame"}
+    # Log the call path
+    ${debug.path} {input: "-> grabAnimationFromUuid -> cleanUpNewAnimationData"}
+    # Grab the animation data from uuid.
+    ${grabAnimationFromUuid} with entity @s
+    # Set camera position from the stuff we calculated earlier, and grab rotation now.
+    data modify storage ${ns}:animation_data new.frame[].camera.pos set from storage ${ns}:temp crh.pos
+    data modify storage ${ns}:animation_data new.frame[].camera.rot set from storage ${ns}:temp crh.rot
+    # Save camera changes
+    ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
+    # Remove trailing data
+    data remove storage ${ns}:temp crh
+    scoreboard objectives remove ${ns}-crh
 `;
