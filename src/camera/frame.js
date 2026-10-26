@@ -7,19 +7,19 @@ import mcf from '../mcf.js';
 import * as debug from '../debug.js';
 import { grabAnimationFromUuid, cleanUpNewAnimationData } from '../data.js';
 import { anchorDifference, constructRealCoordinates } from '../selection/geometry.js';
-import { axis } from '../util.js';
+import { axis, testIfInt } from '../util.js';
 import { cameraDisplayParticles, defaultCameraTransformation } from '../camera.js';
 
 const folder = mcf.camera.frame;
 
 // Define functions you want other files to use here:
 export const {
-    cameraSaveFrame, cameraClosest, cameraLoadQueueFrame, cameraLoadFrame, toggleHighlightFrame, cameraSaveForEntityFrame
+    cameraSaveFrame, cameraClosest, cameraLoadQueueFrame, cameraLoadFrame, toggleHighlightFrame, cameraSaveRestOfHighlights
 } = folder;
 
 // Define local functions here:
 const {
-    anonymous: a, recLoad, cameraRemoveHighlightFrame
+    anonymous: a, recLoad, cameraRemoveHighlightFrame, clearCrhfData, recCameraSaveForEntityFrame
 } = folder;
 
 const ns = 'easy-anim';
@@ -28,13 +28,22 @@ const ns = 'easy-anim';
 // Needs: $(framenum) of frame and any notes placed in ${ns}:temp csf.note
 cameraSaveFrame`
     # Log the function call
-    $${debug.run} {input: "cameraSaveFrame for frame $(framenum)"}
+    $${debug.run} {input: "cameraSaveFrame for $(UUID) frame $(framenum)"}
     # Log the expected function path.
     ${debug.path} {input: "-> anchorDifference"}
     # Warn if camera data existed beforehand
-    $execute if data storage ${ns}:animation__data new.frames[$(framenum)].camera run ${debug.warn} {input: "Camera data already exists! Overwriting..."}
+    $execute if data storage ${ns}:animation_data new.frames[$(framenum)].camera run ${debug.warn} {input: "Camera data already exists! Overwriting..."}
+    # Reset possibly trailing data
+    data remove storage ${ns}:temp csf.highlight
+    # If this camera is out, store a flag, kill it, and rehighlight it after data is updated.
+    $execute if entity @n[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum: $(framenum)}}] run data modify storage ${ns}:temp csf.highlight set value true
+    $execute if data storage ${ns}:temp csf.highlight run kill @n[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum: $(framenum)}}]
     # If there is carryover information for the camera, use that instead.
-    $execute if data storage ${ns}:temp carryover.saveCamera run return run data modify storage ${ns}:animation_data new.frames[$(framenum)].camera set from storage ${ns}:temp carryover.saveCamera
+    $execute if data storage ${ns}:temp carryover.saveCamera run return run ${a`
+        $data modify storage ${ns}:animation_data new.frames[$(framenum)].camera set from storage ${ns}:temp carryover.saveCamera
+        $execute if data storage ${ns}:temp csf.highlight run ${toggleHighlightFrame} {UUID: $(UUID), framenum: $(framenum)}
+        data remove storage ${ns}:temp csf.highlight
+    `} {UUID: $(UUID), framenum: $(framenum)}
     # Set up default camera position and then calculate the position of the camera relative to the anchor. Store that in camera.pos.
     $data modify storage ${ns}:animation_data new.frames[$(framenum)].camera.pos set value [0.0d, 0.0d, 0.0d]
     $${anchorDifference} {arrayformat:1, input:"entity @s Pos[", output:"storage ${ns}:animation_data new.frames[$(framenum)].camera.pos[", type:"frames[$(framenum)].ea"}
@@ -44,9 +53,24 @@ cameraSaveFrame`
     $data modify storage ${ns}:animation_data new.frames[$(framenum)].camera.note set from storage ${ns}:temp csf.note
     # Store all of the new camera data into the carryover data.
     $data modify storage ${ns}:temp carryover.saveCamera set from storage ${ns}:animation_data new.frames[$(framenum)].camera
+    # If camera used to be highlighted, rehighlight it
+    $execute if data storage ${ns}:temp csf.highlight run ${toggleHighlightFrame} {UUID: $(UUID), framenum: $(framenum)}
+    data remove storage ${ns}:temp csf.highlight
 `;
 
 const cameraClosestCommands = [];
+
+// We are given a[x-z], s[x-z], and framenum from macro input from operationOnSelectedFrames.
+cameraClosestCommands.push(`
+    # Log the function call
+    $${debug.run} {input: "cameraClosest at $(ax) $(ay) $(az) spanning $(sx) $(sy) $(sz) for frame $(framenum)"}
+    # If the closest has already been found, exit.
+    execute if score closest ${ns}-camclose matches 0 run return 1
+    # For this frame, check if the player is within the frame, if so store our framenum as closest.
+    $execute positioned $(ax) $(ay) $(az) if entity @s[dx=$(sx),dy=$(sy),dz=$(sz)] run data modify storage ${ns}:temp csf.framenum set value $(framenum)
+    $execute positioned $(ax) $(ay) $(az) if entity @s[dx=$(sx),dy=$(sy),dz=$(sz)] run return run scoreboard players set closest ${ns}-camclose 0
+    # If not, calculate our distance to the player and compare it to the closest distance so far, if closer, set this as closest.
+`);
 
 function createCameraClosestCommands({axis, i}) {
     return `
@@ -63,18 +87,6 @@ function createCameraClosestCommands({axis, i}) {
         execute if score a${axis} ${ns}-camclose matches ..-1 run scoreboard players operation a${axis} ${ns}-camclose *= -1 ${ns}-camclose
     `
 }
-
-// We are given a[x-z], s[x-z], and framenum from macro input from operationOnSelectedFrames.
-cameraClosestCommands.push(`
-    # Log the function call
-    $${debug.run} {input: "cameraClosest at $(ax) $(ay) $(az) spanning $(sx) $(sy) $(sz) for frame $(framenum)"}
-    # If the closest has already been found, exit.
-    execute if score closest ${ns}-camclose matches 0 run return 1
-    # For this frame, check if the player is within the frame, if so store our framenum as closest.
-    $execute positioned $(ax) $(ay) $(az) if entity @s[dx=$(sx),dy=$(sy),dz=$(sz)] run data modify storage ${ns}:temp csf.framenum set value $(framenum)
-    $execute positioned $(ax) $(ay) $(az) if entity @s[dx=$(sx),dy=$(sy),dz=$(sz)] run return run scoreboard players set closest ${ns}-camclose 0
-    # If not, calculate our distance to the player and compare it to the closest distance so far, if closer, set this as closest.
-`);
 
 cameraClosestCommands.push(...axis.map(createCameraClosestCommands));
 
@@ -112,6 +124,10 @@ cameraLoadQueueFrame`
     $data modify storage ${ns}:animation_data load_queue[{UUID: $(UUID)}].data[0].pitch set from storage ${ns}:animation_data new.frames[$(framenum)].camera.rot[1]
     $data modify storage ${ns}:animation_data load_queue[{UUID: $(UUID)}].data[0].note set from storage ${ns}:animation_data new.frames[$(framenum)].camera.note
     $data modify storage ${ns}:animation_data load_queue[{UUID: $(UUID)}].data[0].duration set from storage ${ns}:animation_data new.frames[$(framenum)].duration
+    $data modify storage ${ns}:animation_data load_queue[{UUID: $(UUID)}].data[0].framenum set value $(framenum)
+    # Make this camera's display item air to make it invisible.
+    $execute in ${ns}:editor run data modify entity @n[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum: $(framenum)}}] item set value {id:"minecraft:air", count: 1}
+
 `;
 
 // Places the player from a load_queue at their next camera position
@@ -138,13 +154,12 @@ cameraLoadFrame`
         # Pass name and UUID down to the macro below
         $data modify storage ${ns}:temp clf.queue[0].data[0].name set value $(name)
         $data modify storage ${ns}:temp clf.queue[0].data[0].UUID set value $(UUID)
-        
-        ${debug.info} {source: "storage", location:"${ns}:temp", path:"clf.queue[0].data[0]"}
-        
         # Place the player at the frame if duration ran out
-        $execute unless score #$(name)_load_duration ${ns} matches 1.. run ${a`
-            $${debug.run} {input: "place $(UUID) at camera at $(x) $(y) $(z) with rotation $(yaw) $(pitch) displaying note $(note) for anim $(name) for $(duration) ticks"}
-            $execute in ${ns}:editor run tp @a[nbt={UUID: $(UUID)}] $(x) $(y) $(z) $(yaw) $(pitch)
+        $execute in ${ns}:editor unless score #$(name)_load_duration ${ns} matches 1.. run ${a`
+            $${debug.run} {input: "place $(UUID) at camera at $(x) $(y) $(z) with rotation $(yaw) $(pitch) displaying note $(note) for anim $(name) frame $(framenum) for $(duration) ticks"}
+            # If we have a camera at the frame, use that location.
+            $execute at @n[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum: $(framenum)}}] run tp @a[nbt={UUID: $(UUID)}] ~ ~-1.6 ~ ~ ~
+            $execute unless entity @n[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum: $(framenum)}}] run tp @a[nbt={UUID: $(UUID)}] $(x) $(y) $(z) $(yaw) $(pitch)
             # Place the player into spectator mode and add the camera view tag.
             $gamemode spectator @a[nbt={UUID: $(UUID)}]
             $tag @a[nbt={UUID: $(UUID)}] add ${ns}-camera-view
@@ -178,11 +193,13 @@ toggleHighlightFrame`
     # Log the function call
     $${debug.run} {input: "toggleHighlightFrame for $(UUID) and frame $(framenum)"}
     # Log the expected function path.
-    ${debug.path} {input: "-> ^ if already in camera view -> grabAnimationFromUuid -> ^ exit if no camera -> constructRealCoordinates -> place camera in world -> particles -> cleanUpNewAnimationData"}
-    # If the player is already in camera view, remove the highlight and exit.
-    $execute if entity @s[tag=${ns}-camera-view] as @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum: $(framenum)}}] run return run ${cameraRemoveHighlightFrame} 
+    ${debug.path} {input: "-> ^ cameraRemoveHighlightFrame -> grabAnimationFromUuid -> ^ exit if no camera -> constructRealCoordinates -> place camera in world -> particles -> cleanUpNewAnimationData"}
+    # tag the camera entity once at the start to cut down a lot of the macros.
+    $execute as @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum: $(framenum)}}] run tag @s add ${ns}-camera-toggle-frame
     # If a camera does exist for this frame, delete the existing highlight and exit.
-    $execute as @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum:$(framenum)}}] run return run ${cameraRemoveHighlightFrame}
+    execute if entity @e[type=minecraft:item_display,tag=${ns}-camera-toggle-frame] run return run ${cameraRemoveHighlightFrame} with entity @n[type=minecraft:item_display,tag=${ns}-camera-toggle-frame] data
+    # If the player is already in camera view, return early and exit.
+    execute if entity @s[tag=${ns}-camera-view] run return run tellraw @s {text: "You can't highlight a camera while in camera view!", color: red}
     # If there is no camera data, stop.
     $execute unless data storage ${ns}:animation_data new.frames[$(framenum)].camera run return run ${a`
         # Log the function call (in this case an error)
@@ -195,7 +212,7 @@ toggleHighlightFrame`
     # Turn the data above into real world coordinates.
     $${constructRealCoordinates} {arrayformat:1, input:"storage ${ns}:animation_data new.frames[$(framenum)].camera.pos[", output:"storage ${ns}:temp camera.pos[", type:"frames[$(framenum)].ea"}
     # If a camera isn't already made, summon one and merge on all important data (position, rotation, owner).
-    $execute unless entity @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum:$(framenum)}}] summon minecraft:item_display run ${a`
+    $execute summon minecraft:item_display run ${a`
         ${debug.run} {input: "placing camera into world"}
         data merge entity @s {item: {components: {"minecraft:profile": {id: [I; 797692767, 214648518, -2094961131, -1410769773], properties: [{name: "textures", value: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMTQ0MjJhODJjODk5YTljMTQ1NDM4NGQzMmNjNTRjNGFlN2ExYzRkNzI0MzBlNmU0NDZkNTNiOGIzODVlMzMwIn19fQ=="}]}}, count: 1, id: "minecraft:player_head"}, item_display: "ground", transformation: ${defaultCameraTransformation}, Glowing:1b, Tags: ["${ns}-camera-highlight"]}
         data modify entity @s data.owner set from storage ${ns}:animation_data new.owner
@@ -203,42 +220,158 @@ toggleHighlightFrame`
         data modify entity @s Pos set from storage ${ns}:temp camera.pos
         $data modify entity @s Rotation set from storage ${ns}:animation_data new.frames[$(framenum)].camera.rot
         execute at @s run tp @s ~ ~1.6 ~
+        tag @s add ${ns}-camera-toggle-frame
     `} {framenum: $(framenum)}
     # Create particles in front of the camera to better indicate direction.
-    $execute at @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] run ${cameraDisplayParticles}
+    execute at @e[type=minecraft:item_display,tag=${ns}-camera-toggle-frame] run ${cameraDisplayParticles}
     # Remove all of the extra data generated.
     data remove storage ${ns}:temp camera
+    tag @e[type=minecraft:item_display,tag=${ns}-camera-toggle-frame] remove ${ns}-camera-toggle-frame
 `;
 
-cameraRemoveHighlightFrame`
+const arrayPosToDataName = [
+    {name: "px", location: "pos[0]"},
+    {name: "py", location: "pos[1]"},
+    {name: "pz", location: "pos[2]"},
+    {name: "ry", location: "rot[0]"},
+    {name: "rp", location: "rot[1]"}
+];
+
+const cameraMoveFrameDialog = `{
+	"type": "minecraft:confirmation",
+	"title": {
+		"text": "The camera for one of these frames as moved. Would you like to save any changes made?"
+	},
+	"pause": true,
+	"yes": {
+		"label": "Yes",
+		"action": {
+			"type": "minecraft:run_command",
+			"command": "${cameraSaveRestOfHighlights} {UUID: $(owner)}"
+		}
+	},
+	"no": {
+		"label": "No",
+		"action": {
+			"type": "minecraft:run_command",
+			"command": "${clearCrhfData} {UUID: $(owner), framenum: all}"
+		}
+	}
+}`.replace(/[\r\n\t]+/g,'')
+
+clearCrhfData`
     # Log the function call
-    ${debug.run} {input: "cameraRemoveHighlightFrame"}
-    # Check if position or rotation has changed.
-    
-    # Kill the entity
-    kill @s
+    $${debug.run} {input: "clearCrhfData for $(UUID) frame $(framenum)"}
+    # Remove possibly trailing data
+    scoreboard objectives remove ${ns}-crhf
+    # Create scoreboard to store success
+    scoreboard objectives add ${ns}-crhf dummy
+    # Test if framenum is a number. If it isn't, we are removing all data for this player.
+    $execute store success score clearCrhData ${ns}-crhf run ${testIfInt} {input: $(framenum)}
+    # If it is a number, delete this frame's data
+    $execute if score clearCrhData ${ns}-crhf matches 1 run data remove storage ${ns}:temp crhf.[{UUID: $(UUID)}].frames[{framenum: $(framenum)}]
+    # If there's no more frames in the tree, then remove the structure.
+    $execute if score clearCrhData ${ns}-crhf matches 1 unless data storage ${ns}:temp crhf.[{UUID: $(UUID)}].frames[0] run data remove storage ${ns}:temp crhf.[{UUID: $(UUID)}]
+    # If we're removing all frames for this player tested earlier, do so here.
+    $execute if score clearCrhData ${ns}-crhf matches 0 run data remove storage ${ns}:temp crhf.[{UUID: $(UUID)}]
+    # If we're removing all frames for this player, kill off all of their camera entities.
+    $execute if score clearCrhData ${ns}-crhf matches 0 run kill @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}]
+    # If there's no more entries in the array, remove the whole data structure.
+    execute unless data storage ${ns}:temp crhf.[0] run data remove storage ${ns}:temp crhf
+    scoreboard objectives remove ${ns}-crhf
 `;
 
-// TODO: Make the below actually access framenums, and make the above actually check if pos or rot has changed.
-// Also, we have to do this check for every (selected) frame when a player loads the camera. Or should we just make the
-// changes apply constantly and not ask the user? It would be annoying to also have to ask on exit and to ask once
-// but apply to all on load camera.
+const cameraRemoveHighlightFrameCommands = [];
 
-cameraSaveForEntityFrame`
+// Removes a highlight camera for a frame, checking if its data has changed first and prompting the user in that case if they want to keep changes.
+// Ran as the player but with the camera's data, so $(owner) = UUID of owner and $(framenum) of this frame are accessible
+cameraRemoveHighlightFrameCommands.push(`
+    # Log the function call
+    $${debug.run} {input: "cameraRemoveHighlightFrame for $(owner) framenum $(framenum)"}
+    # Log the function path
+    ${debug.path} {input: "-> grabAnimationFromUuid -> clearCrhfData -> anchorDifference -> |^ cameraSaveForEntityFrame -> |^ cameraMoveFrameDialog -> | clearCrhfData"}
+    # Grab the animation data from uuid.
+    ${grabAnimationFromUuid} with entity @s
+    # Clear possibly trailing data
+    $${clearCrhfData} {UUID: $(owner), framenum: $(framenum)}
+    # Pull the camera data we care about out of new.
+    $data modify storage ${ns}:temp crhf.[{UUID: $(owner)}].current set from storage ${ns}:animation_data new.frames[$(framenum)].camera
+    # Setup scoreboard
+    scoreboard objectives add ${ns}-crhf dummy
+    # Send the camera down 1.6 on the Y to make its coordinates accurate.
+    execute as @n[type=minecraft:item_display,tag=${ns}-camera-toggle-frame] at @s run tp @s ~ ~-1.6 ~
+    # Set up placeholder data to replace.
+    $data modify storage ${ns}:temp crhf.[{UUID: $(owner)}].frames[{framenum: $(framenum)}].pos set value [0.0f, 0.0f, 0.0f]
+    # Convert pos of entity into relatives to the anchor.
+    $${anchorDifference} {input: "entity @n[type=minecraft:item_display,tag=${ns}-camera-toggle-frame] Pos[", output:"storage ${ns}:temp crhf.[{UUID: $(owner)}].frames[{framenum: $(framenum)}].pos[", arrayformat: 1, type: "frames[$(framenum)].ea"}
+    # Pull all rotation data now.
+    $data modify storage ${ns}:temp crhf.[{UUID: $(owner)}].frames[{framenum: $(framenum)}].rot set from entity @n[type=minecraft:item_display,tag=${ns}-camera-toggle-frame] Rotation
+    # Remove trailing data
+    data remove storage ${ns}:animation_data new
+    # Untag the entity (in case we enter dialog)
+    tag @n[type=minecraft:item_display,tag=${ns}-camera-toggle-frame] remove ${ns}-camera-toggle-frame
+    # Grab all of the coordinates and rotations into scores so that they round. We LOVE floating point errors, and compare Pos and rot to see which have changed.
+`);
+
+function crhfEachAttribute({name, location}) {
+    return`
+        $execute store result score new${name} ${ns}-crhf run data get storage ${ns}:temp crhf.[{UUID: $(owner)}].frames[{framenum: $(framenum)}].${location} 1000
+        $execute store result score old${name} ${ns}-crhf run data get storage ${ns}:temp crhf.[{UUID: $(owner)}].current.${location} 1000
+        $execute unless score new${name} ${ns}-crhf = old${name} ${ns}-crhf unless data storage ${ns}:temp crhf.[{UUID: $(owner)}].asked run dialog show @s ${cameraMoveFrameDialog}
+        $execute unless score new${name} ${ns}-crhf = old${name} ${ns}-crhf unless data storage ${ns}:temp crhf.[{UUID: $(owner)}].asked run data modify storage ${ns}:temp crhf.[{UUID: $(owner)}].asked set value true
+        execute unless score new${name} ${ns}-crhf = old${name} ${ns}-crhf run return 1
+    `
+}
+
+cameraRemoveHighlightFrameCommands.push(...arrayPosToDataName.map(crhfEachAttribute));
+
+cameraRemoveHighlightFrameCommands.push(`
+    # Clear trailing data (this block only executes if pos and rot are the same as before)
+    $${clearCrhfData} {UUID: $(owner), framenum: $(framenum)}
+    # Kill the entity
+    $kill @n[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(owner), framenum: $(framenum)}}]
+`);
+
+cameraRemoveHighlightFrame(cameraRemoveHighlightFrameCommands.join('\n'));
+
+cameraSaveRestOfHighlights`
     # Log the entry point
     ${debug.entry} {input: "from camera_move_frame dialog"}
     # Log the function call
-    ${debug.run} {input: "cameraSaveForEntityFrame"}
-    # Log the call path
-    ${debug.path} {input: "-> grabAnimationFromUuid -> cleanUpNewAnimationData"}
+    $${debug.run} {input: "cameraSaveRestOfHighlights for $(UUID)"}
+    # Log the expected path
+    ${debug.path} {input: "-> grabAnimationFromUuid -> (recCameraSaveForEntityFrame) -> cleanUpNewAnimationData"}
+    # Remove possibly trailing data
+    data remove storage ${ns}:temp csroh
     # Grab the animation data from uuid.
     ${grabAnimationFromUuid} with entity @s
-    # Set camera position from the stuff we calculated earlier, and grab rotation now.
-    data modify storage ${ns}:animation_data new.frame[].camera.pos set from storage ${ns}:temp crh.pos
-    data modify storage ${ns}:animation_data new.frame[].camera.rot set from storage ${ns}:temp crh.rot
+    # Place UUID into temp storage.
+    data modify storage ${ns}:temp csroh.UUID set from entity @s UUID
+    # Grab the framenum of the first frame.
+    $data modify storage ${ns}:temp csroh.framenum set from storage ${ns}:temp crhf.[{UUID: $(UUID)}].frames[0].framenum
+    ${recCameraSaveForEntityFrame} with storage ${ns}:temp csroh
     # Save camera changes
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
-    # Remove trailing data
-    data remove storage ${ns}:temp crh
-    scoreboard objectives remove ${ns}-crh
+    # Last little cleanup
+    $${clearCrhfData} {UUID: $(UUID), framenum: "all"}
+    data remove storage ${ns}:temp csroh
+`
+
+recCameraSaveForEntityFrame`
+    # Log the function call
+    $${debug.run} {input: "cameraSaveForEntityFrame for $(UUID) frame $(framenum)"}
+    
+    ${debug.info} {source: "storage", location: "${ns}:temp", path: "crhf"}
+    
+    # Set camera position from the stuff we calculated earlier, and grab rotation now.
+    $data modify storage ${ns}:animation_data new.frames[$(framenum)].camera.pos set from storage ${ns}:temp crhf.[{UUID: $(UUID)}].frames[{framenum: $(framenum)}].pos
+    $data modify storage ${ns}:animation_data new.frames[$(framenum)].camera.rot set from storage ${ns}:temp crhf.[{UUID: $(UUID)}].frames[{framenum: $(framenum)}].rot
+    # Remove this entry from storage
+    $data remove storage ${ns}:temp crhf.[{UUID: $(UUID)}].frames[0]
+    # If there's more, grab the next one
+    $execute if data storage ${ns}:temp crhf.[{UUID: $(UUID)}].frames[0] run data modify storage ${ns}:temp csroh.framenum set from storage ${ns}:temp crhf.[{UUID: $(UUID)}].frames[0].framenum
+    # Kill the entity
+    $kill @n[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID), framenum: $(framenum)}}]
+    # If we got more cameras to deal with, recursively call this function
+    $execute if data storage ${ns}:temp crhf.[{UUID: $(UUID)}].frames[0] run ${recCameraSaveForEntityFrame} with storage ${ns}:temp csroh
 `;

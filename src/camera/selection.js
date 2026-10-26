@@ -19,7 +19,7 @@ export const {
 
 // Define local functions here:
 const {
-    anonymous: a, checkMovedCamera
+    anonymous: a, checkMovedCamera, clearCrhData
 } = folder;
 
 const ns = 'easy-anim';
@@ -141,8 +141,8 @@ cameraHighlight`
 
 // Removes the camera position highlight when no longer hovering over the load camera item.
 
-// TODO: Change the wall of function calls below into 2 functions, using xyz py to 012 01
-// And we gotta do frames still.
+// TODO: Also, if someone just sits on the dialog and someone else runs the same command,
+// Won't it just delete the trailing data we need? Might need to make it rely off of UUID
 
 const arrayPosToDataName = [
     {name: "px", location: "pos[0]"},
@@ -152,71 +152,71 @@ const arrayPosToDataName = [
     {name: "rp", location: "rot[1]"}
 ];
 
+clearCrhData`
+    # Log the function call
+    $${debug.run} {input: "clearCrhData for $(UUID)"}
+    # Remove this user's data
+    $data remove storage ${ns}:temp crh.[{UUID: $(UUID)}]
+    # If there's no more entries in the array, remove the whole data structure.
+    execute unless data storage ${ns}:temp crh.[0] run data remove storage ${ns}:temp crh
+    scoreboard objectives remove ${ns}-crhf
+`;
+
+cameraRemoveHighlight`
+    # No log since this runs every tick within overworld.
+    # ${debug.run} {input: "cameraRemoveHighlight"}
+    # Tag the camera we are working with to simplify selectors
+    $execute as @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] run tag @s add ${ns}-camera-remove
+    # If still alive, check if position or rotation changed from what is stored.
+    $execute if entity @e[type=minecraft:item_display,tag=${ns}-camera-remove] run ${checkMovedCamera} {UUID: $(UUID)}
+    # Kill the entity
+    kill @e[type=minecraft:item_display,tag=${ns}-camera-remove]
+`;
+
 const checkMovedCameraCommands = [];
 
 checkMovedCameraCommands.push(`
     # Log the function call
-    ${debug.run} {input: "Check Moved Camera"}
+    $${debug.run} {input: "Check Moved Camera for $(UUID)"}
     # Log the function path
     ${debug.path} {input: "-> grabAnimationFromUuid -> anchorDifference -> | camera_move_selection dialog"}
     # Grab the animation data from uuid.
     ${grabAnimationFromUuid} with entity @s
     # Clear possibly trailing data
-    data remove storage ${ns}:temp crh
-    scoreboard objectives remove ${ns}-crh
+    ${clearCrhData} with entity @s
+    # Pull the camera data we care about out of new.
+    $data modify storage ${ns}:temp crh.[{UUID: $(UUID)}].current set from storage ${ns}:animation_data new.camera
     # Setup scoreboard
     scoreboard objectives add ${ns}-crh dummy
     # Send the camera down 1.6 on the Y to make its coordinates accurate.
     execute as @n[type=minecraft:item_display,tag=${ns}-camera-remove] at @s run tp @s ~ ~-1.6 ~
     # Set up placeholder data to replace.
-    data modify storage ${ns}:temp crh.pos set value [0.0f, 0.0f, 0.0f]
+    $data modify storage ${ns}:temp crh.[{UUID: $(UUID)}].pos set value [0.0f, 0.0f, 0.0f]
     # Convert pos of entity into relatives to the anchor.
-    ${anchorDifference} {input: "entity @n[type=minecraft:item_display,tag=${ns}-camera-remove] Pos[", output:"storage ${ns}:temp crh.pos[", arrayformat: 1, type: "a"}
+    $${anchorDifference} {input: "entity @n[type=minecraft:item_display,tag=${ns}-camera-remove] Pos[", output:"storage ${ns}:temp crh.[{UUID: $(UUID)}].pos[", arrayformat: 1, type: "a"}
     # Pull all rotation data now.
-    data modify storage ${ns}:temp crh.rot set from entity @n[type=minecraft:item_display,tag=${ns}-camera-remove] Rotation
-    # Grab all of the coordinates and rotations into scores so that they round. We LOVE floating point errors.
-`);
-
-function cmcDataIntoScores({name, location}) {
-    return`
-        execute store result score new${name} ${ns}-crh run data get storage ${ns}:temp crh.${location} 1000
-        execute store result score old${name} ${ns}-crh run data get storage ${ns}:animation_data new.camera.${location} 1000
-    `
-}
-
-checkMovedCameraCommands.push(...arrayPosToDataName.map(cmcDataIntoScores));
-
-checkMovedCameraCommands.push(`
+    $data modify storage ${ns}:temp crh.[{UUID: $(UUID)}].rot set from entity @n[type=minecraft:item_display,tag=${ns}-camera-remove] Rotation
     # Remove trailing data
     data remove storage ${ns}:animation_data new
-    # Compare Pos and rot to see which have changed.
+    # Grab all of the coordinates and rotations into scores so that they round. We LOVE floating point errors, and compare Pos and rot to see which have changed.
 `);
 
-function cmcCompareScores({name, location}) {
+function cmcEachAttribute({name, location}) {
     return`
+        $execute store result score new${name} ${ns}-crh run data get storage ${ns}:temp crh.[{UUID: $(UUID)}].${location} 1000
+        $execute store result score old${name} ${ns}-crh run data get storage ${ns}:temp crh.[{UUID: $(UUID)}].current.${location} 1000
         execute unless score new${name} ${ns}-crh = old${name} ${ns}-crh run return run dialog show @s ${ns}:camera_move_selection
     `
 }
 
-checkMovedCameraCommands.push(...arrayPosToDataName.map(cmcCompareScores));
+checkMovedCameraCommands.push(...arrayPosToDataName.map(cmcEachAttribute));
 
 checkMovedCameraCommands.push(`
-    # Remove trailing now useless data.
-    data remove storage ${ns}:temp crh
-    scoreboard objectives remove ${ns}-crh
+    # Remove trailing now useless data. This is only executed if pos and rot did NOT change
+    ${clearCrhData} with entity @s
 `);
 
 checkMovedCamera(checkMovedCameraCommands.join('\n'));
-
-cameraRemoveHighlight`
-    # No log since this runs every tick within overworld.
-    # Tag the camera we are working with to simplify selectors
-    $execute as @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] run tag @s add ${ns}-camera-remove
-    # If still alive, check if position or rotation changed from what is stored.
-    execute if entity @e[type=minecraft:item_display,tag=${ns}-camera-remove] run ${checkMovedCamera}
-    # Kill the entity
-    kill @e[type=minecraft:item_display,tag=${ns}-camera-remove]
-`;
 
 cameraSaveForEntity`
     # Log the entry point
@@ -228,11 +228,12 @@ cameraSaveForEntity`
     # Grab the animation data from uuid.
     ${grabAnimationFromUuid} with entity @s
     # Set camera position from the stuff we calculated earlier, and grab rotation now.
-    data modify storage ${ns}:animation_data new.camera.pos set from storage ${ns}:temp crh.pos
-    data modify storage ${ns}:animation_data new.camera.rot set from storage ${ns}:temp crh.rot
+    ${a`
+        $data modify storage ${ns}:animation_data new.camera.pos set from storage ${ns}:temp crh.[{UUID: $(UUID)}].pos
+        $data modify storage ${ns}:animation_data new.camera.rot set from storage ${ns}:temp crh.[{UUID: $(UUID)}].rot
+    `} with entity @s
     # Save camera changes
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     # Remove trailing data
-    data remove storage ${ns}:temp crh
-    scoreboard objectives remove ${ns}-crh
+    ${clearCrhData} with entity @s
 `;

@@ -193,6 +193,8 @@ cameraSaveFrameEnterIterate`
     $data modify storage ${ns}:temp csf.note set value "$(note)"
     # Run cameraSaveFrame for the closest frame.
     ${grabAnimationFromUuid} with entity @s
+    # Place UUID into csf for this function to work
+    data modify storage ${ns}:temp csf.UUID set from entity @s UUID
     ${cameraSaveFrame} with storage ${ns}:temp csf
     # Save changes.
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new

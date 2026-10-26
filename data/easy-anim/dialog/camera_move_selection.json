@@ -15,7 +15,7 @@
 		"label": "No",
 		"action": {
 			"type": "minecraft:run_command",
-			"command": "data remove storage easy-anim:temp crh"
+			"command": "function easy-anim:camera/selection/clear_crh_data with entity @s"
 		}
 	}
 }
