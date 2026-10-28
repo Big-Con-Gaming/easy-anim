@@ -32,7 +32,7 @@ selectFrame`
     # Make the bounding box visible.
     $execute positioned $(ax) $(ay) $(az) run data modify block ~ ~-1 ~ showboundingbox set value true
     # tag all entities from being selected.
-    $execute positioned $(ax) $(ay) $(az) run tag @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=!${ns}-selected] add ${ns}-selected
+    $execute positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=!${ns}-selected] add ${ns}-selected
 `;
 
 // Modifies all data needed to make the given frame deselected
@@ -48,7 +48,7 @@ deselectFrame`
     # Make the bounding box invisible.
     $execute positioned $(ax) $(ay) $(az) run data modify block ~ ~-1 ~ showboundingbox set value false
     # Untag all entities from being selected.
-    $execute positioned $(ax) $(ay) $(az) run tag @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-selected] remove ${ns}-selected
+    $execute positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-selected] remove ${ns}-selected
 `;
 
 // Toggles the selection state of the provided frame number.
@@ -107,7 +107,7 @@ selectInPlayerFrame`
         # Log the function call
         $${debug.run} {input: "recPlayerSearch at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(name) frame $(framenum) out of $(framecount) player $(UUID)"}
         # If the player is within this frame's bounding box, toggle it.
-        $execute in ${ns}:editor positioned $(ax) $(ay) $(az) if entity @p[dx=$(sx), dy=$(sy), dz=$(sz)] run return run ${toggleSelectionState} with storage ${ns}:temp grabsizeanchor
+        $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz if entity @p[dx=$(sx), dy=$(sy), dz=$(sz), nbt={UUID: $(UUID)}] run return run ${toggleSelectionState} with storage ${ns}:temp grabsizeanchor
         # Iterate framenum
         execute store result storage ${ns}:temp grabsizeanchor.framenum int 1 run scoreboard players add i ${ns}-sipf 1
         # Grab the next frame's data

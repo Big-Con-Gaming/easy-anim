@@ -67,8 +67,8 @@ cameraClosestCommands.push(`
     # If the closest has already been found, exit.
     execute if score closest ${ns}-camclose matches 0 run return 1
     # For this frame, check if the player is within the frame, if so store our framenum as closest.
-    $execute positioned $(ax) $(ay) $(az) if entity @s[dx=$(sx),dy=$(sy),dz=$(sz)] run data modify storage ${ns}:temp csf.framenum set value $(framenum)
-    $execute positioned $(ax) $(ay) $(az) if entity @s[dx=$(sx),dy=$(sy),dz=$(sz)] run return run scoreboard players set closest ${ns}-camclose 0
+    $execute positioned $(ax) $(ay) $(az) align xyz if entity @s[dx=$(sx),dy=$(sy),dz=$(sz)] run data modify storage ${ns}:temp csf.framenum set value $(framenum)
+    $execute positioned $(ax) $(ay) $(az) align xyz if entity @s[dx=$(sx),dy=$(sy),dz=$(sz)] run return run scoreboard players set closest ${ns}-camclose 0
     # If not, calculate our distance to the player and compare it to the closest distance so far, if closer, set this as closest.
 `);
 

@@ -347,7 +347,7 @@ removeOldSelectionCommands.push(`
     ${a`
         # Log the function call
         $${debug.run} {input: "killing old handles at $(x) $(y) $(z) within $(smx) $(smy) $(smz)"}
-        $execute positioned $(x) $(y) $(z) run kill @e[tag=${ns}-handle, dx=$(smx), dy=$(smy), dz=$(smz)]
+        $execute positioned $(x) $(y) $(z) align xyz run kill @e[tag=${ns}-handle, dx=$(smx), dy=$(smy), dz=$(smz)]
     `} with storage ${ns}:temp str
     # Remove the temporary data location.
     data remove storage ${ns}:temp str

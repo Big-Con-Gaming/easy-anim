@@ -80,7 +80,7 @@ startRender`
         # Place the original stuff in the editor
         $execute in ${ns}:editor run place template ${ns}:$(name)-original $(lanex) 16 0 none none 1 1 strict
         # tag all entities currently in the frame so they'll be removed.
-        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz)] run tag @s add ${ns}-render
+        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz)] run tag @s add ${ns}-render
         # The iterative frame render command will handle clearing previous frames, so now we have to set up for that.
         # Set up the counter scoreboard for the frame number that's currently being rendered (-1 so it will render frame 0)
         $scoreboard players set #$(name)_frame ${ns} -1
@@ -191,14 +191,14 @@ specificFrameRenderCommands.push(`
         # Log the function call.
         $${debug.run} {input: "changing frame for $(framenum) in $(dimension) at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(UUID), camera at $(camerax) $(cameray) $(cameraz) $(camerayaw) $(camerapitch) showing note $(cameranote)"}
         # Clear all remaining blocks and entities from old frame (using this frame's size coordinates because we want any differing size changes to remain)
-        $execute in $(dimension) positioned $(ax) $(ay) $(az) as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-render] run ${cleanKill}
-        $execute in $(dimension) positioned $(ax) $(ay) $(az) run fill ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) minecraft:air strict
+        $execute in $(dimension) positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-render] run ${cleanKill}
+        $execute in $(dimension) positioned $(ax) $(ay) $(az) align xyz run fill ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) minecraft:air strict
         # Retreive the frame from storage in case it is unloaded
         $${retrieveFrame} {framenum: $(framenum)}
         # Place the frame down from the structure
         $execute in $(dimension) run place template ${ns}:$(name)-frame$(framenum) $(ax) $(ay) $(az) none none 1 1 strict
         # Modify the data of all of the entities so that they won't move and they'll have the ${ns}-render tag
-        $execute in $(dimension) positioned $(ax) $(ay) $(az) as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz)] run ${a`
+        $execute in $(dimension) positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz)] run ${a`
             data modify entity @s NoAI set value true
             tag @s add ${ns}-render
         `}
@@ -244,25 +244,25 @@ exitRender`
         # Log function call
         $${debug.run} {input: "replace original stuff at $(x) $(y) $(z) in $(dimension) within $(sx) $(sy) $(sz) for $(name), pulling blocks from $(lanex) 0 0 for $(UUID)"}
         # Clear remaining blocks and entities once again
-        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-render] run ${cleanKill}
-        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 run fill ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) minecraft:air strict
+        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-render] run ${cleanKill}
+        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 align xyz run fill ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) minecraft:air strict
         # Grab all of the blocks from the editor and store them into a structure
         $execute in ${ns}:editor run setblock $(lanex) 15 0 minecraft:structure_block{mode:"SAVE",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-original",strict:true} strict
         # Make sure all of these entities are not docile.
-        $execute in ${ns}:editor positioned $(lanex) 16 0 as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] run ${removeDocile}
+        $execute in ${ns}:editor positioned $(lanex) 16 0 align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] run ${removeDocile}
         # Warn if powering this structure block is replacing a non-air block
         $execute in ${ns}:editor unless block $(lanex) 14 0 minecraft:air run ${debug.warn} {input: "Expected air at $(lanex) 15 0! Replacing..."}
         $execute in ${ns}:editor run setblock $(lanex) 14 0 minecraft:redstone_block
         $execute in ${ns}:editor run setblock $(lanex) 14 0 minecraft:air strict
         # Remove the blocks and entities from the editor
-        $execute in ${ns}:editor positioned $(lanex) 16 0 as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz)] run ${cleanKill}
+        $execute in ${ns}:editor positioned $(lanex) 16 0 align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz)] run ${cleanKill}
         $execute in ${ns}:editor positioned $(lanex) 16 0 run fill ~ ~ ~ ~47 ~47 ~47 minecraft:air strict
         # Remove the glass holding up the original blocks
         $execute in ${ns}:editor positioned $(lanex) 15 0 run fill ~ ~ ~ ~47 ~ ~47 minecraft:air strict
         # Replace the original structure in the overworld
-        $execute in $(dimension) positioned $(x) $(y) $(z) run place template ${ns}:$(name)-original ~1 ~1 ~1 none none 1 1 strict
+        $execute in $(dimension) positioned $(x) $(y) $(z) align xyz run place template ${ns}:$(name)-original ~1 ~1 ~1 none none 1 1 strict
         # Regroup entities
-        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 run ${regroupEntities} with storage ${ns}:temp str
+        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 align xyz run ${regroupEntities} with storage ${ns}:temp str
         # Unforceload the player lane
         $execute in ${ns}:editor positioned $(lanex) 0 0 run forceload remove ~ ~ ~47 ~47
         # Unclaim the player's lane

@@ -64,12 +64,12 @@ createAnimation`
         $${debug.run} {input: "saveStructure at $(x) $(y) $(z) within $(sx) $(sy) $(sz) for $(name)"}
         # Warn if we're replacing a non-air block
         $execute in ${ns}:editor unless block $(lanex) 3 0 minecraft:air run ${debug.warn} {input: "Non-air block in editor at $(lanex) 3 0! Replacing..."}
-        $execute positioned $(x) $(y) $(z) run clone ~ ~1 ~ ~ ~1 ~ to ${ns}:editor $(lanex) 3 0 strict
+        $execute positioned $(x) $(y) $(z) align xyz run clone ~ ~1 ~ ~ ~1 ~ to ${ns}:editor $(lanex) 3 0 strict
         # Warn if no interactions or handles are present.
-        $execute positioned $(x) $(y) $(z) unless entity @n[type=minecraft:interaction,tag=${ns}-select-str-block,distance=..1] run ${debug.warn} {input:"No interaction blocking the structure block! Skipping removal..."}
-        $execute positioned $(x) $(y) $(z) unless entity @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)] run ${debug.warn} {input:"No handles on the selection! Skipping removal..."}
+        $execute positioned $(x) $(y) $(z) align xyz unless entity @n[type=minecraft:interaction,tag=${ns}-select-str-block,distance=..1] run ${debug.warn} {input:"No interaction blocking the structure block! Skipping removal..."}
+        $execute positioned $(x) $(y) $(z) align xyz unless entity @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)] run ${debug.warn} {input:"No handles on the selection! Skipping removal..."}
         $execute positioned $(x) $(y) $(z) run kill @n[type=minecraft:interaction,tag=${ns}-select-str-block,distance=..1]
-        $execute positioned $(x) $(y) $(z) run kill @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)]
+        $execute positioned $(x) $(y) $(z) align xyz run kill @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)]
         # Ungroup any grouped entities and tag them so they can find each other.
         data modify storage ${ns}:temp str.id set value 0
         $execute positioned $(x) $(y) $(z) run ${recSplitGroups} with storage ${ns}:temp str
@@ -93,7 +93,7 @@ createAnimation`
         $${storeFrame} {name: $(name), framenum: "base"}
         $${storeFrame} {name: $(name), framenum: 0}
         # Regroup any grouped entities and remove their redundant tags + data. Must be separated so data that is needed to find each other isn't erased yet.
-        $execute positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 run ${regroupEntities} with storage ${ns}:temp str
+        $execute positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 align xyz run ${regroupEntities} with storage ${ns}:temp str
         $execute positioned $(x) $(y) $(z) run clone from ${ns}:editor $(lanex) 3 0 $(lanex) 3 0 ~ ~1 ~ strict
         $summon minecraft:interaction $(x) $(y) $(z) {width:1.01f,height:1.01f,Tags:["${ns}-select-str-block"]}
         $execute in ${ns}:editor run setblock $(lanex) 3 0 minecraft:air

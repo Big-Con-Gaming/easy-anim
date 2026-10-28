@@ -49,9 +49,9 @@ renumberFrame`
     # Remove the blocks.
     execute in ${ns}:editor run fill 0 0 -48 48 50 -1 minecraft:air strict
     # Warn if there are no entites to kill.
-    execute in ${ns}:editor positioned 0 0 -48 unless entity @e[type=!player,dx=48,dy=50,dz=48] run ${debug.warn} {input: "No entities to kill! Skipping..."}
+    execute in ${ns}:editor positioned 0 0 -48 align xyz unless entity @e[type=!player,dx=48,dy=50,dz=48] run ${debug.warn} {input: "No entities to kill! Skipping..."}
     # Remove the entities.
-    execute in ${ns}:editor positioned 0 0 -48 as @e[type=!player,dx=48,dy=50,dz=48] run ${cleanKill}
+    execute in ${ns}:editor positioned 0 0 -48 align xyz as @e[type=!player,dx=48,dy=50,dz=48] run ${cleanKill}
     # This feels dirty, there has to be a better way to do this. We copy over Size from input into output temporarily so that storeFrame can use it.
     # Why doesn't this function do the data copying itself? Well I think it depends on its use case and we can't cover multiple use cases in one function, right?
     # Temporarily store the size for output frame
@@ -134,11 +134,11 @@ recMoveFrames`
     $execute positioned 0 1 -48 run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) 0 1 $(newz) strict masked move
     # Ungroup all entities so that teleporting them doesn't erase who goes with who
     $data modify storage ${ns}:temp $(namespace).id set value 0
-    $execute positioned $(ax) $(ay) $(az) run ${recSplitGroups} with storage ${ns}:temp $(namespace)
+    $execute positioned $(ax) $(ay) $(az) align xyz run ${recSplitGroups} with storage ${ns}:temp $(namespace)
     # Teleport all entities in subsequent frames backwards by the size of the removed frame's z axis.
-    $execute positioned $(ax) $(ay) $(az) as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] at @s run tp @s ~ ~ ~$(neg)$(diff)
+    $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] at @s run tp @s ~ ~ ~$(neg)$(diff)
     # Regroup all entities.
-    $execute positioned $(ax) $(ay) $(az) positioned ~ ~ ~$(neg)$(diff) run ${regroupEntities} with storage ${ns}:temp $(namespace)
+    $execute positioned $(ax) $(ay) $(az) positioned ~ ~ ~$(neg)$(diff) align xyz run ${regroupEntities} with storage ${ns}:temp $(namespace)
     # Warn if the structure block will replace a non-air block
     $execute positioned $(ax) $(ay) $(az) unless block ~ ~-1 ~$(neg)$(diff) minecraft:air run ${debug.warn} {input: "Non-air block at $(ax) ($(ay) - 1) ($(az) + $(neg)$(diff))! Overwriting with structure block..."}
     # Place a new structure block with the updated frame number.
@@ -274,13 +274,13 @@ moveFrameCommands.push(`
         $execute positioned $(ax) $(ay) $(az) run forceload add ~ ~ ~47 ~47
         $execute positioned $(tax) $(tay) $(taz) run forceload add ~ ~ ~47 ~47
         # Ungroup entities at framenum
-        $execute positioned $(ax) $(ay) $(az) run ${recSplitGroups} with storage ${ns}:temp moveFrame.frameData
+        $execute positioned $(ax) $(ay) $(az) align xyz run ${recSplitGroups} with storage ${ns}:temp moveFrame.frameData
         # Clone move the blocks over to the new location
         $execute positioned $(ax) $(ay) $(az) run clone ~ ~-1 ~ ~$(sx) ~$(sy) ~$(sz) ~ ~-1 ~$(diff) masked move
         # teleport all entities
-        $execute positioned $(ax) $(ay) $(az) as @e[tag=${ns}-entity-turned-docile,dx=$(sx), dy=$(sy), dz=$(sz)] at @s run tp @s ~ ~ ~$(diff)
+        $execute positioned $(ax) $(ay) $(az) align xyz as @e[tag=${ns}-entity-turned-docile,dx=$(sx), dy=$(sy), dz=$(sz)] at @s run tp @s ~ ~ ~$(diff)
         # Regroup the entities
-        $execute positioned $(tax) $(tay) $(taz) run ${regroupEntities} with storage ${ns}:temp moveFrame.frameData
+        $execute positioned $(tax) $(tay) $(taz) align xyz run ${regroupEntities} with storage ${ns}:temp moveFrame.frameData
         # Renumber the frame in data
         ${renumberFrame} with storage ${ns}:temp moveFrame.frameData
         # Warn if replacing a non-structure or air block at the new location.

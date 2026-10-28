@@ -100,7 +100,7 @@ enterEditor`
             kill @s
         `} with storage ${ns}:temp eemacro
         # Regroup all grouped entities
-        $execute in ${ns}:editor positioned $(x) 1 $(z) run ${regroupEntities} with storage ${ns}:temp eemacro
+        $execute in ${ns}:editor positioned $(x) 1 $(z) align xyz run ${regroupEntities} with storage ${ns}:temp eemacro
         # Warn if the structure block will replace a non-air block
         $execute in ${ns}:editor unless block $(x) 0 $(z) minecraft:air run ${debug.warn} {input: "Non-air block at $(x) 0 $(z)! Overwriting with structure block..."} 
         # Place in the frame's structure block

@@ -49,10 +49,10 @@ function createSaveSpecificFrame({axis}) {
 saveSpecificFrameCommands.push(...axis.map(createSaveSpecificFrame));
 
 saveSpecificFrameCommands.push(`
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run ${recSplitGroups} with storage ${ns}:temp str
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run ${recSplitGroups} with storage ${ns}:temp str
     # Untag them from selected and remove docile for all entities within the frame.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-selected] remove ${ns}-selected
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-entity-turned-docile] run ${removeDocile}
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-selected] remove ${ns}-selected
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-entity-turned-docile] run ${removeDocile}
     # Warn if the structure block will replace a non-air block
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) unless block ~ ~-1 ~ minecraft:air unless block ~ ~-1 ~ minecraft:structure_block run ${debug.warn} {input: "Non-air and Non-structure block at $(ax) ($(ay) - 1) $(az)! Overwriting with structure block..."}
     # Make sure the frame's structure block is there.
@@ -67,9 +67,9 @@ saveSpecificFrameCommands.push(`
     # Store structure data since it changed.
     $${storeFrame} {framenum: $(framenum)}
     # Tag them all again with selected.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-selected] add ${ns}-selected
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-selected] add ${ns}-selected
     # Regroup all entities.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run ${regroupEntities} with storage ${ns}:temp str
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run ${regroupEntities} with storage ${ns}:temp str
     # Remove all trailing data.
     data remove storage ${ns}:temp str
 `)
@@ -111,9 +111,9 @@ clearSpecificFrameCommands.push(`
         $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run fill ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) minecraft:air strict
     `} with storage ${ns}:temp csf
     # Warn if there are no entites to kill.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) unless entity @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] run ${debug.warn} {input: "No entities within frame! Skipping..."}
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz unless entity @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] run ${debug.warn} {input: "No entities within frame! Skipping..."}
     # Kill all entities within the area, using cleanKill to make sure nothing is left behind.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] run ${cleanKill}
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] run ${cleanKill}
     # Place name into macro storage for future use.
     $data modify storage ${ns}:temp csf.name set value $(name)
     # Warn if there's no structure block to remove.
@@ -182,9 +182,9 @@ loadSpecificFrame`
     # Place in the structure block.
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"LOAD",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
     # Tag all of the entities with selected.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-selected] add ${ns}-selected
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-selected] add ${ns}-selected
     # Regroup all grouped entities
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run ${regroupEntities} {sx: $(sx), sy: $(sy), sz: $(sz)}
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run ${regroupEntities} {sx: $(sx), sy: $(sy), sz: $(sz)}
 `;
 
 // Sets the duration for every given frame (typically selected) based on the duration specified in the carryover information (${ns}:temp carryover.duration)
@@ -332,7 +332,7 @@ addNewFrame`
         $execute if score basecheck ${ns}-anf matches 0 in ${ns}:editor run place template ${ns}:$(name)-base $(x) 1 $(z) none none 1 1 strict
         # Ungroup all of the entities in the duplicating frame (not used if base)
         execute if score basecheck ${ns}-anf matches 1 run data modify storage ${ns}:temp anf.id set value 0
-        $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor positioned $(tx) 1 $(tz) run ${recSplitGroups} with storage ${ns}:temp anf
+        $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor positioned $(tx) 1 $(tz) align xyz run ${recSplitGroups} with storage ${ns}:temp anf
         # Warn if the structure block will replace a non-air block
         $execute in ${ns}:editor unless block $(tx) 0 $(tz) minecraft:air run ${debug.warn} {input: "Non-air block at $(tx) 0 $(tz)! Overwriting with structure block..."}
         # Place in the frame's structure block
@@ -343,12 +343,12 @@ addNewFrame`
         $execute in ${ns}:editor positioned $(tx) 0 $(tz) run setblock ~1 ~ ~ minecraft:redstone_block
         $execute in ${ns}:editor positioned $(tx) 0 $(tz) run setblock ~1 ~ ~ minecraft:air
         # Make the new entities docile (so that recMoveFrames can target it to teleport) (only if base, since if duplicating we're only saving the target)
-        $execute if score basecheck ${ns}-anf matches 0 in ${ns}:editor positioned $(tx) 0 $(tz) as @e[dx=$(sx), dy=$(sy), dz=$(sz), type=!minecraft:player] run ${turnEntityDocile}
+        $execute if score basecheck ${ns}-anf matches 0 in ${ns}:editor positioned $(tx) 0 $(tz) align xyz as @e[dx=$(sx), dy=$(sy), dz=$(sz), type=!minecraft:player] run ${turnEntityDocile}
         # Set back into LOAD mode for visual bounding box toggle. (If duplicating, this has to go back to the targetframe num)
         $execute if score basecheck ${ns}-anf matches 0 in ${ns}:editor run setblock $(tx) 0 $(tz) minecraft:structure_block{mode:"LOAD",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
         $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor run setblock $(tx) 0 $(tz) minecraft:structure_block{mode:"LOAD",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(targetframe)",strict:true}
         # Regroup all grouped entities
-        $execute in ${ns}:editor positioned $(tx) 1 $(tz) run ${regroupEntities} with storage ${ns}:temp anf
+        $execute in ${ns}:editor positioned $(tx) 1 $(tz) align xyz run ${regroupEntities} with storage ${ns}:temp anf
         # Remove this forceloaded area
         $execute in ${ns}:editor positioned $(tx) 0 $(tz) run forceload remove ~ ~ ~47 ~47
         # If duplcating, then at this point forceload the actual spot,
@@ -359,9 +359,9 @@ addNewFrame`
         $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor unless block $(x) 0 $(z) minecraft:air run ${debug.warn} {input: "Non-air block at $(x) 0 $(z)! Overwriting with structure block..."}
         $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor run setblock $(x) 0 $(z) minecraft:structure_block{mode:"LOAD",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
         # make entities docile,
-        $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor positioned $(x) 0 $(z) as @e[dx=$(sx), dy=$(sy), dz=$(sz), type=!minecraft:player] run ${turnEntityDocile}
+        $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor positioned $(x) 0 $(z) align xyz as @e[dx=$(sx), dy=$(sy), dz=$(sz), type=!minecraft:player] run ${turnEntityDocile}
         # regroup them,
-        $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor positioned $(x) 1 $(z) run ${regroupEntities} with storage ${ns}:temp anf
+        $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor positioned $(x) 1 $(z) align xyz run ${regroupEntities} with storage ${ns}:temp anf
         # Unforceload
         $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor positioned $(x) 0 $(z) run forceload remove ~ ~ ~47 ~47
         # Store structure data since it changed.
@@ -459,7 +459,7 @@ moveSelectedFrames`
         $execute positioned $(tax) $(tay) $(taz) run forceload add ~ ~ ~47 ~47
         execute positioned 0 0 -96 run forceload add ~ ~ ~47 ~47
         # Use this data to ungroup entities at target frame
-        $execute positioned $(tax) $(tay) $(taz) run ${recSplitGroups} {sx: $(tsx), sy: $(tsy), sz: $(tsz), id: 0}
+        $execute positioned $(tax) $(tay) $(taz) align xyz run ${recSplitGroups} {sx: $(tsx), sy: $(tsy), sz: $(tsz), id: 0}
         # Clone the blocks at target frame to a temporary location
         # You'll need to grab target frame data to then move them to a place that is different from 0 -48 actually since other functions we'll run will use that region.)
         $execute positioned $(tax) $(tay) $(taz) run clone ~ ~ ~ ~$(tsx) ~$(tsy) ~$(tsz) 0 0 -96 masked move
@@ -467,7 +467,7 @@ moveSelectedFrames`
         $execute positioned $(tax) $(tay) $(taz) unless block ~ ~-1 ~ minecraft:structure_block run ${debug.warn} {input: "non-structure block found at target's structure block location! Clearing..."}
         $execute positioned $(tax) $(tay) $(taz) run setblock ~ ~-1 ~ minecraft:air
         # Teleport all entities at target frame to this temporary location
-        $execute positioned $(tax) $(tay) $(taz) as @e[tag=${ns}-entity-turned-docile,dx=$(tsx), dy=$(tsy), dz=$(tsz)] at @s run tp @s ~ ~ ~-$(difftotemp)
+        $execute positioned $(tax) $(tay) $(taz) align xyz as @e[tag=${ns}-entity-turned-docile,dx=$(tsx), dy=$(tsy), dz=$(tsz)] at @s run tp @s ~ ~ ~-$(difftotemp)
         # Unforceload the target frame area and the temporary area.
         $execute positioned $(tax) $(tay) $(taz) run forceload remove ~ ~ ~47 ~47
         execute positioned 0 0 -96 run forceload remove ~ ~ ~47 ~47
@@ -543,7 +543,7 @@ moveSelectedFrames`
         # Teleport the entities over
         $execute positioned 0 0 -96 as @e[tag=${ns}-entity-turned-docile,dx=$(tsx), dy=$(tsy), dz=$(tsz)] at @s run tp @s ~ ~ ~$(difffromtemp)
         # Regroup entities
-        $execute positioned $(tax) $(tay) $(newtaz) run ${regroupEntities} {sx: $(tsx), sy: $(tsy), sz: $(tsz)}
+        $execute positioned $(tax) $(tay) $(newtaz) align xyz run ${regroupEntities} {sx: $(tsx), sy: $(tsy), sz: $(tsz)}
         # Place new structure block which will have a new index (warn if replacing non-air)
         $execute positioned $(tax) $(tay) $(newtaz) unless block ~ ~-1 ~ minecraft:air run ${debug.warn} {input: "expected air block at target frame's new structure block position! Overwriting..."}
         $execute positioned $(tax) $(tay) $(newtaz) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"LOAD", showboundingbox: $(selected), posX: 0, posY: 1, posZ: 0, sizeX: $(tsx), sizeY: $(tsy), sizeZ: $(tsz), ignoreEntities: false, name: "${ns}:$(name)-frame$(targetnewindex)", strict: true}

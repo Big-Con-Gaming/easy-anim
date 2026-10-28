@@ -6,7 +6,9 @@ export const {
     replaceAllInString, toLowerCase, stringConcat, stringEquals,
     pullDataStringEquals, testIfInt, arrayMoveEntry, quaternionToEulerNbt
 } = folder;
-const { anonymous: a, incrementIdx, recCharTest, lowerCaseMacro, rawConcat } = folder;
+const {
+    anonymous: a, incrementIdx, recCharTest, lowerCaseMacro, rawConcat
+} = folder;
 const ns = 'easy-anim';
 
 // Useful const arrays for mapping.

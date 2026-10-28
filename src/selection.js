@@ -71,8 +71,8 @@ exitCommands.push(`
     ${a`
         # Log the function call
         $${debug.run} {input: "kill off handles at $(x) $(y) $(z) within $(sx) $(sy) $(sz) located in $(dimension)"}
-        $execute in $(dimension) positioned $(x) $(y) $(z) unless entity @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)] run ${debug.warn} {input:"No handles on the selection! Skipping removal..."}
-        $execute in $(dimension) positioned $(x) $(y) $(z) run kill @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)]
+        $execute in $(dimension) positioned $(x) $(y) $(z) align xyz unless entity @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)] run ${debug.warn} {input:"No handles on the selection! Skipping removal..."}
+        $execute in $(dimension) positioned $(x) $(y) $(z) align xyz run kill @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)]
     `} with storage ${ns}:temp str
     # Remove the temporary data locations.
     data remove storage ${ns}:temp str

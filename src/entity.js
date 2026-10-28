@@ -12,7 +12,9 @@ const folder = mcf.entity;
 export const { recSplitGroups, regroupEntities, turnEntityDocile, removeDocile, mainDocileLoop, cleanKill } = folder;
 
 // Define local functions here:
-const { anonymous: a, recDocileSearch, skipDocile, targetSelectInSelection } = folder;
+const {
+    anonymous: a, recDocileSearch, skipDocile, targetSelectInSelection, rideGroup, removeGroupData
+} = folder;
 
 const ns = 'easy-anim';
 
@@ -40,20 +42,20 @@ recSplitGroupsCommands.push(...axis.map(createRecSplitGroups));
 
 recSplitGroupsCommands.push(`
     # Warn if no entities are present within the selection
-    $execute unless entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group,limit=1,sort=random] run ${debug.warn} {input:"No entities can be grouped! Skipping..."}
-    $execute as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group,limit=1,sort=random] if data entity @s Passengers run ${a`
+    $execute align xyz unless entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz)] run ${debug.warn} {input:"No entities can be grouped! Skipping..."}
+    $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),limit=1,sort=random] if data entity @s Passengers run ${a`
         # Log the function call
         ${debug.run} {input: "grouping an entity found within selection"}
         $tag @s add ${ns}-vehicle-$(id)
-        $data modify entity @s data.easyanimgroupid set value $(id)
+        $data modify entity @s data.easyanimgroupids append value {id: $(id)}
         tag @s add ${ns}-group
         $execute on passengers run tag @s add ${ns}-passenger-$(id)
         execute on passengers run tag @s add ${ns}-group
-        $execute on passengers run data modify entity @s data.easyanimgroupid set value $(id)
+        $execute on passengers run data modify entity @s data.easyanimgroupids append value {id: $(id)}
         execute on passengers run ride @s dismount
         execute store result storage ${ns}:temp rsg.id int 1 run scoreboard players add groupid ${ns}-rsg 1
     `} with storage ${ns}:temp rsg
-    $execute as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-group] if data entity @s Passengers run ${recSplitGroups} with storage ${ns}:temp rsg
+    $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz)] if data entity @s Passengers run ${recSplitGroups} with storage ${ns}:temp rsg
     # Remove the created objective.
     scoreboard objectives remove ${ns}-rsg
     data remove storage ${ns}:temp rsg
@@ -68,20 +70,24 @@ regroupEntities`
     # Log the expected function path.
     ${debug.path} {input: "-> | passenger on vehicle -> | untagging"}
     # Warn if no grouped entities are found within selection in case there should be.
-    $execute unless entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${debug.warn} {input: "No grouped entities found, skipping..."}
-    $execute as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${a`
+    $execute align xyz unless entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${debug.warn} {input: "No grouped entities found, skipping..."}
+    $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${rideGroup`
         # Log the function call
-        $${debug.run} {input: "placing passenger on vehicle in group $(easyanimgroupid)"}
-        $execute if entity @s[tag=${ns}-passenger-$(easyanimgroupid)] run ride @s mount @n[tag=${ns}-vehicle-$(easyanimgroupid)]
-    `} with entity @s data
-    $execute as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${a`
+        $${debug.run} {input: "placing passenger on vehicle in group $(id)"}
+        $execute if entity @s[tag=${ns}-passenger-$(id)] run ride @s mount @n[tag=${ns}-vehicle-$(id)]
+    `} with entity @s data.easyanimgroupids[0]
+    $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${removeGroupData`
         # Log the function call
-        $${debug.run} {input: "untagging $(easyanimgroupid)"}
-        $execute if entity @s[tag=${ns}-passenger-$(easyanimgroupid)] run tag @s remove ${ns}-passenger-$(easyanimgroupid)
-        $execute if entity @s[tag=${ns}-vehicle-$(easyanimgroupid)] run tag @s remove ${ns}-vehicle-$(easyanimgroupid)
-        tag @s remove ${ns}-group
-        data remove entity @s data.easy-anim-groupid
-    `} with entity @s data
+        $${debug.run} {input: "untagging $(id)"}
+        $execute if entity @s[tag=${ns}-passenger-$(id)] run tag @s remove ${ns}-passenger-$(id)
+        $execute if entity @s[tag=${ns}-vehicle-$(id)] run tag @s remove ${ns}-vehicle-$(id)
+        data remove entity @s data.easyanimgroupids[0]
+        # Recursive call for multi-layered groups. Uses the fact that IDs can be a list now.
+        execute if data entity @s data.easyanimgroupids[0] run ${rideGroup} with entity @s data.easyanimgroupids[0]
+        execute if data entity @s data.easyanimgroupids[0] run ${removeGroupData} with entity @s data.easyanimgroupids[0]
+        execute unless data entity @s data.easyanimgroupids[0] run tag @s remove ${ns}-group
+        execute unless data entity @s data.easyanimgroupids[0] run data remove entity @s data.easyanimgroupids
+    `} with entity @s data.easyanimgroupids[0]
 `;
 
 // Define arrays that are built below.
@@ -187,16 +193,16 @@ mainDocileLoop`
     # Recursive, is called until temporary list docileSearch in animationData is empty. Goes through each animation and turns entities docile within each.
     ${recDocileSearch`
         # If this animation is not displayed anywhere, then there's no entities to be made docile. Skip to next animation.
-        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"none"}}]} run return run ${skipDocile}
+        execute if data storage ${ns}:temp docileSearch[0].data{location:"none"} run return run ${skipDocile}
         # Pull data and name into the new namespace so that functions work properly.
         data modify storage ${ns}:animation_data new set from storage ${ns}:temp docileSearch[0].data
         data modify storage ${ns}:animation_data new.name set from storage ${ns}:temp docileSearch[0].name
         # If we are in the "real world," we can run the normal grabSizeAnchor function to grab anchor coordinates and size in a macro data space.
-        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"anchor"}}]} run ${grabSizeAnchor}
+        execute if data storage ${ns}:temp docileSearch[0].data{location:"anchor"} run ${grabSizeAnchor}
         # If we are in the editor, we need to grab the eanchor and size of the first frame, as well as setup an incrementing variable to go between frames and a max variable to know when to stop searching (framecount)
         # return early and remove this frame from the search if location is editor but there's no frames in the animation.
-        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} unless data storage ${ns}:temp docileSearch[0].data.frames[0] run return run ${skipDocile}
-        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} run ${a`
+        execute if data storage ${ns}:temp docileSearch[0].data{location:"editor"} unless data storage ${ns}:temp docileSearch[0].data.frames[0] run return run ${skipDocile}
+        execute if data storage ${ns}:temp docileSearch[0].data{location:"editor"} run ${a`
             ${grabSizeAnchorEditor} {framenum:0}
             # Remove possibly trailing data.
             scoreboard objectives remove ${ns}-recDocile
@@ -206,7 +212,7 @@ mainDocileLoop`
             execute store result score totalframe ${ns}-recDocile run data get storage ${ns}:animation_data new.framecount
         `}
         # If we are rendering, we need the lanex to find the original world data to make docile. Grab the other default data for completing macros + size.
-        execute if data storage ${ns}:temp {docileSearch:[{data:{location:"render"}}]} run ${a`
+        execute if data storage ${ns}:temp docileSearch[0].data{location:"render"} run ${a`
             ${grabSizeAnchor}
             $${a`
                 $execute store result storage ${ns}:temp grabsizeanchor.ax int 48 run data get storage ${ns}:player_data players[{UUID: $(UUID)}].lane    
@@ -215,9 +221,9 @@ mainDocileLoop`
         # Use the newly placed macro data in ${ns}:temp grabsizeanchor to target select the entities.
         ${targetSelectInSelection`
             # If we are in the "real world," just execute once on the selection and turn those entities docile.
-            $execute if data storage ${ns}:temp {docileSearch:[{data:{location:"anchor"}}]} positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
+            $execute if data storage ${ns}:temp docileSearch[0].data{location:"anchor"} positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
             # If we are in the editor, we will execute within that dimension at the eanchor and specific frame size.
-            execute if data storage ${ns}:temp {docileSearch:[{data:{location:"editor"}}]} run ${a`
+            execute if data storage ${ns}:temp docileSearch[0].data{location:"editor"} run ${a`                
                 $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
                 # Clear grabsizeanchor for the next frame
                 data remove storage ${ns}:temp grabsizeanchor
@@ -232,7 +238,7 @@ mainDocileLoop`
             `} with storage ${ns}:temp grabsizeanchor
             # If the animation is currently being rendered, we let the renderer handle entities within the animation
             # But, we can still make the original entities now in the editor docile.
-            $execute if data storage ${ns}:temp {docileSearch:[{data:{location:"render"}}]} positioned $(ax) 0 0 align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
+            $execute if data storage ${ns}:temp docileSearch[0].data{location:"render"} positioned $(ax) 0 0 align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${turnEntityDocile}
         `} with storage ${ns}:temp grabsizeanchor
         # Remove trailing data.
         data remove storage ${ns}:temp grabsizeanchor

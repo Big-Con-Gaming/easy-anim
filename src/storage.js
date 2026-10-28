@@ -166,9 +166,9 @@ storeFrame`
         # Clear out previously stored entities from the animation_data
         $data modify storage ${ns}:animation_data new$(ref).entities set value []
         # Warn if no entities are found.
-        execute in ${ns}:editor positioned 0 0 -48 unless entity @e[type=!player,dx=47,dy=47,dz=47] run ${debug.warn} {input:"No entities within animation! Skipping in storage..."}
+        execute in ${ns}:editor positioned 0 0 -48 align xyz unless entity @e[type=!player,dx=47,dy=47,dz=47] run ${debug.warn} {input:"No entities within animation! Skipping in storage..."}
         # Executing as every entity within the frame, store them within the animation data.
-        execute in ${ns}:editor positioned 0 0 -48 as @e[type=!player,dx=47,dy=47,dz=47] at @s run ${a`
+        execute in ${ns}:editor positioned 0 0 -48 align xyz as @e[type=!player,dx=47,dy=47,dz=47] at @s run ${a`
             # Log the function call
             ${debug.run} {input: "storing an entity into animation data"}
             # Store the entity's Z into scoreboard (scaled up to preserve 2 decimal places)
@@ -222,7 +222,7 @@ retrieveFrame`
         ${debug.path} {input: "-> | cleanKill"}
         $execute in ${ns}:editor store success score frameExistenceCheck ${ns}-retrieveframe run place template ${ns}:$(name)-$(prefix) 0 0 -48 none none 1 1 strict
         # Kill off any entities and clear any blocks
-        execute in ${ns}:editor positioned 0 0 -48 as @e[type=!player,dx=47,dy=47,dz=47] run ${cleanKill}
+        execute in ${ns}:editor positioned 0 0 -48 align xyz as @e[type=!player,dx=47,dy=47,dz=47] run ${cleanKill}
         execute in ${ns}:editor run fill 0 0 -48 47 47 -1 minecraft:air strict
     `} with storage ${ns}:temp retrieveframe
     # If the placement succeeded, warn and exit (and clean data.)
@@ -257,9 +257,9 @@ retrieveFrame`
             # Log the function call
             $${debug.run} {input: "recRetrieveEntities for $(id)"}
             # Place the stored entity's position into scoreboards
-            execute store result score entz ${ns}-retrieveframe run data get storage ${ns}:temp retrieveframe.entities[0].Pos[2]
+            execute store result score entz ${ns}-retrieveframe run data get storage ${ns}:temp retrieveframe.entities[0].Pos[2] 1000
             # Summon in the new entity
-            $execute in ${ns}:editor positioned 0 0 -48 summon $(id) run ${a`
+            $execute in ${ns}:editor positioned 0 0 -48 align xyz summon $(id) run ${a`
                 # Log the function call
                 ${debug.run} {input: "placing and configuring entity"}
                 # Remove no longer necessary remaining data
@@ -267,7 +267,8 @@ retrieveFrame`
                 # Merge the remaining data onto the entity
                 data modify entity @s {} merge from storage ${ns}:temp retrieveframe.entities[0]
                 # Place the entity at the correct position.
-                execute store result entity @s Pos[2] int 1 run scoreboard players remove entz ${ns}-retrieveframe 48
+                scoreboard players remove entz ${ns}-retrieveframe 48000
+                execute store result entity @s Pos[2] double 0.001 run scoreboard players get entz ${ns}-retrieveframe
                 data modify entity @s Rotation set from storage ${ns}:temp retrieveframe.entities[0].Rotation
             `}
             # Remove the entity's data from the temporary list.
@@ -293,7 +294,7 @@ retrieveFrame`
         # Remove the structure block
         execute in ${ns}:editor run setblock 0 48 -48 minecraft:air strict
         # Kill off the entities
-        execute in ${ns}:editor positioned 0 0 -48 as @e[dx=47,dy=47,dz=47] run ${cleanKill}
+        execute in ${ns}:editor positioned 0 0 -48 align xyz as @e[dx=47,dy=47,dz=47] run ${cleanKill}
         # Remove the leftover blocks
         execute in ${ns}:editor run fill 0 0 -48 47 47 -1 minecraft:air strict
     `} with storage ${ns}:temp retrieveframe
