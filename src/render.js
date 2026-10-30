@@ -17,7 +17,10 @@ const ns = 'easy-anim';
 
 // Starts the render for an animation. This will take place inside the animation's dimension, at the animation's anchor.
 // Expects the player to be outside of the editor, and to have this animation as their currentAnim.
-startRender`
+
+const startRenderCommands = [];
+
+startRenderCommands.push(`
     # Log the function call
     ${debug.run} {input:"startRender"}
     # Log the expected function path
@@ -45,10 +48,22 @@ startRender`
     data modify storage ${ns}:temp str.UUID set from entity @s UUID
     # Place name into the macro namespace
     data modify storage ${ns}:temp str.name set from storage ${ns}:animation_data new.name
+`);
+
+function sxToShx ({axis}) {
+    return`
+        execute store result score sh${axis} ${ns}-render run data get storage ${ns}:temp str.s${axis}
+        execute store result storage ${ns}:temp str.sh${axis} int 1 run scoreboard players remove sh${axis} ${ns}-render 1
+    `
+}
+
+startRenderCommands.push(...axis.map(sxToShx));
+
+startRenderCommands.push(`
     # NOTE TO FUTURE SELF: If size ever changes between frames, we'll need to calculate the largest frame size and store that, instead of base.
     ${a`
         # Log the function call
-        $${debug.run} {input: "move original stuff at $(x) $(y) $(z) in $(dimension) with size $(sx) $(sy) $(sz) for $(name), storing original block at $(lanex) 0 0 for $(UUID)"}
+        $${debug.run} {input: "move original stuff at $(x) $(y) $(z) in $(dimension) with size $(sx) $(sy) $(sz) ($(shx) $(shy) $(shz) for blocks) for $(name), storing original block at $(lanex) 0 0 for $(UUID)"}
         # Forceload the entire region that this frame can be inside of.
         $execute in ${ns}:editor positioned $(lanex) 0 0 run forceload add ~ ~ ~47 ~47
         # Forceload the entire animation just in case
@@ -80,7 +95,7 @@ startRender`
         # Place the original stuff in the editor
         $execute in ${ns}:editor run place template ${ns}:$(name)-original $(lanex) 16 0 none none 1 1 strict
         # tag all entities currently in the frame so they'll be removed.
-        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz)] run tag @s add ${ns}-render
+        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run tag @s add ${ns}-render
         # The iterative frame render command will handle clearing previous frames, so now we have to set up for that.
         # Set up the counter scoreboard for the frame number that's currently being rendered (-1 so it will render frame 0)
         $scoreboard players set #$(name)_frame ${ns} -1
@@ -92,7 +107,9 @@ startRender`
     # Clean up data and save all changes
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     data remove storage ${ns}:temp str
-`;
+`);
+
+startRender(startRenderCommands.join('\n'));
 
 // Checks through the render_queue to see which animations need to render their next frames, and executes those if so.
 // Ran within tick, so all logs commands are commented out.
@@ -189,16 +206,16 @@ specificFrameRenderCommands.push(`
     # Execute within a macro to utilize coordinates.
     ${a`
         # Log the function call.
-        $${debug.run} {input: "changing frame for $(framenum) in $(dimension) at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(UUID), camera at $(camerax) $(cameray) $(cameraz) $(camerayaw) $(camerapitch) showing note $(cameranote)"}
+        $${debug.run} {input: "changing frame for $(framenum) in $(dimension) at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) ($(shx) $(shy) $(shz) for blocks) for $(UUID), camera at $(camerax) $(cameray) $(cameraz) $(camerayaw) $(camerapitch) showing note $(cameranote)"}
         # Clear all remaining blocks and entities from old frame (using this frame's size coordinates because we want any differing size changes to remain)
-        $execute in $(dimension) positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-render] run ${cleanKill}
-        $execute in $(dimension) positioned $(ax) $(ay) $(az) align xyz run fill ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) minecraft:air strict
+        $execute in $(dimension) positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz), tag=${ns}-render] run ${cleanKill}
+        $execute in $(dimension) positioned $(ax) $(ay) $(az) align xyz run fill ~ ~ ~ ~$(shx) ~$(shy) ~$(shz) minecraft:air strict
         # Retreive the frame from storage in case it is unloaded
         $${retrieveFrame} {framenum: $(framenum)}
         # Place the frame down from the structure
         $execute in $(dimension) run place template ${ns}:$(name)-frame$(framenum) $(ax) $(ay) $(az) none none 1 1 strict
         # Modify the data of all of the entities so that they won't move and they'll have the ${ns}-render tag
-        $execute in $(dimension) positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz)] run ${a`
+        $execute in $(dimension) positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${a`
             data modify entity @s NoAI set value true
             tag @s add ${ns}-render
         `}
@@ -223,7 +240,10 @@ specificFrameRender(specificFrameRenderCommands.join('\n'));
 // Exits the render by replacing all of the data to how it was before rendering.
 // Name is passed in by a macro, this is executed by specificFrameRender so animation_data new is already set.
 // We also have a score to handle, framecount in ${ns}-render
-exitRender`
+
+const exitRenderCommands = [];
+
+exitRenderCommands.push(`
     # Log the function call.
     $${debug.run} {input:"exitRender for $(name)"}
     # Log the expected function path
@@ -231,6 +251,8 @@ exitRender`
     # remove possibly trailing data
     data remove storage ${ns}:temp str
     scoreboard objectives remove ${ns}-render
+    # Add the render objective
+    scoreboard objectives add ${ns}-render dummy
     # Pull animation data if it is missing
     $execute unless data storage ${ns}:animation_data new run ${grabAnimationData} {currentAnim: $(name)}
     # Structure block save the anchor location in the overworld
@@ -240,22 +262,28 @@ exitRender`
     data modify storage ${ns}:temp str.name set from storage ${ns}:animation_data new.name
     # Place the player's UUID into macro storage.
     $data modify storage ${ns}:temp str.UUID set from storage ${ns}:animation_data render_queue[{name: $(name)}].player
+    # Quickly calculate shx shy shz for the fill command below.
+`);
+
+exitRenderCommands.push(...axis.map(sxToShx));
+
+exitRenderCommands.push(`
     ${a`
         # Log function call
-        $${debug.run} {input: "replace original stuff at $(x) $(y) $(z) in $(dimension) within $(sx) $(sy) $(sz) for $(name), pulling blocks from $(lanex) 0 0 for $(UUID)"}
+        $${debug.run} {input: "replace original stuff at $(x) $(y) $(z) in $(dimension) within $(sx) $(sy) $(sz) ($(shx) $(shy) $(shz) for blocks) for $(name), pulling blocks from $(lanex) 0 0 for $(UUID)"}
         # Clear remaining blocks and entities once again
-        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-render] run ${cleanKill}
-        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 align xyz run fill ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) minecraft:air strict
+        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz), tag=${ns}-render] run ${cleanKill}
+        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 align xyz run fill ~ ~ ~ ~$(shx) ~$(shy) ~$(shz) minecraft:air strict
         # Grab all of the blocks from the editor and store them into a structure
         $execute in ${ns}:editor run setblock $(lanex) 15 0 minecraft:structure_block{mode:"SAVE",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-original",strict:true} strict
         # Make sure all of these entities are not docile.
-        $execute in ${ns}:editor positioned $(lanex) 16 0 align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] run ${removeDocile}
+        $execute in ${ns}:editor positioned $(lanex) 16 0 align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz), tag=${ns}-entity-turned-docile] run ${removeDocile}
         # Warn if powering this structure block is replacing a non-air block
         $execute in ${ns}:editor unless block $(lanex) 14 0 minecraft:air run ${debug.warn} {input: "Expected air at $(lanex) 15 0! Replacing..."}
         $execute in ${ns}:editor run setblock $(lanex) 14 0 minecraft:redstone_block
         $execute in ${ns}:editor run setblock $(lanex) 14 0 minecraft:air strict
         # Remove the blocks and entities from the editor
-        $execute in ${ns}:editor positioned $(lanex) 16 0 align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz)] run ${cleanKill}
+        $execute in ${ns}:editor positioned $(lanex) 16 0 align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz)] run ${cleanKill}
         $execute in ${ns}:editor positioned $(lanex) 16 0 run fill ~ ~ ~ ~47 ~47 ~47 minecraft:air strict
         # Remove the glass holding up the original blocks
         $execute in ${ns}:editor positioned $(lanex) 15 0 run fill ~ ~ ~ ~47 ~ ~47 minecraft:air strict
@@ -284,4 +312,6 @@ exitRender`
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     data remove storage ${ns}:temp str
     scoreboard objectives remove ${ns}-render
-`;
+`);
+
+exitRender(exitRenderCommands.join('\n'));

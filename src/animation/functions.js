@@ -111,9 +111,9 @@ clearSpecificFrameCommands.push(`
         $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run fill ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) minecraft:air strict
     `} with storage ${ns}:temp csf
     # Warn if there are no entites to kill.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz unless entity @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] run ${debug.warn} {input: "No entities within frame! Skipping..."}
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz unless entity @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz), tag=${ns}-entity-turned-docile] run ${debug.warn} {input: "No entities within frame! Skipping..."}
     # Kill all entities within the area, using cleanKill to make sure nothing is left behind.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] run ${cleanKill}
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz), tag=${ns}-entity-turned-docile] run ${cleanKill}
     # Place name into macro storage for future use.
     $data modify storage ${ns}:temp csf.name set value $(name)
     # Warn if there's no structure block to remove.
@@ -343,7 +343,7 @@ addNewFrame`
         $execute in ${ns}:editor positioned $(tx) 0 $(tz) run setblock ~1 ~ ~ minecraft:redstone_block
         $execute in ${ns}:editor positioned $(tx) 0 $(tz) run setblock ~1 ~ ~ minecraft:air
         # Make the new entities docile (so that recMoveFrames can target it to teleport) (only if base, since if duplicating we're only saving the target)
-        $execute if score basecheck ${ns}-anf matches 0 in ${ns}:editor positioned $(tx) 0 $(tz) align xyz as @e[dx=$(sx), dy=$(sy), dz=$(sz), type=!minecraft:player] run ${turnEntityDocile}
+        $execute if score basecheck ${ns}-anf matches 0 in ${ns}:editor positioned $(tx) 0 $(tz) align xyz as @e[dx=$(shx), dy=$(shy), dz=$(shz), type=!minecraft:player] run ${turnEntityDocile}
         # Set back into LOAD mode for visual bounding box toggle. (If duplicating, this has to go back to the targetframe num)
         $execute if score basecheck ${ns}-anf matches 0 in ${ns}:editor run setblock $(tx) 0 $(tz) minecraft:structure_block{mode:"LOAD",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
         $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor run setblock $(tx) 0 $(tz) minecraft:structure_block{mode:"LOAD",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(targetframe)",strict:true}
@@ -359,7 +359,7 @@ addNewFrame`
         $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor unless block $(x) 0 $(z) minecraft:air run ${debug.warn} {input: "Non-air block at $(x) 0 $(z)! Overwriting with structure block..."}
         $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor run setblock $(x) 0 $(z) minecraft:structure_block{mode:"LOAD",showboundingbox:false,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
         # make entities docile,
-        $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor positioned $(x) 0 $(z) align xyz as @e[dx=$(sx), dy=$(sy), dz=$(sz), type=!minecraft:player] run ${turnEntityDocile}
+        $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor positioned $(x) 0 $(z) align xyz as @e[dx=$(shx), dy=$(shy), dz=$(shz), type=!minecraft:player] run ${turnEntityDocile}
         # regroup them,
         $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor positioned $(x) 1 $(z) align xyz run ${regroupEntities} with storage ${ns}:temp anf
         # Unforceload

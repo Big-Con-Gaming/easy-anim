@@ -83,20 +83,6 @@ grabSizeAnchorEditor`${grabSizeAnchorEditorCommands.join('\n')}`;
 // Takes the anchor position and subtracts 1 to find the structure block location. Also tosses some information into the same storage for macros (size)
 const grabStrBlockPosCommands = [];
 
-function calculategrabStrBlockPosCommands({axis, i}) {
-    return`
-        # Take anchor out of storge and subtract one on all axis (position of structure block)
-        execute store result score str${axis} ${ns}-calculategrabStrBlockPosCommands run data get storage ${ns}:animation_data new.anchor[${i}] 1
-        scoreboard players remove str${axis} ${ns}-calculategrabStrBlockPosCommands 1
-        # Toss the structure block coordinates into a temporary storage to be macroed into the command.
-        execute store result storage ${ns}:temp str.${axis} int 1 run scoreboard players get str${axis} ${ns}-calculategrabStrBlockPosCommands
-        # Toss the size of the selection into a temporary storage to be macroed into the command.
-        execute if data storage ${ns}:animation_data new.size[${i}] run data modify storage ${ns}:temp str.s${axis} set from storage ${ns}:animation_data new.size[${i}]
-        # Give size an initial value of 1 (in case there isn't one set yet, in case there's only the anchor selected)
-        execute unless data storage ${ns}:animation_data new.size[${i}] run data modify storage ${ns}:temp str.s${axis} set value 1
-    `;
-}
-
 // Set up temporary scoreboard
 grabStrBlockPosCommands.push(`
     # Log the function call
@@ -111,6 +97,20 @@ grabStrBlockPosCommands.push(`
     # Grab dimension from the animation data to toss into temp storage for removing the structure block later.
     data modify storage ${ns}:temp str.dimension set from storage ${ns}:animation_data new.dimension
 `);
+
+function calculategrabStrBlockPosCommands({axis, i}) {
+    return`
+        # Take anchor out of storge and subtract one on all axis (position of structure block)
+        execute store result score str${axis} ${ns}-calculategrabStrBlockPosCommands run data get storage ${ns}:animation_data new.anchor[${i}] 1
+        scoreboard players remove str${axis} ${ns}-calculategrabStrBlockPosCommands 1
+        # Toss the structure block coordinates into a temporary storage to be macroed into the command.
+        execute store result storage ${ns}:temp str.${axis} int 1 run scoreboard players get str${axis} ${ns}-calculategrabStrBlockPosCommands
+        # Toss the size of the selection into a temporary storage to be macroed into the command.
+        execute if data storage ${ns}:animation_data new.size[${i}] run data modify storage ${ns}:temp str.s${axis} set from storage ${ns}:animation_data new.size[${i}]
+        # Give size an initial value of 1 (in case there isn't one set yet, in case there's only the anchor selected)
+        execute unless data storage ${ns}:animation_data new.size[${i}] run data modify storage ${ns}:temp str.s${axis} set value 1
+    `;
+}
 
 // Add axis-specific commands from function above.
 grabStrBlockPosCommands.push(...axis.map(calculategrabStrBlockPosCommands));

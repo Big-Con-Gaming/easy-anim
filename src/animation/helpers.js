@@ -130,13 +130,13 @@ recMoveFrames`
     # Remove the old structure block.
     $execute positioned $(ax) $(ay) $(az) if block ~ ~-1 ~ minecraft:structure_block run setblock ~ ~-1 ~ minecraft:air strict
     # Clone the frames over the difference of the size of the removed frame's z axis. Must be done twice since source and destination areas cannot overlap.
-    $execute positioned $(ax) $(ay) $(az) run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) 0 1 -48 strict masked move
-    $execute positioned 0 1 -48 run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) 0 1 $(newz) strict masked move
+    $execute positioned $(ax) $(ay) $(az) run clone ~ ~ ~ ~$(shx) ~$(shy) ~$(shz) 0 1 -48 strict masked move
+    $execute positioned 0 1 -48 run clone ~ ~ ~ ~$(shx) ~$(shy) ~$(shz) 0 1 $(newz) strict masked move
     # Ungroup all entities so that teleporting them doesn't erase who goes with who
     $data modify storage ${ns}:temp $(namespace).id set value 0
     $execute positioned $(ax) $(ay) $(az) align xyz run ${recSplitGroups} with storage ${ns}:temp $(namespace)
     # Teleport all entities in subsequent frames backwards by the size of the removed frame's z axis.
-    $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] at @s run tp @s ~ ~ ~$(neg)$(diff)
+    $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz), tag=${ns}-entity-turned-docile] at @s run tp @s ~ ~ ~$(neg)$(diff)
     # Regroup all entities.
     $execute positioned $(ax) $(ay) $(az) positioned ~ ~ ~$(neg)$(diff) align xyz run ${regroupEntities} with storage ${ns}:temp $(namespace)
     # Warn if the structure block will replace a non-air block
@@ -253,6 +253,8 @@ moveFrameCommands.push(`
 function createMoveFrame({axis, i}) {
     return`
         data modify storage ${ns}:temp moveFrame.frameData.s${axis} set from storage ${ns}:temp moveFrame.frameData.size[${i}]
+        execute store result score s${axis} ${ns}-mf run data get storage ${ns}:temp moveFrame.frameData.s${axis}
+        execute store result storage ${ns}:temp moveFrame.frameData.sh${axis} int 1 run scoreboard players remove s${axis} ${ns}-mf 1
         data modify storage ${ns}:temp moveFrame.frameData.a${axis} set from storage ${ns}:temp moveFrame.frameData.eanchor[${i}]
         data modify storage ${ns}:temp moveFrame.frameData.ta${axis} set from storage ${ns}:temp moveFrame.frameDataTarget.eanchor[${i}]
     `;
@@ -276,9 +278,9 @@ moveFrameCommands.push(`
         # Ungroup entities at framenum
         $execute positioned $(ax) $(ay) $(az) align xyz run ${recSplitGroups} with storage ${ns}:temp moveFrame.frameData
         # Clone move the blocks over to the new location
-        $execute positioned $(ax) $(ay) $(az) run clone ~ ~-1 ~ ~$(sx) ~$(sy) ~$(sz) ~ ~-1 ~$(diff) masked move
+        $execute positioned $(ax) $(ay) $(az) run clone ~ ~-1 ~ ~$(shx) ~$(shy) ~$(shz) ~ ~-1 ~$(diff) masked move
         # teleport all entities
-        $execute positioned $(ax) $(ay) $(az) align xyz as @e[tag=${ns}-entity-turned-docile,dx=$(sx), dy=$(sy), dz=$(sz)] at @s run tp @s ~ ~ ~$(diff)
+        $execute positioned $(ax) $(ay) $(az) align xyz as @e[tag=${ns}-entity-turned-docile,dx=$(shx), dy=$(shy), dz=$(shz)] at @s run tp @s ~ ~ ~$(diff)
         # Regroup the entities
         $execute positioned $(tax) $(tay) $(taz) align xyz run ${regroupEntities} with storage ${ns}:temp moveFrame.frameData
         # Renumber the frame in data

@@ -22,7 +22,7 @@ const ns = 'easy-anim';
 // Modifies all data needed to make the given frame selected
 selectFrame`
     # Log the function call
-    $${debug.run} {input: "selectFrame for frame $(framenum) at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz)"}
+    $${debug.run} {input: "selectFrame for frame $(framenum) at $(ax) $(ay) $(az) difference $(shx) $(shy) $(shz)"}
     # Warn if the frame is already selected
     $execute if data storage ${ns}:animation_data new.frames[$(framenum)].selected run ${debug.warn} {input: "Frame is already selected! Running anyway..."}
     # Set the frame's selected value to true.
@@ -32,13 +32,13 @@ selectFrame`
     # Make the bounding box visible.
     $execute positioned $(ax) $(ay) $(az) run data modify block ~ ~-1 ~ showboundingbox set value true
     # tag all entities from being selected.
-    $execute positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=!${ns}-selected] add ${ns}-selected
+    $execute positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz), tag=!${ns}-selected] add ${ns}-selected
 `;
 
 // Modifies all data needed to make the given frame deselected
 deselectFrame`
     # Log the function call
-    $${debug.run} {input: "deselectFrame for frame $(framenum) at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz)"}
+    $${debug.run} {input: "deselectFrame for frame $(framenum) at $(ax) $(ay) $(az) difference $(shx) $(shy) $(shz)"}
     # Warn if the frame isn't selected
     $execute unless data storage ${ns}:animation_data new.frames[$(framenum)].selected run ${debug.warn} {input: "Frame isn't selected! Running anyway..."}
     # Set the frame's selected value to false.
@@ -48,7 +48,7 @@ deselectFrame`
     # Make the bounding box invisible.
     $execute positioned $(ax) $(ay) $(az) run data modify block ~ ~-1 ~ showboundingbox set value false
     # Untag all entities from being selected.
-    $execute positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-selected] remove ${ns}-selected
+    $execute positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz), tag=${ns}-selected] remove ${ns}-selected
 `;
 
 // Toggles the selection state of the provided frame number.

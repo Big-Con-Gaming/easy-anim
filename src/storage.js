@@ -54,6 +54,8 @@ const grabSizeNamespaceBaseCommands = [];
 function createGrabSizeNamespaceBase({axis, i}) {
     return`
         $data modify storage ${ns}:temp $(namespace).s${axis} set from storage ${ns}:animation_data new.size[${i}]
+        $execute store result score sizeShrink${axis} ${ns}-$(namespace) run data get storage ${ns}:temp $(namespace).s${axis}
+        $execute store result storage ${ns}:temp $(namespace).sh${axis} int 1 run scoreboard players remove sizeShrink${axis} ${ns}-$(namespace) 1
     `;
 }
 
@@ -357,7 +359,7 @@ storeFrameInTemp`
         # Forceload the temporary location
         $execute in ${ns}:storage positioned $(x) 0 -96 run forceload add ~ ~ ~47 ~47
         # Clone blocks over
-        $execute in ${ns}:storage positioned $(x) 0 $(z) run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) $(x) 0 -96
+        $execute in ${ns}:storage positioned $(x) 0 $(z) run clone ~ ~ ~ ~$(shx) ~$(shy) ~$(shz) $(x) 0 -96
         # Clone entity data
         $data modify storage ${ns}:animation_data storetemp.$(name).entities set from storage ${ns}:animation_data new.frames[$(framenum)].entities
         # Place anything in data location just in case there are no entities the temp data check above will still hit
@@ -393,7 +395,7 @@ retrieveFrameFromTemp`
         # Forceload the temporary location
         $execute in ${ns}:storage positioned $(x) 0 -96 run forceload add ~ ~ ~47 ~47
         # Clone blocks over
-        $execute in ${ns}:storage positioned $(x) 0 -96 run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) $(x) 0 $(z)
+        $execute in ${ns}:storage positioned $(x) 0 -96 run clone ~ ~ ~ ~$(shx) ~$(shy) ~$(shz) $(x) 0 $(z)
         # Clone entity data (if it exists)
         $execute if data storage ${ns}:animation_data storetemp.$(name).entities run data modify storage ${ns}:animation_data new.frames[$(framenum)].entities set from storage ${ns}:animation_data storetemp.$(name).entities
     `} with storage ${ns}:temp retrievetemp
