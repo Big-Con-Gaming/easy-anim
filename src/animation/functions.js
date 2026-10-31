@@ -168,11 +168,11 @@ clearSpecificFrame(clearSpecificFrameCommands.join('\n'));
 // Needs this input from a macro: a[x, y, z] = anchor coordinates, s[x, y, z] = size parameters, name = animation name, framenum = frame number.
 loadSpecificFrame`
     # Log the function call
-    $${debug.run} {input: "loadSpecificFrame at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(name) frame $(framenum)"}
+    $${debug.run} {input: "loadSpecificFrame at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) ($(shx) $(shy) $(shz)) for $(name) frame $(framenum)"}
     # Log the expected function path.
     ${debug.path} {input: "-> clearSpecificFrame -> retrieveFrame -> regroupEntities"}
     # First, clear the specific frame so that there are no overlapping entities or blocks.
-    $${clearSpecificFrame} {name: $(name), framenum: $(framenum), ax: $(ax), ay: $(ay), az: $(az), sx: $(sx), sy: $(sy), sz: $(sz)}
+    $${clearSpecificFrame} {name: $(name), framenum: $(framenum), ax: $(ax), ay: $(ay), az: $(az), sx: $(sx), sy: $(sy), sz: $(sz), shx: $(shx), shy: $(shy), shz: $(shz)}
     # Retrieve structure data in case it was unloaded.
     $${retrieveFrame} {framenum: $(framenum)}
     # Place the frame's structure in.
@@ -182,9 +182,9 @@ loadSpecificFrame`
     # Place in the structure block.
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"LOAD",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
     # Tag all of the entities with selected.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-selected] add ${ns}-selected
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player,dx=$(shx),dy=$(shy),dz=$(shz),tag=!${ns}-selected] add ${ns}-selected
     # Regroup all grouped entities
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run ${regroupEntities} {sx: $(sx), sy: $(sy), sz: $(sz)}
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run ${regroupEntities} {sx: $(shx), sy: $(shy), sz: $(shz)}
 `;
 
 // Sets the duration for every given frame (typically selected) based on the duration specified in the carryover information (${ns}:temp carryover.duration)
@@ -200,6 +200,9 @@ const grabFromRefCommands = [];
 grabFromRefCommands.push(`
     # Log the function call
     $${debug.run} {input: "grabFromRef from $(ref)"}
+    # Remove possibly trailing data
+    scoreboard objectives remove ${ns}-gfr
+    scoreboard objectives add ${ns}-gfr dummy
     # Using ref, place all needed data into temporary storage.
     # Size
 `);
@@ -207,6 +210,8 @@ grabFromRefCommands.push(`
 function createGrabFromRef({axis, i}) {
     return`
         $data modify storage ${ns}:temp anf.s${axis} set from storage ${ns}:animation_data new.$(ref)size[${i}]
+        execute store result score sh${axis} ${ns}-gfr run data get storage ${ns}:temp anf.s${axis}
+        execute store result storage ${ns}:temp anf.sh${axis} int 1 run scoreboard players remove sh${axis} ${ns}-gfr 1
     `;
 }
 
@@ -221,6 +226,8 @@ grabFromRefCommands.push(`
     # Target x and z for duplicating frame (not used with base frame)
     $execute if score basecheck ${ns}-anf matches 1 run data modify storage ${ns}:temp anf.tx set from storage ${ns}:animation_data new.$(ref)eanchor[0]
     $execute if score basecheck ${ns}-anf matches 1 run data modify storage ${ns}:temp anf.tz set from storage ${ns}:animation_data new.$(ref)eanchor[2]
+    # Remove trailing data
+    scoreboard objectives remove ${ns}-gfr
 `);
 
 grabFromRef(grabFromRefCommands.join('\n'));
@@ -411,6 +418,8 @@ function createPullTargetFrameData({axis, i}) {
     return`
         data modify storage ${ns}:temp msf.ta${axis} set from storage ${ns}:temp msf.targetdata.eanchor[${i}]
         data modify storage ${ns}:temp msf.ts${axis} set from storage ${ns}:temp msf.targetdata.size[${i}]
+        execute store result score tsh${axis} ${ns}-msf run data get storage ${ns}:temp msf.ts${axis}
+        execute store result storage ${ns}:temp msf.tsh${axis} int 1 run scoreboard players remove tsh${axis} ${ns}-msf 1
     `;
 }
 
@@ -442,10 +451,7 @@ moveSelectedFrames`
     $data modify storage ${ns}:temp msf merge from storage ${ns}:animation_data new.frames[$(framenum)]
     # Store the framenum (in storage and...) and offset and target # into the scoreboard (probably could grab them from grabsizeanchor storage...)
     $execute store result storage ${ns}:temp msf.framenum int 1 run scoreboard players set framenum ${ns}-msf $(framenum)
-    execute store result score offset ${ns}-msf store result score target ${ns}-msf run data get storage ${ns}:temp carryover.offset
-    
-    ${debug.info} {source:"storage", path:"carryover", location:"${ns}:temp"}
-    
+    execute store result score offset ${ns}-msf store result score target ${ns}-msf run data get storage ${ns}:temp carryover.offset    
     # Calculate the target frame by adding framenum and target together.
     scoreboard players operation target ${ns}-msf += framenum ${ns}-msf
     # Store this target frame into storage for other functions to use.
@@ -454,20 +460,20 @@ moveSelectedFrames`
     ${pullTargetFrameData} with storage ${ns}:temp msf
     ${a`
         # Log the function call
-        $${debug.run} {input: "moving target temporarily, from $(tax) $(tay) $(taz) with size $(tsx) $(tsy) $(tsz)"}
+        $${debug.run} {input: "moving target temporarily, from $(tax) $(tay) $(taz) with size $(tsx) $(tsy) $(tsz) ($(tshx) $(tshy) $(tshz))"}
         # Forceload the target frame area and the temporary area. (Possible optimization where we only forceload area bounded by size, but that also adds more macro inserts so.)
         $execute positioned $(tax) $(tay) $(taz) run forceload add ~ ~ ~47 ~47
         execute positioned 0 0 -96 run forceload add ~ ~ ~47 ~47
         # Use this data to ungroup entities at target frame
-        $execute positioned $(tax) $(tay) $(taz) align xyz run ${recSplitGroups} {sx: $(tsx), sy: $(tsy), sz: $(tsz), id: 0}
+        $execute positioned $(tax) $(tay) $(taz) align xyz run ${recSplitGroups} {sx: $(tshx), sy: $(tshy), sz: $(tshz), id: 0}
         # Clone the blocks at target frame to a temporary location
         # You'll need to grab target frame data to then move them to a place that is different from 0 -48 actually since other functions we'll run will use that region.)
-        $execute positioned $(tax) $(tay) $(taz) run clone ~ ~ ~ ~$(tsx) ~$(tsy) ~$(tsz) 0 0 -96 masked move
+        $execute positioned $(tax) $(tay) $(taz) run clone ~ ~ ~ ~$(tshx) ~$(tshy) ~$(tshz) 0 0 -96 masked move
         # remove the old structure block (warn if not structure block)
         $execute positioned $(tax) $(tay) $(taz) unless block ~ ~-1 ~ minecraft:structure_block run ${debug.warn} {input: "non-structure block found at target's structure block location! Clearing..."}
         $execute positioned $(tax) $(tay) $(taz) run setblock ~ ~-1 ~ minecraft:air
         # Teleport all entities at target frame to this temporary location
-        $execute positioned $(tax) $(tay) $(taz) align xyz as @e[tag=${ns}-entity-turned-docile,dx=$(tsx), dy=$(tsy), dz=$(tsz)] at @s run tp @s ~ ~ ~-$(difftotemp)
+        $execute positioned $(tax) $(tay) $(taz) align xyz as @e[tag=${ns}-entity-turned-docile,dx=$(tshx), dy=$(tshy), dz=$(tshz)] at @s run tp @s ~ ~ ~-$(difftotemp)
         # Unforceload the target frame area and the temporary area.
         $execute positioned $(tax) $(tay) $(taz) run forceload remove ~ ~ ~47 ~47
         execute positioned 0 0 -96 run forceload remove ~ ~ ~47 ~47
@@ -539,7 +545,7 @@ moveSelectedFrames`
         $execute positioned $(tax) $(tay) $(newtaz) run forceload add ~ ~ ~47 ~47
         execute positioned 0 0 -96 run forceload add ~ ~ ~47 ~47
         # Clone the blocks over
-        $execute positioned 0 0 -96 run clone ~ ~ ~ ~$(tsx) ~$(tsy) ~$(tsz) $(tax) $(tay) $(newtaz) masked move
+        $execute positioned 0 0 -96 run clone ~ ~ ~ ~$(tshx) ~$(tshy) ~$(tshz) $(tax) $(tay) $(newtaz) masked move
         # Teleport the entities over
         $execute positioned 0 0 -96 as @e[tag=${ns}-entity-turned-docile,dx=$(tsx), dy=$(tsy), dz=$(tsz)] at @s run tp @s ~ ~ ~$(difffromtemp)
         # Regroup entities

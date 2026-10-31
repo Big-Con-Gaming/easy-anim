@@ -180,6 +180,8 @@ function createPullAnchorSizeExit({axis, i}) {
     return`
         data modify storage ${ns}:temp exit.a${axis} set from storage ${ns}:temp exit.frames[0].eanchor[${i}]
         data modify storage ${ns}:temp exit.s${axis} set from storage ${ns}:temp exit.frames[0].size[${i}]
+        execute store result score sh${axis} ${ns}-exit run data get storage ${ns}:temp exit.s${axis}
+        execute store result storage ${ns}:temp exit.sh${axis} int 1 run scoreboard players remove sh${axis} ${ns}-exit 1
     `;
 }
 
@@ -203,6 +205,8 @@ exitCommands.push(`
     execute unless entity @s[tag=${ns}-inEditor] run ${debug.warn} {input: "Player is missing inEditor tag! Continuing anyway..."} 
     # Remove possibly trailing data.
     data remove storage ${ns}:temp exit
+    scoreboard objectives remove ${ns}-exit
+    scoreboard objectives add ${ns}-exit dummy
     # Grab animation data using UUID.
     $${grabAnimationFromUuid} {UUID:$(UUID)}
     # Warn if the animation has no frames.
@@ -265,6 +269,7 @@ exitCommands.push(`
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     # Remove trailing data.
     data remove storage ${ns}:temp exit
+    scoreboard objectives remove ${ns}-exit
 `);
 
 exit(exitCommands.join('\n'));

@@ -68,6 +68,9 @@ const grabSizeNamespaceFrameCommands = [];
 function createGrabSizeNamespaceFrame({axis, i}) {
     return`
         $data modify storage ${ns}:temp $(namespace).s${axis} set from storage ${ns}:animation_data new.frames[$(framenum)].size[${i}]
+        $execute store result score sizeShrink${axis} ${ns}-$(namespace) run data get storage ${ns}:temp $(namespace).s${axis}
+        $execute store result storage ${ns}:temp $(namespace).sh${axis} int 1 run scoreboard players remove sizeShrink${axis} ${ns}-$(namespace) 1
+
     `;
 }
 

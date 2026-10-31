@@ -91,6 +91,8 @@ function createPullNextFrameData({axis, i}) {
     `;
 }
 
+// THIS NAMING CONVENTION IS BAD: Shx is usually size - 1, but for some reason above these are FLIPPED.
+
 pullNextFrameDataCommands.push(...axis.map(createPullNextFrameData));
 
 pullNextFrameDataCommands.push(`
@@ -130,13 +132,13 @@ recMoveFrames`
     # Remove the old structure block.
     $execute positioned $(ax) $(ay) $(az) if block ~ ~-1 ~ minecraft:structure_block run setblock ~ ~-1 ~ minecraft:air strict
     # Clone the frames over the difference of the size of the removed frame's z axis. Must be done twice since source and destination areas cannot overlap.
-    $execute positioned $(ax) $(ay) $(az) run clone ~ ~ ~ ~$(shx) ~$(shy) ~$(shz) 0 1 -48 strict masked move
-    $execute positioned 0 1 -48 run clone ~ ~ ~ ~$(shx) ~$(shy) ~$(shz) 0 1 $(newz) strict masked move
+    $execute positioned $(ax) $(ay) $(az) run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) 0 1 -48 strict masked move
+    $execute positioned 0 1 -48 run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) 0 1 $(newz) strict masked move
     # Ungroup all entities so that teleporting them doesn't erase who goes with who
     $data modify storage ${ns}:temp $(namespace).id set value 0
     $execute positioned $(ax) $(ay) $(az) align xyz run ${recSplitGroups} with storage ${ns}:temp $(namespace)
     # Teleport all entities in subsequent frames backwards by the size of the removed frame's z axis.
-    $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(shx), dy=$(shy), dz=$(shz), tag=${ns}-entity-turned-docile] at @s run tp @s ~ ~ ~$(neg)$(diff)
+    $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] at @s run tp @s ~ ~ ~$(neg)$(diff)
     # Regroup all entities.
     $execute positioned $(ax) $(ay) $(az) positioned ~ ~ ~$(neg)$(diff) align xyz run ${regroupEntities} with storage ${ns}:temp $(namespace)
     # Warn if the structure block will replace a non-air block
