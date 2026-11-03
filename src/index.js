@@ -60,7 +60,6 @@ tick`
     execute as @a[nbt={SelectedItem:{id:"minecraft:carrot_on_a_stick", components:{"minecraft:item_model":"minecraft:test_instance_block","minecraft:item_name":{italic:false,text:"Editor Menu"}}}}, scores={${ns}-right-click=1..}] at @s unless dimension ${ns}:editor run dialog show @s ${ns}:main_menu
     # Resets right click detection
     execute as @a[scores={${ns}-right-click=1..}] run scoreboard players set @s ${ns}-right-click 0
-    
     # Sends out a raycast from every player and executes the raycast commands.
     execute as @a at @s anchored eyes positioned ^ ^ ^ summon minecraft:interaction run ${raycast} with entity @p
     # Deletes any remaining hover blocks that are no longer looked at (detected through raycast, listed above.)

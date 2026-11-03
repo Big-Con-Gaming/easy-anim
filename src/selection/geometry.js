@@ -46,6 +46,28 @@ storeAxisMacro`
 // $(type) = "a" or "frames[0].ea" to refer to either the animation's anchor or a frame's editor anchor.
 const anchorDifferenceCommands = [];
 
+// Set up the scoreboard objective and constant values.
+anchorDifferenceCommands.push(`
+    # Log the function call
+    $${debug.run} {input: "anchorDifference with $(input) placing into $(output) depending on arrayformat: $(arrayformat), anchor from: $(type)"}
+    # Log the expected function path.
+    ${debug.path} {input: "-> [storeArrayMacro | storeAxisMacro] X3"}
+    # Remove possibly trailing data
+    scoreboard objectives remove ${ns}-anchorDifferenceMath
+    data remove storage ${ns}:temp anchorDifference
+    scoreboard objectives add ${ns}-anchorDifferenceMath dummy
+    scoreboard players set 0 ${ns}-anchorDifferenceMath 0
+    scoreboard players set 1 ${ns}-anchorDifferenceMath 1
+    $data modify storage ${ns}:temp anchorDifference.output set value "$(output)"
+    # Check if output ends with an opening bracket while arrayformat equals 1, if either are wrong then Error.
+    data modify storage ${ns}:temp anchorDifference.sanityCheck set string storage ${ns}:temp anchorDifference.output -1
+    data modify storage ${ns}:temp anchorDifference.reference set value "["
+    ${pullDataStringEquals} {input1: "storage ${ns}:temp anchorDifference.sanityCheck", input2: "storage ${ns}:temp anchorDifference.reference", output: "score sanitycheck ${ns}-anchorDifferenceMath"}
+    # arrayformat is 1 when we want to use the arraymacro. sanitycheck is equal to 0 when a bracket is present.
+    $execute if score $(arrayformat) ${ns}-anchorDifferenceMath matches 1 if score sanitycheck ${ns}-anchorDifferenceMath matches 1 run return run ${debug.error} {input: "Arrayformat and output format mismatch! Missing bracket."}
+    $execute if score $(arrayformat) ${ns}-anchorDifferenceMath matches 0 if score sanitycheck ${ns}-anchorDifferenceMath matches 0 run return run ${debug.error} {input: "Arrayformat and output format mismatch! Trailing bracket."}
+`);
+
 function createAnchorDifferenceCommands({axis, i}) {
     return`
         # Grab the coordinates that need to be converted. They're assumed to be within an array.
@@ -69,33 +91,11 @@ function createAnchorDifferenceCommands({axis, i}) {
     `;
 }
 
-// Set up the scoreboard objective and constant values.
-anchorDifferenceCommands.push(`
-    # Log the function call
-    $${debug.run} {input: "anchorDifference with $(input) placing into $(output) depending on arrayformat: $(arrayformat), anchor from: $(type)"}
-    # Log the expected function path.
-    ${debug.path} {input: "-> [storeArrayMacro | storeAxisMacro] X3"}
-    # Remove possibly trailing data
-    scoreboard objectives remove ${ns}-anchorDifferenceMath
-    data remove storage ${ns}:temp anchorDifference
-    scoreboard objectives add ${ns}-anchorDifferenceMath dummy
-    scoreboard players set 0 ${ns}-anchorDifferenceMath 0
-    scoreboard players set 1 ${ns}-anchorDifferenceMath 1
-    $data modify storage ${ns}:temp anchorDifference.output set value "$(output)"
-    # Check if output ends with an opening bracket while arrayformat equals 1, if either are wrong then Error.
-    data modify storage ${ns}:temp anchorDifference.sanityCheck set string storage ${ns}:temp anchorDifference.output -1
-    data modify storage ${ns}:temp anchorDifference.reference set value "["
-    ${pullDataStringEquals} {input1: "storage ${ns}:temp anchorDifference.sanityCheck", input2: "storage ${ns}:temp anchorDifference.reference", output: "score sanitycheck ${ns}-anchorDifferenceMath"}
-    # arrayformat is 1 when we want to use the arraymacro. sanitycheck is equal to 0 when a bracket is present.
-    $execute if score $(arrayformat) ${ns}-anchorDifferenceMath matches 1 if score sanitycheck ${ns}-anchorDifferenceMath matches 1 run return run ${debug.error} {input: "Arrayformat and output format mismatch! Missing bracket."}
-    $execute if score $(arrayformat) ${ns}-anchorDifferenceMath matches 0 if score sanitycheck ${ns}-anchorDifferenceMath matches 0 run return run ${debug.error} {input: "Arrayformat and output format mismatch! Trailing bracket."}
-`);
-
 anchorDifferenceCommands.push(...axis.map(createAnchorDifferenceCommands));
 
 // Remove the temporary scoreboard.
 anchorDifferenceCommands.push(`
-    scoreboard objectives remove ${ns}-anchorDifference
+    scoreboard objectives remove ${ns}-anchorDifferenceMath
 `);
 
 anchorDifference`${anchorDifferenceCommands.join('\n')}`;

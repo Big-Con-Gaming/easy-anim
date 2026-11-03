@@ -141,9 +141,6 @@ cameraHighlight`
 
 // Removes the camera position highlight when no longer hovering over the load camera item.
 
-// TODO: Also, if someone just sits on the dialog and someone else runs the same command,
-// Won't it just delete the trailing data we need? Might need to make it rely off of UUID
-
 const arrayPosToDataName = [
     {name: "px", location: "pos[0]"},
     {name: "py", location: "pos[1]"},
@@ -159,7 +156,7 @@ clearCrhData`
     $data remove storage ${ns}:temp crh.[{UUID: $(UUID)}]
     # If there's no more entries in the array, remove the whole data structure.
     execute unless data storage ${ns}:temp crh.[0] run data remove storage ${ns}:temp crh
-    scoreboard objectives remove ${ns}-crhf
+    scoreboard objectives remove ${ns}-crh
 `;
 
 cameraRemoveHighlight`

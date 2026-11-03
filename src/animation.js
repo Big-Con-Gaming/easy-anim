@@ -14,7 +14,7 @@ import { cameraSaveFrame } from './camera/frame.js';
 import { noticeAnimInUse, errorNoAnchor } from './error.js';
 const folder = mcf.animation;
 export const {
-    createAnimation, deleteAnimation, cameraSaveFrameEnterIterate, grabOffsetAndOperate
+    createAnimation, deleteAnimation, cameraSaveFrameEnterIterate
 } = folder;
 const {
     anonymous: a, recRemoveFrameData, macroRemoveAnimationStorage, saveStructure

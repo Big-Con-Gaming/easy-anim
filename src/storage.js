@@ -210,8 +210,8 @@ retrieveFrame`
     ${debug.path} {input: "-> pullStoreCoords -> ^ frameExistenceCheck -> | non-base frame -> macroStoreFrame -> | recRetrieveFrames (place and configure) -> | cleanKill"}
     # Error if animation is missing name
     execute unless data storage ${ns}:animation_data new.name run return run ${debug.error} {input:"Current animation is missing a name!"}
-    # Remove possibly trailing data
-    data remove storage ${ns}:temp retrieveframe
+    # Remove possibly trailing data (forceOverwrite is set by other functions beforehand to skip frame existence check)
+    execute unless data storage ${ns}:temp retrieveframe.forceOverwrite run data remove storage ${ns}:temp retrieveframe
     scoreboard objectives remove ${ns}-retrieveframe
     # Setup scoreboard
     scoreboard objectives add ${ns}-retrieveframe dummy
@@ -393,7 +393,7 @@ retrieveFrameFromTemp`
         $${debug.run} {input: "Copy blocks from temp to $(x) 0 $(z), spanning $(sx) $(sy) $(sz) in $(name)"}
         # Error if temp has no data
         $execute unless data storage ${ns}:animation_data storetemp.$(name) run return run ${debug.error} {input: "Temp storage is empty!"}
-        # Forceload the 3 chunks in the storage dimension
+        # Forceload the 9 chunks in the storage dimension
         $execute in ${ns}:storage positioned $(x) 0 $(z) run forceload add ~ ~ ~47 ~47
         # Forceload the temporary location
         $execute in ${ns}:storage positioned $(x) 0 -96 run forceload add ~ ~ ~47 ~47

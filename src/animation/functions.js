@@ -7,6 +7,7 @@ import { pullNextFrameData, recMoveFrames, insertSpace, moveFrame } from './help
 import { toggleSelectionState } from './selecting.js';
 import { grabAnimationFromUuid, cleanUpNewAnimationData } from '../data.js';
 import { recSplitGroups, regroupEntities, removeDocile, cleanKill, turnEntityDocile } from '../entity.js';
+import { toggleHighlightFrame } from '../camera/frame.js';
 import { calculateLaneX } from '../editor/lane.js';
 import { storeFrame, removeFrame, retrieveFrame, clearOutTempStorage, retrieveFrameFromTemp, storeFrameInTemp } from '../storage.js';
 import { stringEquals, arrayMoveEntry, axis } from '../util.js';
@@ -50,6 +51,9 @@ saveSpecificFrameCommands.push(...axis.map(createSaveSpecificFrame));
 
 saveSpecificFrameCommands.push(`
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run ${recSplitGroups} with storage ${ns}:temp str
+    # Delete any highlighted cameras
+    $execute if entity @n[type=minecraft:item_display, tag=${ns}-camera-highlight, nbt={data: {owner: $(UUID), framenum: $(framenum)}}] run data modify storage ${ns}:temp str.cameraHighlighted set value true
+    $execute if data storage ${ns}:temp str.cameraHighlighted run kill @n[type=minecraft:item_display, tag=${ns}-camera-highlight, nbt={data: {owner: $(UUID), framenum: $(framenum)}}]
     # Untag them from selected and remove docile for all entities within the frame.
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-selected] remove ${ns}-selected
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-entity-turned-docile] run ${removeDocile}
@@ -70,6 +74,8 @@ saveSpecificFrameCommands.push(`
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-selected] add ${ns}-selected
     # Regroup all entities.
     $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run ${regroupEntities} with storage ${ns}:temp str
+    # Rehighlight the camera if needed.
+    $execute if data storage ${ns}:temp str.cameraHighlighted run ${toggleHighlightFrame} {UUID: $(UUID), framenum: $(framenum)}
     # Remove all trailing data.
     data remove storage ${ns}:temp str
 `)
@@ -547,9 +553,9 @@ moveSelectedFrames`
         # Clone the blocks over
         $execute positioned 0 0 -96 run clone ~ ~ ~ ~$(tshx) ~$(tshy) ~$(tshz) $(tax) $(tay) $(newtaz) masked move
         # Teleport the entities over
-        $execute positioned 0 0 -96 as @e[tag=${ns}-entity-turned-docile,dx=$(tsx), dy=$(tsy), dz=$(tsz)] at @s run tp @s ~ ~ ~$(difffromtemp)
+        $execute positioned 0 0 -96 align xyz as @e[tag=${ns}-entity-turned-docile,dx=$(tshx), dy=$(tshy), dz=$(tshz)] at @s run tp @s ~ ~ ~$(difffromtemp)
         # Regroup entities
-        $execute positioned $(tax) $(tay) $(newtaz) align xyz run ${regroupEntities} {sx: $(tsx), sy: $(tsy), sz: $(tsz)}
+        $execute positioned $(tax) $(tay) $(newtaz) align xyz run ${regroupEntities} {sx: $(tshx), sy: $(tshy), sz: $(tshz)}
         # Place new structure block which will have a new index (warn if replacing non-air)
         $execute positioned $(tax) $(tay) $(newtaz) unless block ~ ~-1 ~ minecraft:air run ${debug.warn} {input: "expected air block at target frame's new structure block position! Overwriting..."}
         $execute positioned $(tax) $(tay) $(newtaz) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"LOAD", showboundingbox: $(selected), posX: 0, posY: 1, posZ: 0, sizeX: $(tsx), sizeY: $(tsy), sizeZ: $(tsz), ignoreEntities: false, name: "${ns}:$(name)-frame$(targetnewindex)", strict: true}

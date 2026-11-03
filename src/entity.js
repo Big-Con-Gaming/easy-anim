@@ -13,7 +13,7 @@ export const { recSplitGroups, regroupEntities, turnEntityDocile, removeDocile, 
 
 // Define local functions here:
 const {
-    anonymous: a, recDocileSearch, skipDocile, targetSelectInSelection, rideGroup, removeGroupData
+    anonymous: a, recDocileSearch, skipDocile, targetSelectInSelection, rideGroup, removeGroupData, placeSizeInEntity
 } = folder;
 
 const ns = 'easy-anim';
@@ -63,6 +63,18 @@ recSplitGroupsCommands.push(`
 
 recSplitGroups(recSplitGroupsCommands.join('\n'));
 
+const placeSizeInEntityCommands = [];
+
+function placeSizeInEntityFunc({axis}) {
+    return`
+        $data modify entity @s data.easyanimgroupids[0].s${axis} set value $(s${axis})
+    `
+}
+
+placeSizeInEntityCommands.push(...axis.map(placeSizeInEntityFunc));
+
+placeSizeInEntity(placeSizeInEntityCommands.join('\n'));
+
 // Must be ran at xyz and with sx sy sz, where xyz represents the neg-neg-neg corner of the frame/selection and sx sy sz represent the size of the frame/selection. This goes through and puts grouped entities back together after they were split for structure saving.
 regroupEntities`
     # Log the function call
@@ -71,10 +83,12 @@ regroupEntities`
     ${debug.path} {input: "-> | passenger on vehicle -> | untagging"}
     # Warn if no grouped entities are found within selection in case there should be.
     $execute align xyz unless entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${debug.warn} {input: "No grouped entities found, skipping..."}
+    # Pull needed data into a macro
+    $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${placeSizeInEntity} {sx: $(sx), sy: $(sy), sz: $(sz)}
     $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${rideGroup`
         # Log the function call
         $${debug.run} {input: "placing passenger on vehicle in group $(id)"}
-        $execute if entity @s[tag=${ns}-passenger-$(id)] run ride @s mount @n[tag=${ns}-vehicle-$(id)]
+        $execute if entity @s[tag=${ns}-passenger-$(id)] run ride @s mount @n[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-vehicle-$(id)]
     `} with entity @s data.easyanimgroupids[0]
     $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${removeGroupData`
         # Log the function call
@@ -83,6 +97,7 @@ regroupEntities`
         $execute if entity @s[tag=${ns}-vehicle-$(id)] run tag @s remove ${ns}-vehicle-$(id)
         data remove entity @s data.easyanimgroupids[0]
         # Recursive call for multi-layered groups. Uses the fact that IDs can be a list now.
+        $execute if data entity @s data.easyanimgroupids[0] run ${placeSizeInEntity} {sx: $(sx), sy: $(sy), sz: $(sz)}
         execute if data entity @s data.easyanimgroupids[0] run ${rideGroup} with entity @s data.easyanimgroupids[0]
         execute if data entity @s data.easyanimgroupids[0] run ${removeGroupData} with entity @s data.easyanimgroupids[0]
         execute unless data entity @s data.easyanimgroupids[0] run tag @s remove ${ns}-group
@@ -97,25 +112,27 @@ const removeDocileCommands = [];
 // All nbtdata that needs to be changed (set to true by default) to make an entity "docile".
 const entityAttributes = [
     {name:"NoAI"},
+    {name:"NoGravity"},
+    {name:"Time", value: "0", repeated: true, onlyType: "minecraft:falling_block"},
     {name:"Silent"},
     {name:"Glowing", selectOnly: true},
     {name:"Invulnerable"},
     {name:"PersistenceRequired"},
-    {name:"PickupDelay", value:"10s", itemOnly:true,repeated:true},
-    {name:"Age", value:"0s", itemOnly:true, repeated:true},
+    {name:"PickupDelay", value:"10s", onlyType:"minecraft:item", repeated:true},
+    {name:"Age", value:"0s", onlyType:"minecraft:item", repeated:true},
     {name:"Motion", value:"[0.0d,0.0d,0.0d]", repeated:true}
 ];
 
 // Turn all entities within the selection area "docile" (No AI, No Gravity, Silent, Invulnerable, Persistent, Full Pickup Delay and No Despawn Timer for Items)
 // These commands here specifically change all of the attributes required to be docile to the executor.
-function createTurnEntityDocileCommands({name, value, itemOnly, repeated, selectOnly}){
+function createTurnEntityDocileCommands({name, value, onlyType, repeated, selectOnly}){
     let selector = ``;
     let output = "true";
     if (repeated === null) {
         selector = `unless entity @s[tag=${ns}-entity-turned-docile] `;
     }
-    if (itemOnly) {
-        selector = selector.concat(`if entity @s[type=item] `);
+    if (onlyType) {
+        selector = selector.concat(`if entity @s[type=${onlyType}] `);
     }
     if (value) {
         output = value;

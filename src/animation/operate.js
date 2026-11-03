@@ -94,6 +94,8 @@ operationOnSelectedFrames`
     execute if data storage ${ns}:temp selectedframes.addBase run data modify storage ${ns}:temp selectedframes.trackConsecutive set value true
     # Check if the mode is duplicate to know if consecutive frames should be tracked.
     execute if data storage ${ns}:temp selectedframes.duplicate run data modify storage ${ns}:temp selectedframes.trackConsecutive set value true
+    # Check if carryover data specifies that move is moving backwards, and if so, set reverseCount to true.
+    execute if data storage ${ns}:temp carryover.moveBackwards run data modify storage ${ns}:temp selectedframes.reverseCount set value true
     execute if data storage ${ns}:animation_data new.frames[0] run ${recSelectCheck`
         # Log the function call
         $${debug.run} {input: "Select Check with $(maxframe) and $(prevframe)"}

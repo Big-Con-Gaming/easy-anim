@@ -271,7 +271,7 @@ grabOffsetAndOperate`
         scoreboard objectives remove ${ns}-gao
     `}
     # Check if this value is negative, and if so, trigger a flag so that operationOnSelectedFrames can run in ascending order instead of descending order.
-    execute if score offset ${ns}-gao matches ..-1 run data modify storage ${ns}:temp selectedframes.reverseCount set value true
+    execute if score offset ${ns}-gao matches ..-1 run data modify storage ${ns}:temp carryover.moveBackwards set value true
     # Execute operationOnSelectedFrames with the move operation.
     ${operationOnSelectedFrames} {mode: "move"}
     # remove the scoreboard
