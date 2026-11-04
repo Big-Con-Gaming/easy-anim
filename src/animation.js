@@ -160,6 +160,13 @@ deleteAnimation`
         $setblock $(x) 50 0 minecraft:air
         # Unforceload the entire frame
         $execute positioned $(x) 0 -48 run forceload remove ~ ~ ~47 ~48
+        # Remove the temp storage location.
+        # Forceload the entire frame
+        $execute positioned $(x) 0 -96 run forceload add ~ ~ ~47 ~47
+        # Fill the frame with air
+        $execute positioned $(x) 0 -96 run fill ~ ~ ~ ~47 ~47 ~47 minecraft:air
+        # Unforceload the entire frame
+        $execute positioned $(x) 0 -96 run forceload remove ~ ~ ~47 ~47
     `} with storage ${ns}:temp deleteAnimation
     # Remove the data from storage
     $data remove storage ${ns}:animation_data animations[{name:$(anim)}]

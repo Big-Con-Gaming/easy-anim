@@ -16,10 +16,15 @@ import { axis } from './util.js';
 const folder = mcf.editor;
 
 // Define functions you want other files to use here:
-export const { enterEditor, exit, reEnterEditor } = folder;
+export const {
+    enterEditor, exit, reEnterEditor, checkFrameLoaded, checkAllFramesLoaded, finishEnterEditor
+} = folder;
 
 // Define local functions here:
-const { anonymous: a, recPlaceFrames, recRemoveFrames, tpIntoEditor, newPlayerLane, editorAnchorInData, cleanRemainder, eemacroSize, pullAnchorSizeExit } = folder;
+const {
+    anonymous: a, recPlaceFrames, recRemoveFrames, tpIntoEditor, newPlayerLane, recCheckLoaded,
+    editorAnchorInData, cleanRemainder, eemacroSize, pullAnchorSizeExit, recRegroupLoadedFrames, recUnforceloadFrames
+} = folder;
 
 const ns = 'easy-anim';
 
@@ -83,6 +88,8 @@ enterEditor`
     scoreboard objectives add ${ns}-temp dummy
     scoreboard players set offset ${ns}-temp 2
     scoreboard players set i ${ns}-temp 0
+    # Add UUID to macro context.
+    $data modify storage ${ns}:temp eemacro.UUID set value $(UUID)
     execute if data storage ${ns}:animation_data new.frames[0] run ${recPlaceFrames`
         # Log the function call
         $${debug.run} {input: "recPlaceFrames at $(x) 0 $(z) for frame $(i) of animation $(name) with size $(sx) $(sy) $(sz)"}
@@ -99,8 +106,10 @@ enterEditor`
             $data modify storage ${ns}:animation_data new.frames[$(i)].eanchor set from entity @s Pos
             kill @s
         `} with storage ${ns}:temp eemacro
-        # Regroup all grouped entities
-        $execute in ${ns}:editor positioned $(x) 1 $(z) align xyz run ${regroupEntities} with storage ${ns}:temp eemacro
+        # Mark this frame for loaded check so that we can regroup entities after all frames are loaded.
+        $data modify storage ${ns}:temp waitingLoaded[{UUID: $(UUID)}].frames append value {framenum: $(i), x: $(x), z: $(z), sx: $(sx), sy: $(sy), sz: $(sz)}
+        # Tag this player so that we can check if they are waiting for all frames to load.
+        execute unless entity @s[tag=${ns}-waitLoadEditor] run tag @s add ${ns}-waitLoadEditor
         # Warn if the structure block will replace a non-air block
         $execute in ${ns}:editor unless block $(x) 0 $(z) minecraft:air run ${debug.warn} {input: "Non-air block at $(x) 0 $(z)! Overwriting with structure block..."} 
         # Place in the frame's structure block
@@ -121,13 +130,7 @@ enterEditor`
         execute store result storage ${ns}:temp eemacro.i int 1 run scoreboard players add i ${ns}-temp 1
         # Execute this recursive function once more.
         ${recPlaceFrames} with storage ${ns}:temp eemacro
-        # Remove this forceloaded area
-        $execute in ${ns}:editor positioned $(x) 0 $(z) run forceload remove ~ ~ ~47 ~47
     `} with storage ${ns}:temp eemacro
-    # Just in case 0 0 was unforceloaded, add it back
-    execute in ${ns}:editor run forceload add 0 0
-    # Tag the player with inEditor so it is easier to track.
-    tag @s add ${ns}-inEditor
     # Return the player's original inventory (in case they were coming from the selection menu).
     # This also cleans up almost all of our extra data, and sets the animation's location to editor.
     execute if data storage ${ns}:animation_data {new:{location:"anchor"}} run ${a`
@@ -138,19 +141,134 @@ enterEditor`
         data modify storage ${ns}:animation_data new.location set value "editor"
         ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     `}
-    
+    # Remove temporary data.
+    data remove storage ${ns}:temp eemacro
+    scoreboard objectives remove ${ns}-temp
+    # Notify the player that they are being teleported into the editor. (In case it takes a while to load all of the frames.)
+    tellraw @s {text: "Teleporting into the editor...", color: "green"}
+    # Check if all frames have been loaded and are ready for regrouping entities.
+    ${checkAllFramesLoaded} {location: "waitingLoaded", success: "${finishEnterEditor} with entity @s"}
+`;
+
+const cornersToCheck = [0, 16, 32, 47];
+
+const checkFrameLoadedPredicates = [];
+
+for (let i = 0; i < cornersToCheck.length; i++) {
+    for (let j = 0; j < cornersToCheck.length; j++) {
+        checkFrameLoadedPredicates.push(`if loaded ~${cornersToCheck[i]} ~ ~${cornersToCheck[j]}`)
+    }
+}
+
+// Executes at different points possibly in different chunks of a frame to see if all parts are loaded.
+checkFrameLoaded`
+    # Log the function call
+    ${debug.run} {input: "checkFrameLoaded"}
+    # This function is expected to be ran at an animation's anchor point.
+    execute ${checkFrameLoadedPredicates.join(" ")} run return 1
+    return fail
+`
+
+// Checks all of the frames in an animation to see if they are all loaded, and if so, enters the editor for the player.
+checkAllFramesLoaded`
+    # Log the function call
+    $${debug.run} {input: "checkAllFramesLoaded for data located in $(location) running if success: $(success)"}
+    # Log the function path
+    $${debug.path} {input: "-> pull data -> (recCheckLoaded -> checkFrameLoaded) -> $(success)"}
+    # Clear possibly trailing data
+    data remove storage ${ns}:temp cafl
+    scoreboard objectives remove ${ns}-cafl
+    # Setup scoreboard
+    scoreboard objectives add ${ns}-cafl dummy
+    # Place needed data into temporary storage for a macro.
+    data modify storage ${ns}:temp cafl.UUID set from entity @s UUID
+    $data modify storage ${ns}:temp cafl.location set value $(location)
+    # Pull the frame data from the given location.
+    ${a`
+        $data modify storage ${ns}:temp cafl.frames set from storage ${ns}:temp $(location)[{UUID: $(UUID)}].frames
+    `} with storage ${ns}:temp cafl
+    # Check all of the frames to see if they are all loaded.
+    execute if data storage ${ns}:temp cafl.frames[0] store success score allLoaded ${ns}-cafl run ${recCheckLoaded`
+        # Log the function call
+        ${debug.run} {input: "recCheckLoaded"}
+        # Reset thisframe's result
+        scoreboard players reset thisframe ${ns}-cafl
+        # Check this frame and store result.
+        $execute in ${ns}:editor positioned $(x) 1 $(z) store success score thisframe ${ns}-cafl run ${checkFrameLoaded}
+        # If this frame failed, return and end the recursive loop.
+        execute if score thisframe ${ns}-cafl matches 0 run return fail
+        # Remove the current frame from the list.
+        data remove storage ${ns}:temp cafl.frames[0]
+        # If there's no more frames, return and end the recursive loop.
+        execute unless data storage ${ns}:temp cafl.frames[0] run return 1
+        # Run the next recursive call.
+        return run ${recCheckLoaded} with storage ${ns}:temp cafl.frames[0]
+    `} with storage ${ns}:temp cafl.frames[0]
+    # If all frames are loaded, run the given output function.
+    $execute if score allLoaded ${ns}-cafl matches 1 run $(success)
+    # Clear trailing data
+    data remove storage ${ns}:temp cafl
+    scoreboard objectives remove ${ns}-cafl
+`
+
+finishEnterEditor`
+    # Log the function call
+    ${debug.run} {input: "finishEnterEditor"}
+    # Log the function path
+    ${debug.path} {input: "-> grabPlayerData -> calculateLaneX -> tpIntoEditor"}
+    # clear possibly trailing data
+    data remove storage ${ns}:temp fee
+    # pull the players data into current.
+    ${grabPlayerData} with entity @s
+    # Grab the lane's X and store it within temporary storage for a macro.
+    ${calculateLaneX} {output: "${ns}:temp fee.x int"}
+    # Pull the stored frame data from the waitingLoaded storage and place it into temporary storage for a macro.
+    $data modify storage ${ns}:temp fee.frames set from storage ${ns}:temp waitingLoaded[{UUID: $(UUID)}].frames
+    execute if data storage ${ns}:temp fee.frames[0] run ${recRegroupLoadedFrames`
+        # Log the function call
+        ${debug.run} {input: "regrouping the frames"}
+        # Regroup all entities for this frame
+        $execute in ${ns}:editor positioned $(x) 1 $(z) align xyz run ${regroupEntities} with storage ${ns}:temp fee.frames[0]
+        # Remove this frame from the storage.
+        data remove storage ${ns}:temp fee.frames[0]
+        # If there are more frames to iterate through, run this function again.
+        execute if data storage ${ns}:temp fee.frames[0] run ${recRegroupLoadedFrames} with storage ${ns}:temp fee.frames[0]
+    `} with storage ${ns}:temp fee.frames[0]
+    # Now that all entities have been regrouped, we can safely unforceload all of these frames.
+    # Pull data AGAIN
+    $data modify storage ${ns}:temp fee.frames set from storage ${ns}:temp waitingLoaded[{UUID: $(UUID)}].frames
+    # Unforceload all of the frames that were loaded.
+    execute if data storage ${ns}:temp fee.frames[0] run ${recUnforceloadFrames`
+        # Log the function call
+        ${debug.run} {input: "unforceloading the frames"}
+        # unforceload all chunks for this frame
+        $execute in ${ns}:editor positioned $(x) 1 $(z) align xyz run forceload remove ~ ~ ~47 ~47
+        # Remove this frame from the storage.
+        data remove storage ${ns}:temp fee.frames[0]
+        # If there are more frames to iterate through, run this function again.
+        execute if data storage ${ns}:temp fee.frames[0] run ${recUnforceloadFrames} with storage ${ns}:temp fee.frames[0]
+    `} with storage ${ns}:temp fee.frames[0]
+    # Remove the data in waitingLoaded.
+    $data remove storage ${ns}:temp waitingLoaded[{UUID: $(UUID)}]
+    # If waitingLoaded is empty, remove the whole structure.
+    execute unless data storage ${ns}:temp waitingLoaded[0] run data remove storage ${ns}:temp waitingLoaded
+    # Remove their waiting for editor load tag.
+    tag @s remove ${ns}-waitLoadEditor
+    # Just in case 0 0 was unforceloaded, add it back
+    execute in ${ns}:editor run forceload add 0 0
+    # Tag the player with inEditor so it is easier to track.
+    tag @s add ${ns}-inEditor
     # Teleport the player into the editor dimension.
     ${tpIntoEditor`
         # Log the function call
         ${debug.run} {input: "tpIntoEditor"}
         $execute in ${ns}:editor run tp @s $(x) 3 0 0 0
-    `} with storage ${ns}:temp eemacro
-    # Remove temporary data.
-    data remove storage ${ns}:temp eemacro
-    scoreboard objectives remove ${ns}-temp
+    `} with storage ${ns}:temp fee
     # Give them the quick menu item. This item's data is stored as a constant above.
     execute unless items entity @s inventory.* ${editor_menu_item} unless items entity @s hotbar.* ${editor_menu_item} unless items entity @s weapon.* ${editor_menu_item} run give @s ${editor_menu_item}
-`;
+    # clear trailing data
+    data remove storage ${ns}:temp fee
+`
 
 reEnterEditor`
     # Log the function call

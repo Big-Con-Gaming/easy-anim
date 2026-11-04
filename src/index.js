@@ -5,7 +5,7 @@
 import mcf from './mcf.js';
 import * as debug from './debug.js';
 import './data.js';
-import { reEnterEditor } from './editor.js';
+import { reEnterEditor, checkAllFramesLoaded, finishEnterEditor } from './editor.js';
 import './entity.js';
 import { toolbarRightClick } from './inventory/hotbar.js';
 import { handleDetection, handleHighlight } from './selection/handle.js';
@@ -45,6 +45,8 @@ tick`
     ${renderCheck}
     # Similar to rendercheck, cameraLoadFrame will update the player's position in the editor to the next frame accurately, while also decreasing durations.
     ${cameraLoadFrame}
+    # Checks for any players waiting for editor entry, if they are, it will check if all frames are loaded, and if so, it will enter the editor for them.
+    execute as @a[tag=${ns}-waitLoadEditor] run ${checkAllFramesLoaded} {location: "waitingLoaded", success: "${finishEnterEditor} with entity @s"}
     # This part handles any changes made to a selection
     ${select}
     # This part will update selections if changes were made using handles

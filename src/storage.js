@@ -435,6 +435,8 @@ clearOutTempStorage`
         $execute positioned $(x) 0 -96 run forceload remove ~ ~ ~47 ~47
         # Remove the entity data
         $data remove storage ${ns}:animation_data storetemp.$(name)
+        # If there's no more data, remove the entire storetemp object
+        execute if data storage ${ns}:animation_data {storetemp:{}} run data remove storage ${ns}:animation_data storetemp
     `} with storage ${ns}:temp cleartemp
     # Clear trailing data
     data remove storage ${ns}:temp cleartemp
