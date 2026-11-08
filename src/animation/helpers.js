@@ -4,7 +4,7 @@
 import mcf from '../mcf.js';
 import * as debug from '../debug.js';
 import { retrieveFrame, removeFrame, storeFrame } from '../storage.js';
-import { cleanKill, recSplitGroups, regroupEntities } from '../entity.js';
+import { cleanKill, splitGroups, regroupEntities } from '../entity.js';
 import { axis } from '../util.js';
 
 const folder = mcf.animation.helpers;
@@ -118,7 +118,7 @@ recMoveFrames`
     # Log the function call
     $${debug.run} {input: "recMoveFrames at $(ax) $(ay) $(az) extending $(shx) ($(sx)) $(shy) ($(sy)) $(shz) ($(sz)) shifting $(neg)$(diff) placing at $(newz) for $(name) frame $(currentframe) <- $(nextframe) inside of $(namespace) selected? $(selected)"}
     # Log the expected function path
-    ${debug.path} {input: "-> renumberFrame -> recSplitGroups -> regroupEntities -> pullNextFrameData -> ^ recMoveFrames"}
+    ${debug.path} {input: "-> renumberFrame -> splitGroups -> regroupEntities -> pullNextFrameData -> ^ recMoveFrames"}
     # Run the renumbering function for this frame.
     $${renumberFrame} {input: $(nextframe), output: $(currentframe), name: $(name), sx: $(shx), sy: $(shy), sz: $(shz)}
     # Set up some constants used in math
@@ -135,8 +135,7 @@ recMoveFrames`
     $execute positioned $(ax) $(ay) $(az) run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) 0 1 -48 strict masked move
     $execute positioned 0 1 -48 run clone ~ ~ ~ ~$(sx) ~$(sy) ~$(sz) 0 1 $(newz) strict masked move
     # Ungroup all entities so that teleporting them doesn't erase who goes with who
-    $data modify storage ${ns}:temp $(namespace).id set value 0
-    $execute positioned $(ax) $(ay) $(az) align xyz run ${recSplitGroups} with storage ${ns}:temp $(namespace)
+    $execute positioned $(ax) $(ay) $(az) align xyz run ${splitGroups} with storage ${ns}:temp $(namespace)
     # Teleport all entities in subsequent frames backwards by the size of the removed frame's z axis.
     $execute positioned $(ax) $(ay) $(az) align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz), tag=${ns}-entity-turned-docile] at @s run tp @s ~ ~ ~$(neg)$(diff)
     # Regroup all entities.
@@ -230,7 +229,7 @@ moveFrameCommands.push(`
     # Log the function call
     $${debug.run} {input: "moveFrame $(framenum) to $(targetframe)"}
     # Log the expected path
-    ${debug.path} {input: "-> moving the frame -> recSplitGroups -> regroupEntities -> renumberFrame"}
+    ${debug.path} {input: "-> moving the frame -> splitGroups -> regroupEntities -> renumberFrame"}
     # Clean up possibly trailing data
     data remove storage ${ns}:temp moveFrame
     scoreboard objectives remove ${ns}-mf
@@ -265,7 +264,6 @@ function createMoveFrame({axis, i}) {
 moveFrameCommands.push(...axis.map(createMoveFrame));
 
 moveFrameCommands.push(`
-    data modify storage ${ns}:temp moveFrame.frameData.id set value 0
     execute store result score anchorz ${ns}-mf run data get storage ${ns}:temp moveFrame.frameData.az 1000
     # grab targetanchor as a score
     execute store result score targetanchor ${ns}-mf run data get storage ${ns}:temp moveFrame.frameData.taz 1000
@@ -278,7 +276,7 @@ moveFrameCommands.push(`
         $execute positioned $(ax) $(ay) $(az) run forceload add ~ ~ ~47 ~47
         $execute positioned $(tax) $(tay) $(taz) run forceload add ~ ~ ~47 ~47
         # Ungroup entities at framenum
-        $execute positioned $(ax) $(ay) $(az) align xyz run ${recSplitGroups} with storage ${ns}:temp moveFrame.frameData
+        $execute positioned $(ax) $(ay) $(az) align xyz run ${splitGroups} with storage ${ns}:temp moveFrame.frameData
         # Clone move the blocks over to the new location
         $execute positioned $(ax) $(ay) $(az) run clone ~ ~-1 ~ ~$(shx) ~$(shy) ~$(shz) ~ ~-1 ~$(diff) masked move
         # teleport all entities

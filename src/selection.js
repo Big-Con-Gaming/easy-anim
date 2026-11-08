@@ -38,7 +38,7 @@ exitCommands.push(`
     # Remove possibly trailing data.
     data remove storage ${ns}:temp str
     # Load the player's inventory from storage.
-    $${grabAnimationFromUuid} {UUID:$(UUID)}
+    ${grabAnimationFromUuid} with entity @s
     # Load the items into the player's inventory
     ${loadInventory}
     # Replace the structure block in the current selection with its old block from the lane
@@ -46,7 +46,7 @@ exitCommands.push(`
     ${calculateLaneX} {output:"${ns}:temp str.lanex int"}
     ${resetCornerBlock} with storage ${ns}:temp str
     # Free up the player's old editor lane, if the player isn't within the editor.
-    execute unless entity @s[tag=${ns}-inEditor] run ${unclaimLane}
+    execute unless entity @s[tag=${ns}-inEditor] unless entity @s[tag=${ns}-waitLoadEditor] run ${unclaimLane}
     # Create temporary scoreboard for the size increasing functions below.
     scoreboard objectives add ${ns}-exitcommands dummy
 `);
@@ -77,8 +77,8 @@ exitCommands.push(`
     # Remove the temporary data locations.
     data remove storage ${ns}:temp str
     # Set the animation's location to none if we aren't in the editor, and to editor if we are.
-    execute unless entity @s[tag=${ns}-inEditor] run data modify storage ${ns}:animation_data new.location set value "none"
-    execute if entity @s[tag=${ns}-inEditor] run data modify storage ${ns}:animation_data new.location set value "editor"
+    execute unless entity @s[tag=${ns}-inEditor] unless entity @s[tag=${ns}-waitLoadEditor] run data modify storage ${ns}:animation_data new.location set value "none"
+    execute if entity @s[tag=${ns}-waitLoadEditor] run data modify storage ${ns}:animation_data new.location set value "editor"
     ${cleanUpNewAnimationData} with storage ${ns}:animation_data new
     # Remove the new selection from animation_data entirely, unless there are frames associated with it.
     $${a`
@@ -87,7 +87,7 @@ exitCommands.push(`
         $execute unless data storage ${ns}:animation_data animations[{name:$(currentAnim)}].data.frames run data remove storage ${ns}:animation_data animations[{name:$(currentAnim)}]
     `} with storage ${ns}:player_data players[{UUID:$(UUID)}]
     # Remove the player's old player data unless they are in the editor.
-    $execute unless entity @s[tag=${ns}-inEditor] run data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
+    $execute unless entity @s[tag=${ns}-inEditor] unless entity @s[tag=${ns}-waitLoadEditor] run data remove storage ${ns}:player_data players[{UUID:$(UUID)}]
 `);
 
 // actually create the macro in the menu namespace so that it keeps its original path

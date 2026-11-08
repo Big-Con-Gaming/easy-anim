@@ -6,7 +6,7 @@ import * as debug from '../debug.js';
 import { pullNextFrameData, recMoveFrames, insertSpace, moveFrame } from './helpers.js';
 import { toggleSelectionState } from './selecting.js';
 import { grabAnimationFromUuid, cleanUpNewAnimationData } from '../data.js';
-import { recSplitGroups, regroupEntities, removeDocile, cleanKill, turnEntityDocile } from '../entity.js';
+import { splitGroups, regroupEntities, removeDocile, cleanKill, turnEntityDocile } from '../entity.js';
 import { toggleHighlightFrame } from '../camera/frame.js';
 import { calculateLaneX } from '../editor/lane.js';
 import { storeFrame, removeFrame, retrieveFrame, clearOutTempStorage, retrieveFrameFromTemp, storeFrameInTemp } from '../storage.js';
@@ -33,12 +33,10 @@ saveSpecificFrameCommands.push(`
     # Log the function call
     $${debug.run} {input: "saveSpecificFrame at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(name) frame $(framenum)"}
     # Log the expected function path.
-    ${debug.path} {input: "-> recSplitGroups -> removeDocile -> storeFrame -> regroupEntities"}
+    ${debug.path} {input: "-> splitGroups -> removeDocile -> storeFrame -> regroupEntities"}
     # Remove all possibly trailing data.
     data remove storage ${ns}:temp str
-    # Ungroup all of the entities within the frame, reusing functions from the create animation function within menu.
-    data modify storage ${ns}:temp str.id set value 0
-    # All important data needs to be placed into str for the old recSplitGroups function to work. I feel like there's a better way to do this.
+    # All important data needs to be placed into str for the old splitGroups function to work. I feel like there's a better way to do this.
 `);
 
 function createSaveSpecificFrame({axis}) {
@@ -50,7 +48,7 @@ function createSaveSpecificFrame({axis}) {
 saveSpecificFrameCommands.push(...axis.map(createSaveSpecificFrame));
 
 saveSpecificFrameCommands.push(`
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run ${recSplitGroups} with storage ${ns}:temp str
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run ${splitGroups} with storage ${ns}:temp str
     # Delete any highlighted cameras
     $execute if entity @n[type=minecraft:item_display, tag=${ns}-camera-highlight, nbt={data: {owner: $(UUID), framenum: $(framenum)}}] run data modify storage ${ns}:temp str.cameraHighlighted set value true
     $execute if data storage ${ns}:temp str.cameraHighlighted run kill @n[type=minecraft:item_display, tag=${ns}-camera-highlight, nbt={data: {owner: $(UUID), framenum: $(framenum)}}]
@@ -344,8 +342,7 @@ addNewFrame`
         # Place the base frame structure in (only for adding base frame). i = frame#
         $execute if score basecheck ${ns}-anf matches 0 in ${ns}:editor run place template ${ns}:$(name)-base $(x) 1 $(z) none none 1 1 strict
         # Ungroup all of the entities in the duplicating frame (not used if base)
-        execute if score basecheck ${ns}-anf matches 1 run data modify storage ${ns}:temp anf.id set value 0
-        $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor positioned $(tx) 1 $(tz) align xyz run ${recSplitGroups} with storage ${ns}:temp anf
+        $execute if score basecheck ${ns}-anf matches 1 in ${ns}:editor positioned $(tx) 1 $(tz) align xyz run ${splitGroups} with storage ${ns}:temp anf
         # Warn if the structure block will replace a non-air block
         $execute in ${ns}:editor unless block $(tx) 0 $(tz) minecraft:air run ${debug.warn} {input: "Non-air block at $(tx) 0 $(tz)! Overwriting with structure block..."}
         # Place in the frame's structure block
@@ -447,7 +444,7 @@ pullTargetFrameData(pullTargetFrameDataCommands.join('\n'));
 moveSelectedFrames`
     # Log the function call
     $${debug.run} {input: "moveSelectedFrames with $(framenum)"}
-    ${debug.path} {input: "-> pull target frame data -> moving target temporarily -> recSplitGroups -> storeFrameInTemp -> moveFrame -> | (pullNextFrameData -> recMoveFrames) -> grab pullfrom -> move out of temp -> retrieveFrameFromTemp -> clearOutTempStorage -> retrieveFrame -> arrayMoveEntry"}
+    ${debug.path} {input: "-> pull target frame data -> moving target temporarily -> splitGroups -> storeFrameInTemp -> moveFrame -> | (pullNextFrameData -> recMoveFrames) -> grab pullfrom -> move out of temp -> retrieveFrameFromTemp -> clearOutTempStorage -> retrieveFrame -> arrayMoveEntry"}
     # Clear possibly trailing data
     data remove storage ${ns}:temp msf
     scoreboard objectives remove ${ns}-msf
@@ -471,7 +468,7 @@ moveSelectedFrames`
         $execute positioned $(tax) $(tay) $(taz) run forceload add ~ ~ ~47 ~47
         execute positioned 0 0 -96 run forceload add ~ ~ ~47 ~47
         # Use this data to ungroup entities at target frame
-        $execute positioned $(tax) $(tay) $(taz) align xyz run ${recSplitGroups} {sx: $(tshx), sy: $(tshy), sz: $(tshz), id: 0}
+        $execute positioned $(tax) $(tay) $(taz) align xyz run ${splitGroups} {sx: $(tshx), sy: $(tshy), sz: $(tshz)}
         # Clone the blocks at target frame to a temporary location
         # You'll need to grab target frame data to then move them to a place that is different from 0 -48 actually since other functions we'll run will use that region.)
         $execute positioned $(tax) $(tay) $(taz) run clone ~ ~ ~ ~$(tshx) ~$(tshy) ~$(tshz) 0 0 -96 masked move

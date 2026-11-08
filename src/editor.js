@@ -47,7 +47,7 @@ eemacroSize(eemacroSizeCommands.join('\n'));
 
 enterEditor`
     # Log the entry point
-    ${debug.entry} {input: "from dialog enter_editor | from dialog main_menu editExistinAnimation"}
+    ${debug.entry} {input: "from dialog enter_editor | from dialog main_menu editExistingAnimation"}
     # Log the function call
     $${debug.run} {input: "enterEditor for $(UUID)"}
     # Log the expected function path.
@@ -58,7 +58,7 @@ enterEditor`
     data remove storage ${ns}:temp eemacro
     scoreboard objectives remove ${ns}-temp
     # Load the player's and animation's data.
-    $${grabPlayerAndAnimation} {UUID:$(UUID)}
+    ${grabPlayerAndAnimation} with entity @s
     # Warn if the player doesn't have a lane, and assign them one if so.
     $execute unless data storage ${ns}:player_data current.lane run ${newPlayerLane`
         ${debug.warn} {input: "Player doesn't have an editor lane! Assigning a new one..."}

@@ -3,7 +3,7 @@
 // Sets up basic things.
 import mcf from './mcf.js';
 import * as debug from './debug.js';
-import { removeDocile, recSplitGroups, regroupEntities, cleanKill } from './entity.js';
+import { removeDocile, splitGroups, regroupEntities, cleanKill } from './entity.js';
 import { constructRealCoordinates } from './selection/geometry.js';
 import { grabSizeAnchorEditor, grabStrBlockPos } from './selection/data.js'
 import { grabPlayerData, grabPlayerAndAnimation, grabAnimationData, cleanUpNewAnimationData, cleanUpCurrentPlayerData } from './data.js';
@@ -80,8 +80,7 @@ startRenderCommands.push(`
         # Place the structure block to save the original 
         $execute in $(dimension) run setblock $(x) $(y) $(z) minecraft:structure_block{mode:"SAVE",showboundingbox:false,posX:1,posY:1,posZ:1,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-original",strict:true}
         # Ungroup entities
-        data modify storage ${ns}:temp str.id set value 0
-        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 run ${recSplitGroups} with storage ${ns}:temp str
+        $execute in $(dimension) positioned $(x) $(y) $(z) positioned ~1 ~1 ~1 run ${splitGroups} with storage ${ns}:temp str
         # Save the frame
         $execute in $(dimension) positioned $(x) $(y) $(z) run setblock ~ ~1 ~ minecraft:redstone_block
         # Replace this block with what was there beforehand, and remove that block from the editor

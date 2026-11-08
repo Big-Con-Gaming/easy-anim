@@ -9,71 +9,62 @@ import { axis } from './util.js';
 const folder = mcf.entity;
 
 // Define functions you want other files to use here:
-export const { recSplitGroups, regroupEntities, turnEntityDocile, removeDocile, mainDocileLoop, cleanKill } = folder;
+export const { splitGroups, regroupEntities, turnEntityDocile, removeDocile, mainDocileLoop, cleanKill } = folder;
 
 // Define local functions here:
 const {
-    anonymous: a, recDocileSearch, skipDocile, targetSelectInSelection, rideGroup, removeGroupData, placeSizeInEntity
+    anonymous: a, recDocileSearch, skipDocile, targetSelectInSelection, rideGroup, removeParentData, removeVehicleData
 } = folder;
 
 const ns = 'easy-anim';
 
 // Separates groups within a selection/frame using tags so that they can be recreated after a structure block loads.
-const recSplitGroupsCommands = [];
-
-recSplitGroupsCommands.push(`
+splitGroups`
     # Log the function call
-    $${debug.run} {input: "recSplitGroups with id $(id) within $(sx) $(sy) $(sz)"}
+    $${debug.run} {input: "splitGroups within $(sx) $(sy) $(sz)"}
     # Remove possibly trailing data.
     scoreboard objectives remove ${ns}-rsg
     data remove storage ${ns}:temp rsg
     # Create the objective used to count groupid if it doesn't already exist.
     scoreboard objectives add ${ns}-rsg dummy
-    $execute store result storage ${ns}:temp rsg.id int 1 run scoreboard players set groupid ${ns}-rsg $(id)
-`);
-
-function createRecSplitGroups({axis}) {
-    return`
-        $data modify storage ${ns}:temp rsg.s${axis} set value $(s${axis})
-    `;
-}
-
-recSplitGroupsCommands.push(...axis.map(createRecSplitGroups));
-
-recSplitGroupsCommands.push(`
-    # Warn if no entities are present within the selection
-    $execute align xyz unless entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz)] run ${debug.warn} {input:"No entities can be grouped! Skipping..."}
-    $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),limit=1,sort=random] if data entity @s Passengers run ${a`
-        # Log the function call
-        ${debug.run} {input: "grouping an entity found within selection"}
-        $tag @s add ${ns}-vehicle-$(id)
-        $data modify entity @s data.easyanimgroupids append value {id: $(id)}
-        tag @s add ${ns}-group
-        $execute on passengers run tag @s add ${ns}-passenger-$(id)
-        execute on passengers run tag @s add ${ns}-group
-        $execute on passengers run data modify entity @s data.easyanimgroupids append value {id: $(id)}
-        execute on passengers run ride @s dismount
-        execute store result storage ${ns}:temp rsg.id int 1 run scoreboard players add groupid ${ns}-rsg 1
-    `} with storage ${ns}:temp rsg
-    $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz)] if data entity @s Passengers run ${recSplitGroups} with storage ${ns}:temp rsg
-    # Remove the created objective.
+    execute store result storage ${ns}:temp rsg.id int 1 run scoreboard players set groupid ${ns}-rsg 0
+    # First step: giving all entities the required tags and data.
+    $execute align xyz as @e[type=!player, dx=$(sx), dy=$(sy), dz=$(sz)] if data entity @s Passengers[0] run ${a`
+        # This might seem stupid, but the nested anonymous functions update the macro context needed when id get's increased,
+        # since selectors cause breadth-first function running, this forces depth-first function running.
+        ${a`
+            # Log the function call
+            $${debug.run} {input: "Give Tags, Group: $(id)"}
+            # Associate all passengers with this ID.
+            $execute on passengers run data modify entity @s data.${ns}.parent set value $(id)
+            $execute on passengers run tag @s add ${ns}-passenger-$(id)
+            execute on passengers run tag @s add ${ns}-passenger
+            execute on passengers run tag @s add ${ns}-this-pass
+            # Associate this vehicle with this ID.
+            $data modify entity @s data.${ns}.vehicle set value $(id)
+            $tag @s add ${ns}-vehicle-$(id)
+            tag @s add ${ns}-vehicle
+            # Update ID
+            execute store result storage ${ns}:temp rsg.id int 1 run scoreboard players add groupid ${ns}-rsg 1
+        `} with storage ${ns}:temp rsg
+    `}
+    # Second step: making all passengers dismount their vehicles.
+    # We use temp tag this-pass in case passengers aren't located within the frame but were on vehicles that were.
+    execute as @e[type=!player, tag=${ns}-this-pass] run ride @s dismount
+    tag @e[type=!player, tag=${ns}-this-pass] remove ${ns}-this-pass
+    # Remove trailing data.
     scoreboard objectives remove ${ns}-rsg
     data remove storage ${ns}:temp rsg
-`);
+`
+const placeSizeInRegroupCommands = [];
 
-recSplitGroups(recSplitGroupsCommands.join('\n'));
-
-const placeSizeInEntityCommands = [];
-
-function placeSizeInEntityFunc({axis}) {
+function placeSizeInRegroupFunc({axis}) {
     return`
-        $data modify entity @s data.easyanimgroupids[0].s${axis} set value $(s${axis})
+        $data modify storage ${ns}:temp regroup.s${axis} set value $(s${axis})
     `
 }
 
-placeSizeInEntityCommands.push(...axis.map(placeSizeInEntityFunc));
-
-placeSizeInEntity(placeSizeInEntityCommands.join('\n'));
+placeSizeInRegroupCommands.push(...axis.map(placeSizeInRegroupFunc));
 
 // Must be ran at xyz and with sx sy sz, where xyz represents the neg-neg-neg corner of the frame/selection and sx sy sz represent the size of the frame/selection. This goes through and puts grouped entities back together after they were split for structure saving.
 regroupEntities`
@@ -81,28 +72,49 @@ regroupEntities`
     $${debug.run} {input: "regroupEntities within $(sx) $(sy) $(sz)"}
     # Log the expected function path.
     ${debug.path} {input: "-> | passenger on vehicle -> | untagging"}
+    # Remove possibly trailing data.
+    data remove storage ${ns}:temp regroup
+    ${placeSizeInRegroupCommands.join('\n')}
     # Warn if no grouped entities are found within selection in case there should be.
-    $execute align xyz unless entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${debug.warn} {input: "No grouped entities found, skipping..."}
+    $execute align xyz unless entity @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-vehicle] run ${debug.warn} {input: "No vehicle entities found, skipping..."}
     # Pull needed data into a macro
-    $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${placeSizeInEntity} {sx: $(sx), sy: $(sy), sz: $(sz)}
-    $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${rideGroup`
+    $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-passenger] run ${a`
+        # Remove possibly trailing data.
+        data remove storage ${ns}:temp regroup.id
+        # Set ID for this passenger and vehicle group.
+        data modify storage ${ns}:temp regroup.id set from entity @s data.${ns}.parent
+        ${rideGroup`
+            # Log the function call
+            $${debug.run} {input: "placing passenger on vehicle in group $(id)"}
+            $ride @s mount @n[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-vehicle-$(id)]
+        `} with storage ${ns}:temp regroup
+        # Remove trailing data.
+        data remove storage ${ns}:temp regroup.id
+    `}
+    $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-passenger] run ${removeParentData`
         # Log the function call
-        $${debug.run} {input: "placing passenger on vehicle in group $(id)"}
-        $execute if entity @s[tag=${ns}-passenger-$(id)] run ride @s mount @n[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-vehicle-$(id)]
-    `} with entity @s data.easyanimgroupids[0]
-    $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-group] run ${removeGroupData`
+        $${debug.run} {input: "untagging passenger $(parent)"}
+        # Remove stored data
+        data remove entity @s data.${ns}.parent
+        # If there's no vehicle data, remove the parent data entirely.
+        execute unless data entity @s data.${ns}.vehicle run data remove entity @s data.${ns}
+        # Remove tags
+        $tag @s remove ${ns}-passenger-$(parent)
+        tag @s remove ${ns}-passenger
+    `} with entity @s data.${ns}
+    $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-vehicle] run ${removeVehicleData`
         # Log the function call
-        $${debug.run} {input: "untagging $(id)"}
-        $execute if entity @s[tag=${ns}-passenger-$(id)] run tag @s remove ${ns}-passenger-$(id)
-        $execute if entity @s[tag=${ns}-vehicle-$(id)] run tag @s remove ${ns}-vehicle-$(id)
-        data remove entity @s data.easyanimgroupids[0]
-        # Recursive call for multi-layered groups. Uses the fact that IDs can be a list now.
-        $execute if data entity @s data.easyanimgroupids[0] run ${placeSizeInEntity} {sx: $(sx), sy: $(sy), sz: $(sz)}
-        execute if data entity @s data.easyanimgroupids[0] run ${rideGroup} with entity @s data.easyanimgroupids[0]
-        execute if data entity @s data.easyanimgroupids[0] run ${removeGroupData} with entity @s data.easyanimgroupids[0]
-        execute unless data entity @s data.easyanimgroupids[0] run tag @s remove ${ns}-group
-        execute unless data entity @s data.easyanimgroupids[0] run data remove entity @s data.easyanimgroupids
-    `} with entity @s data.easyanimgroupids[0]
+        $${debug.run} {input: "untagging vehicle $(vehicle)"}
+        # Remove stored data
+        data remove entity @s data.${ns}.vehicle
+        # If there's no passenger data, remove the vehicle data entirely.
+        execute unless data entity @s data.${ns}.passenger run data remove entity @s data.${ns}
+        # Remove tags
+        $tag @s remove ${ns}-vehicle-$(vehicle)
+        tag @s remove ${ns}-vehicle
+    `} with entity @s data.${ns}
+    # Remove trailing data.
+    data remove storage ${ns}:temp regroup
 `;
 
 // Define arrays that are built below.

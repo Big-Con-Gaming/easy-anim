@@ -5,7 +5,7 @@ import mcf from './mcf.js';
 import * as debug from './debug.js';
 import { operationOnSelectedFrames } from './animation/operate.js';
 import { calculateLaneX } from './editor/lane.js';
-import { regroupEntities, removeDocile, recSplitGroups } from './entity.js';
+import { regroupEntities, removeDocile, splitGroups } from './entity.js';
 import { grabStrBlockPos } from './selection/data.js';
 import { handleSummon } from './selection/handle.js';
 import { allocAnimation, storeFrame } from './storage.js';
@@ -28,7 +28,7 @@ createAnimation`
     # Log the function call
     $${debug.run} {input: "createAnimation for $(UUID)"}
     # Log the expected function path.
-    ${debug.path} {input: "-> grabAnimationFromUuid -> ^ camera and selection check -> grabStrBlockPos -> calculateLaneX -> saveStructure -> recSplitGroups (| grouping entity) -> macro context update -> | removeDocile -> allocAnimation -> storeFrame X2 -> regroupEntities -> handleSummon -> cleanUpNewAnimationData"}
+    ${debug.path} {input: "-> grabAnimationFromUuid -> ^ camera and selection check -> grabStrBlockPos -> calculateLaneX -> saveStructure -> splitGroups (| grouping entity) -> macro context update -> | removeDocile -> allocAnimation -> storeFrame X2 -> regroupEntities -> handleSummon -> cleanUpNewAnimationData"}
     # Load the player's inventory from storage.
     $${grabAnimationFromUuid} {UUID:$(UUID)}
     # Error if animation_data new is missing: name or anchor. Name should realistically never happen.
@@ -71,8 +71,7 @@ createAnimation`
         $execute positioned $(x) $(y) $(z) run kill @n[type=minecraft:interaction,tag=${ns}-select-str-block,distance=..1]
         $execute positioned $(x) $(y) $(z) align xyz run kill @e[tag=${ns}-handle,dx=$(sx),dy=$(sy),dz=$(sz)]
         # Ungroup any grouped entities and tag them so they can find each other.
-        data modify storage ${ns}:temp str.id set value 0
-        $execute positioned $(x) $(y) $(z) run ${recSplitGroups} with storage ${ns}:temp str
+        $execute positioned $(x) $(y) $(z) run ${splitGroups} with storage ${ns}:temp str
         # Using the macro, make sure all of the entities within the selection are no longer considered docile
         ${a`
             # Log the function call
