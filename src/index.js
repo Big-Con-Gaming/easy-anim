@@ -78,6 +78,9 @@ tick`
     execute as @a[tag=${ns}-camera-view] if predicate ${ns}:any_input run ${exitCamera}
     # Checks if there's any highlighted cameras in the editor that need to have particles placed.
     execute as @a[tag=!${ns}-camera-view] at @s run ${placeParticleEveryTick} with entity @s
+    # Check for new players, if they have joined, show them the introduction dialog.
+    execute as @a unless score @s ${ns}-first-time matches 1.. run dialog show @s ${ns}:introduction
+    execute as @a unless score @s ${ns}-first-time matches 1.. run scoreboard players set @s ${ns}-first-time 1
 `;
 
 // These commands run when the datapack has been loaded in.
@@ -90,10 +93,13 @@ load`
     scoreboard objectives add ${ns}-right-click minecraft.used:minecraft.carrot_on_a_stick
     # Set up a trigger scoreboard for quick menu access
     scoreboard objectives add ${ns} trigger
+    # Set up a scoreboard for tracking which players are new
+    scoreboard objectives add ${ns}-first-time dummy
     # Change the commandModificationBlockLimit to allow 48x48x48 volumes (Different name in 1.21.11!!!)
     gamerule commandModificationBlockLimit 110592
     # Let operators know the datapack has been loaded.
     say Easy Animations Datapack Loaded!
+    tellraw @a {color: "red", text: "Warning: Easy Animations is still in early access! Things may break between versions and dev builds!"}
 `;
 
 // Opens the main menu dialog for whoever runs this command.

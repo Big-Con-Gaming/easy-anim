@@ -1,0 +1,50 @@
+{
+  "type": "minecraft:confirmation",
+  "title": "Welcome to Easy Animations! ",
+  "external_title": "Introduction",
+  "body": {
+    "type": "minecraft:plain_message",
+    "contents": "Would you like a tutorial? (Well right now, more like a brief info dump)."
+  },
+  "yes": {
+    "label": "Yes",
+    "action": {
+      "type": "minecraft:show_dialog",
+      "dialog": {
+        "type": "minecraft:notice",
+        "title": "How to Use:",
+        "external_title": "Tutorial",
+        "body": [
+          {
+            "type": "minecraft:plain_message",
+            "contents": "To access all menus in this datapack, use /trigger easy-anim"
+          },
+          {
+            "type": "minecraft:plain_message",
+            "contents": "From the overworld, you will get a main menu. This will allow you to create, edit, render, and delete animations."
+          },
+          {
+            "type": "minecraft:plain_message",
+            "contents": "From the editor, you will get the editor menu. this will allow you to select frames, which are needed to then use operations on them like saving, loading, moving, etc."
+          },
+          {
+            "type": "minecraft:plain_message",
+            "contents": "If you find a bug, use /dialog show @s easy-anim:view_debug to check for any errors, and use /scoreboard players set #debug easy-anim 3 to turn on verbose logging."
+          },
+          {
+            "type": "minecraft:plain_message",
+            "contents": "Remember to save all your frames before exiting and yell at me in Discord if you find any bugs! (You will...)"
+          }
+          ,
+          {
+            "type": "minecraft:plain_message",
+            "contents": "If you need to see this message again, run /scoreboard players set @s easy-anim-first-time 0"
+          }
+        ]
+      }
+    }
+  },
+  "no": {
+    "label": "No"
+  }
+}
