@@ -8,6 +8,7 @@
   "actions": [
     {
       "label": "✔ Modify Selection",
+      "tooltip": "Changes which frames are selected. All operations work on selected frames only.",
       "action": {
         "type": "minecraft:run_command",
         "command": "function easy-anim:menu/display_modify_select_dialog"
@@ -15,15 +16,15 @@
     },
     {
       "label": "💾 Save Frames",
-      "tooltip": "Operates on all selected frames.",
+      "tooltip": "Operates on all selected frames, saves all block and entity changes.",
       "action": {
         "type": "minecraft:run_command",
         "command": "function easy-anim:animation/operate/operation_on_selected_frames {mode: save}"
       }
     },
     {
-      "label": "♻ Reload Frames",
-      "tooltip": "Operates on all selected frames.",
+      "label": "♻ Revert Frames",
+      "tooltip": "Operates on all selected frames, reverts all block and entity changes.",
       "action": {
         "type": "minecraft:run_command",
         "command": "function easy-anim:animation/operate/operation_on_selected_frames {mode: load}"
@@ -31,7 +32,7 @@
     },
     {
       "label": "🗑 Remove Frames",
-      "tooltip": "Operates on all selected frames.",
+      "tooltip": "Operates on all selected frames, removes these frames entirely from the animation.",
       "action": {
         "type": "minecraft:run_command",
         "command": "function easy-anim:animation/operate/operation_on_selected_frames {mode: clear}"
@@ -87,7 +88,7 @@
     },
     {
       "label": "⌛ Set Frames Duration",
-      "tooltip": "Operates on all selected frames.",
+      "tooltip": "Operates on all selected frames, changes how long the player is shown a frame before moving to the next one.",
       "action": {
         "type": "minecraft:show_dialog",
         "dialog": "easy-anim:frame_duration"
@@ -95,6 +96,7 @@
     },
     {
       "label": "🚶 Exit Editor",
+      "tooltip": "Make sure to save any changes you want to keep!",
       "action": {
         "type": "minecraft:run_command",
         "command": "function easy-anim:editor/exit with entity @s"
