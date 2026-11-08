@@ -66,3 +66,13 @@ See the [mcjspacker github page](https://github.com/ofek2608/mcjspacker) for mor
 - Make sure to make unique data sources for functions (scoreboards, storage) that are cleared at the end AND the beginning of function execution (unless needed elsewhere).
 - Try to keep all trailing data within animation_data and player_data storage namespaces.
 - Lastly, if optimizations can be made by using javascript, please attempt to do so if it increases code readability and minimizes repetitive code.
+
+## License
+
+This project is licensed under Creative Commons Attribution–NonCommercial–ShareAlike 4.0 International (CC BY-NC-SA 4.0).
+
+You may share, fork, and modify this datapack for noncommercial purposes, provided you credit the original creator, link to this repository, indicate changes, and distribute adaptations under the same license.
+
+Commercial uses of the copyrighted project require separate permission from the rights holder.
+
+License: https://creativecommons.org/licenses/by-nc-sa/4.0/
