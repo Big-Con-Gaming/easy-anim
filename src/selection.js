@@ -96,6 +96,8 @@ exitSelection`${exitCommands.join('\n')}`;
 // This function is extremely inefficient. It is ran every frame, with some of the code only executing if the player places a new selection item frame. This part is fine.
 // The issue is that afterwards, a lot of commands execute that aren't needed (like cleaning up new changes from the selections, etc.) These should be consolidated.
 selectCommands.push(`
+    # Log the entry point (commented out since it is tick)
+    # ${debug.entry} {input: "tick"}
     execute as @n[type=item_frame,tag=${ns}-edge] at @s positioned ^ ^ ^-0.5 align xyz summon minecraft:marker run ${executeAsMarker`
         # Log the entry point
         ${debug.entry} {input: "from placed entity from selection item"}

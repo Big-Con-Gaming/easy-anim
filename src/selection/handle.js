@@ -208,6 +208,10 @@ handleExecution`${handleExecutionCommands.join('\n')}`;
 
 // For both left and right clicks of the interaction entity, run the handle commands.
 handleDetection`
+    # Log the entry point (commented out since it is tick)
+    # ${debug.entry} {input: "tick"}
+    # Log the function call
+    # ${debug.run} {input: "handleDetection"}
     execute as @e[type=interaction, tag=${ns}-handle] if data entity @s interaction at @s on target unless items entity @s weapon.* minecraft:carrot_on_a_stick[minecraft:custom_data={${ns}-hotbar:1b}] as @n[type=minecraft:interaction, tag=${ns}-handle, distance=..0.1] run ${handleExecution}
     execute as @e[type=interaction, tag=${ns}-handle] if data entity @s attack at @s on attacker unless items entity @s weapon.* minecraft:carrot_on_a_stick[minecraft:custom_data={${ns}-hotbar:1b}] as @n[type=minecraft:interaction, tag=${ns}-handle, distance=..0.1] run ${handleExecution}
     # We only block carrot on a stick interactions so that we can actually run their commands next. I think using the select item on the arrows makes sense to me, so I allow that interaction.
@@ -220,6 +224,8 @@ handleDetection`
 
 // Thrown into the player raycast command, if the player is looking at a handle, it will highlight. Special method is used here to make sure we are looking at the 0.25 x 0.25 interaction entity. (we check a 1x1x1 cube that is 1 - 0.125 away from our destination and a 1x1x1 cube at this current position.)
 handleHighlight`
+    # log the entry point (commented out since it is raycast)
+    # ${debug.entry} {input: "raycast, from tick"}
     execute positioned ~-0.875 ~-0.875 ~-0.875 as @e[dx=0, dy=0, dz=0, type=interaction, tag=${ns}-handle] as @n[type=item_display, tag=${ns}-handle] run tag @s add ${ns}-handle-select1
     execute positioned ~ ~ ~ as @e[dx=0, dy=0, dz=0, type=interaction, tag=${ns}-handle] as @n[type=item_display, tag=${ns}-handle] run tag @s add ${ns}-handle-select2
     execute as @e[type=item_display,tag=${ns}-handle-select1, tag=${ns}-handle-select2] run data merge entity @s {Glowing:1b}

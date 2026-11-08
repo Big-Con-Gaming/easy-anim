@@ -1,27 +1,48 @@
-List of entry points and their sources.
+List of entry points and their sources:
 
-setName (src/menu.js): from set_name dialog
-
-createAnimation (src/menu.js): from create_animation item
-
-exitSelection (src/menu.js): from exit item | from enterEditor
-
-enterEditor (src/editor.js): from dialog enter_editor
-
-saveCurrentFrame (src/animation.js): from editor_menu dialog
-
-clearCurrentFrame (src/animation.js): from editor_menu dialog
-
-loadCurrentFrame (src/animation.js): from editor_menu dialog
-
+operationOnSelectedFrames (src/animation/operate.js): from editor_menu dialog, multiple options | moveFramesShowDialog
+selectInPlayerFrame (src/animation/selecting.js): from modify_selection dialog
+parseToggleSingleSelectFrame (src/animation/selecting.js): from modify_selection dialog
+parseToggleRangeSelectFrame (src/animation/selecting.js): from modify_selection dialog
+toggleAllSelectFrame (src/animation/selecting.js): from modify_selection dialog
+selectAllFrames (src/animation/selecting.js): from modify_selection dialog
+cameraLoadQueueFrame (src/camera/frame.js): from editor_menu load camera
+toggleHighlightFrame (src/camera/frame.js): from editor_menu highlight camera
+cameraSaveRestOfHighlights (src/camera/frame.js): from camera_move_frame dialog
+cameraSave (src/camera/selection.js): from hotbar set camera
+cameraSaveFinish (src/camera/selection.js): from camera_info dialog
+cameraLoad (src/camera/selection.js): from hotbar load camera
+cameraHighlight (src/camera/selection.js): from hotbar hover camera_load item
+cameraSaveForEntity (src/camera/selection.js): from camera_move_selection dialog
+createAnimation (src/animation.js): from create_animation item
+deleteAnimation (src/animation.js): from: displayAnimationsDialog specified execution from main_menu dialog
+cameraSaveFrameEnterIterate (src/animation.js): from camera_info_frame dialog
+enterEditor (src/editor.js): from dialog enter_editor | from dialog main_menu editExistingAnimation
 exit (src/editor.js): from editor_menu dialog
+setName (src/menu.js): from set_name dialog
+displayAnimationsDialog (src/menu.js): from: main_menu dialog
+editAnimationSetup (src/menu.js): from: displayAnimationsDialog specified execution from main_menu dialog
+renderAnimation (src/menu.js): from: displayAnimationsDialog specified execution from main_menu dialog
+displayModifySelectDialog (src/menu.js): from: editor_menu dialog
+moveFramesShowDialog (src/menu.js): from editor_menu dialog
+modifyFrameDurationDialog (src/menu.js): from: frame_duration dialog
+specificFrameRender (src/render.js): from: startRender | tick, frame duration hit 0
+exitSelection (src/selection.js): from exit item | from enterEditor
+executeAsMarker (src/selection.js): from placed entity from selection item
 
-addBaseFrame (src/animation.js): from editor_menu dialog
+called by tick:
+    cameraLoadFrame (src/camera/frame.js)
+    toolbarRightClick (src/inventory/hotbar.js)
+    removeHovers (src/selection/hover.js)
+    exitCamera (src/camera.js)
+    placeParticleEveryTick (src/camera.js)
+    reEnterEditor (src/editor.js)
+    checkAllFramesLoaded (src/editor.js)
+    handleDetection (src/handle.js)
+    raycast (src/index.js)
+    renderCheck (src/render.js)
+    select (src/selection.js)
 
-cameraSave (src/camera.js): from hotbar set camera
-
-cameraSaveFinish (src/camera.js): from camera_info dialog
-
-cameraLoad (src/camera.js): from hotbar load camera
-
-cameraHighlight (src/camera.js): from hotbar hover camera_load item
+called by raycast (indirectly through tick):
+    handleHighlight (src/selection/handle.js)
+    keepHoverSelect (src/selection/hover.js)

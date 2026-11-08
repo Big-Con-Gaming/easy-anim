@@ -171,6 +171,8 @@ checkFrameLoaded`
 
 // Checks all of the frames in an animation to see if they are all loaded, and if so, enters the editor for the player.
 checkAllFramesLoaded`
+    # Log the entry point
+    ${debug.entry} {input: "from player waiting on operation | tick for players waiting on entering the editor"}
     # Log the function call
     $${debug.run} {input: "checkAllFramesLoaded for data located in $(location) running if success: $(success)"}
     # Log the function path
@@ -271,6 +273,8 @@ finishEnterEditor`
 `
 
 reEnterEditor`
+    # Log entry point
+    ${debug.entry} {input: "from player incorrectly exiting editor"}
     # Log the function call
     ${debug.run} {input: "reEnterEditor"}
     # Log the function path
