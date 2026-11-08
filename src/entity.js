@@ -202,8 +202,8 @@ removeDocileCommands.push(`
     execute if entity @s[tag=${ns}-entity-turned-docile] run tag @s remove ${ns}-entity-turned-docile
 `);
 
-turnEntityDocile`${turnEntityDocileCommands.join('\n')}`;
-removeDocile`${removeDocileCommands.join('\n')}`;
+turnEntityDocile(turnEntityDocileCommands.join('\n'));
+removeDocile(removeDocileCommands.join('\n'));
 
 // Helper function to skip a frame in docile check
 skipDocile`

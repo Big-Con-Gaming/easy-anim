@@ -144,16 +144,16 @@ for (const { name, level, color, symbol, special } of debugTypes) {
     } else if (special === "store_data") {
         folder[`${name}`]`
             # Remove possibly trailing data
-            data remove storage ${ns}:debug temp
+            data remove storage ${ns}:debug special
             # Display the debug message only if the debug level is high enough.
             $execute if score #debug ${ns} matches ${level}.. run tellraw @a [{text: "${ns}: (${symbol}) ", color: "${color}"}, {type: "nbt", source: "$(source)", nbt: "$(path)", $(source): "$(location)", interpret: false}]
             # Store this debug message in the debug log. Grab as text to resolve value.
-            $data modify storage ${ns}:debug temp set from $(source) $(location) $(path)
+            $data modify storage ${ns}:debug special set from $(source) $(location) $(path)
             ${a`
-                $data modify storage ${ns}:debug log append value {text: {text: '${ns}: (${symbol}) $(temp)', color: "${color}"}, level: ${level}}
+                $data modify storage ${ns}:debug log append value {text: {text: '${ns}: (${symbol}) $(special)', color: "${color}"}, level: ${level}}
             `} with storage ${ns}:debug
             # Remove redundant data
-            data remove storage ${ns}:debug temp
+            data remove storage ${ns}:debug special
         `;
     }
 }

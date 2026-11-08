@@ -46,3 +46,4 @@ called by tick:
 called by raycast (indirectly through tick):
     handleHighlight (src/selection/handle.js)
     keepHoverSelect (src/selection/hover.js)
+    
