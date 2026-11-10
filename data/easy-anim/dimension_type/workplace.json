@@ -1,24 +1,29 @@
 {
   "ambient_light": 1,
-  "bed_works": true,
-  "fixed_time": 6000,
+  "attributes":{
+    "gameplay/bed_rule": {
+      "can_sleep": "never",
+      "can_set_spawn": "always"
+    },
+    "gameplay/can_start_raid": false,
+    "gameplay/respawn_anchor_works": true
+  },
+  "has_fixed_time": true,
+  "timelines": "day",
   "coordinate_scale": 1,
-  "effects": "minecraft:overworld",
+  "has_ender_dragon_fight": false,
+  "cardinal_light": "default",
   "has_ceiling": false,
-  "has_raids": false,
   "has_skylight": true,
-  "height": 96,
+  "height": 64,
   "infiniburn": "#minecraft:infiniburn_overworld",
-  "logical_height": 96,
+  "logical_height": 64,
   "min_y": -32,
   "monster_spawn_light_level": {
     "type": "minecraft:uniform",
     "max_inclusive": 0,
     "min_inclusive": 0
   },
-  "natural": false,
-  "piglin_safe": false,
-  "respawn_anchor_works": true,
-  "ultrawarm": false,
+  "default_clock":"minecraft:overworld",
   "monster_spawn_block_light_limit": 0
 }
