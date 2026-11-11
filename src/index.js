@@ -95,8 +95,8 @@ load`
     scoreboard objectives add ${ns} trigger
     # Set up a scoreboard for tracking which players are new
     scoreboard objectives add ${ns}-first-time dummy
-    # Change the commandModificationBlockLimit to allow 48x48x48 volumes (Different name in 1.21.11!!!)
-    gamerule commandModificationBlockLimit 110592
+    # Change the max_block_modifications to allow 48x48x48 volumes (Different name in 1.21.11!!!)
+    gamerule max_block_modifications 110592
     # Let operators know the datapack has been loaded.
     say Easy Animations Datapack Loaded!
     tellraw @a {color: "red", text: "Warning: Easy Animations is still in early access! Things may break between versions and dev builds!"}

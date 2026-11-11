@@ -218,10 +218,10 @@ specificFrameRenderCommands.push(`
             data modify entity @s NoAI set value true
             tag @s add ${ns}-render
         `}
+        $gamemode spectator @a[nbt={UUID: $(UUID)}]
         # Place the player at the camera, tell them their note, place them in spectator, and tag them with camera.
         $tp @a[nbt={UUID: $(UUID)}] $(camerax) $(cameray) $(cameraz) $(camerayaw) $(camerapitch)
         $execute unless data storage ${ns}:temp {camera:{note:""}} run tellraw @a[nbt={UUID: $(UUID)}] {text:"Camera Note: $(cameranote)",bold:true}
-        $gamemode spectator @a[nbt={UUID: $(UUID)}]
         $tag @a[nbt={UUID: $(UUID)}] add ${ns}-camera-view
         # Set the duration scoreboard to this frame's duration.
         $execute store result score #$(name)_render_duration ${ns} run data get storage ${ns}:animation_data new.frames[$(framenum)].duration
