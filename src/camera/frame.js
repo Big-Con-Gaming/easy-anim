@@ -206,7 +206,6 @@ toggleHighlightFrame`
         ${debug.error} {input: "No camera data to highlight for frame!"}
         tellraw @s {text:"No camera data to highlight for this frame!",color:red}
     `}
-    $say $(framenum)
     # Clean up possibly trailing data.
     data remove storage ${ns}:temp camera
     data merge storage ${ns}:temp {camera:{pos:[0.0d, 0.0d, 0.0d]}}
