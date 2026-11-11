@@ -4,7 +4,7 @@ import * as debug from './debug.js';
 const folder = mcf.util;
 export const {
     replaceAllInString, toLowerCase, stringConcat, stringEquals,
-    pullDataStringEquals, testIfInt, arrayMoveEntry, quaternionToEulerNbt
+    pullDataStringEquals, testIfInt, arrayMoveEntry, quaternionToEulerNbt, matchUUIDFromUUID
 } = folder;
 const {
     anonymous: a, incrementIdx, recCharTest, lowerCaseMacro, rawConcat
@@ -327,3 +327,13 @@ quaternionToEulerNbtCommands.push(`
 `);
 
 quaternionToEulerNbt(quaternionToEulerNbtCommands.join('\n'));
+
+
+matchUUIDFromUUID(`
+    scoreboard players operation #match ${ns}-uuid0 = @s ${ns}-uuid0
+    scoreboard players operation #match ${ns}-uuid1 = @s ${ns}-uuid1
+    scoreboard players operation #match ${ns}-uuid2 = @s ${ns}-uuid2
+    scoreboard players operation #match ${ns}-uuid3 = @s ${ns}-uuid3
+    execute if score #match ${ns}-uuid0 matches 0 if score #match ${ns}-uuid1 matches 0 if score #match ${ns}-uuid2 matches 0 if score #match ${ns}-uuid3 matches 0 run return fail
+    return 1
+`);
