@@ -15,9 +15,9 @@
   "cardinal_light": "default",
   "has_ceiling": false,
   "has_skylight": true,
-  "height": 64,
+  "height": 96,
   "infiniburn": "#minecraft:infiniburn_overworld",
-  "logical_height": 64,
+  "logical_height": 96,
   "min_y": -32,
   "monster_spawn_light_level": {
     "type": "minecraft:uniform",
