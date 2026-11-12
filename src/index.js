@@ -20,9 +20,19 @@ import './storage.js';
 import './animation.js';
 import './debug.js';
 import { renderCheck } from './render.js';
+import { matchUUIDFromUUID } from './util.js';
+
+
+const folder = mcf.index
 
 // Declare the functions you want to use
 const { tick, load, menu, raycast } = mcf;
+
+const {
+    anonymous: a
+} = folder;
+
+
 const raycastCommands = [];
 
 const ns = 'easy-anim';
@@ -63,7 +73,7 @@ tick`
     # Resets right click detection
     execute as @a[scores={${ns}-right-click=1..}] run scoreboard players set @s ${ns}-right-click 0
     # Sends out a raycast from every player and executes the raycast commands.
-    execute as @a at @s anchored eyes positioned ^ ^ ^ summon minecraft:interaction run ${raycast} with entity @p
+    execute as @a at @s if ${matchUUIDFromUUID} anchored eyes positioned ^ ^ ^ summon minecraft:interaction run ${raycast}
     # Deletes any remaining hover blocks that are no longer looked at (detected through raycast, listed above.)
     execute as @e[type=interaction, tag=${ns}-hover-select-delete] run ${removeHovers}
     # Disables the trigger command for those who aren't supposed to have access to it
@@ -79,8 +89,14 @@ tick`
     # Checks if there's any highlighted cameras in the editor that need to have particles placed.
     execute as @a[tag=!${ns}-camera-view] at @s run ${placeParticleEveryTick} with entity @s
     # Check for new players, if they have joined, show them the introduction dialog.
-    execute as @a unless score @s ${ns}-first-time matches 1.. run dialog show @s ${ns}:introduction
-    execute as @a unless score @s ${ns}-first-time matches 1.. run scoreboard players set @s ${ns}-first-time 1
+    execute as @a unless score @s ${ns}-first-time matches 1.. run ${a`
+        execute store result score @s ${ns}-uuid0 run data get entity @s UUID[0]
+        execute store result score @s ${ns}-uuid1 run data get entity @s UUID[1]
+        execute store result score @s ${ns}-uuid2 run data get entity @s UUID[2]
+        execute store result score @s ${ns}-uuid3 run data get entity @s UUID[3]
+        dialog show @s ${ns}:introduction
+        scoreboard players set @s ${ns}-first-time 1
+        `}
 `;
 
 // These commands run when the datapack has been loaded in.
@@ -95,8 +111,19 @@ load`
     scoreboard objectives add ${ns} trigger
     # Set up a scoreboard for tracking which players are new
     scoreboard objectives add ${ns}-first-time dummy
-    # Change the commandModificationBlockLimit to allow 48x48x48 volumes (Different name in 1.21.11!!!)
-    gamerule commandModificationBlockLimit 110592
+    scoreboard objectives add ${ns}-framenum dummy
+    #Set up scoreboards that track uuid
+    scoreboard objectives add ${ns}-uuid0 dummy
+    scoreboard objectives add ${ns}-uuid1 dummy
+    scoreboard objectives add ${ns}-uuid2 dummy
+    scoreboard objectives add ${ns}-uuid3 dummy
+    #Set up scoreboards that track owner's uuid
+    scoreboard objectives add ${ns}-owner0 dummy
+    scoreboard objectives add ${ns}-owner1 dummy
+    scoreboard objectives add ${ns}-owner2 dummy
+    scoreboard objectives add ${ns}-owner3 dummy
+    # Change the max_block_modifications to allow 48x48x48 volumes (Different name in 1.21.11!!!)
+    gamerule max_block_modifications 110592
     # Let operators know the datapack has been loaded.
     say Easy Animations Datapack Loaded!
     tellraw @a {color: "red", text: "Warning: Easy Animations is still in early access! Things may break between versions and dev builds!"}
@@ -112,7 +139,7 @@ menu`
 // Executes commands that have to run for each raycast iteration (we start at the player and move out 0.25 blocks more each time, until we are 5 blocks away.)
 for (let i = 0.0; i < 5.25; i += 0.25) {
     raycastCommands.push(`
-        $execute at @a[nbt={UUID:$(UUID)}] positioned ~ ~1.6 ~ run tp @s ^ ^ ^${i}
+        tp @s ^ ^ ^${i}
         execute at @s run ${handleHighlight}
     `);
 }
@@ -125,7 +152,7 @@ raycastCommands.push(`
 // this is executed as an interaction entity at the player's eyes. We just gotta make sure we're facing the same direction as the player, that we have a size of 0.25, and that we kill this interaction after its use.
 raycast`
     data modify entity @s Rotation set from entity @p Rotation
-    data merge entity @s {width:0.25f,height:0.25f}
+    data merge entity @s {width:0.25f,height:0.25f,Tags:["${ns}-raycast"]}
     ${raycastCommands.join('\n')}
     kill @s
 `;

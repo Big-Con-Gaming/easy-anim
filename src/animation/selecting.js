@@ -233,8 +233,8 @@ toggleAllSelectFrame`
     # Store the framecount as the max for the recursive function. (Error if missing but continue execution)
     execute unless data storage ${ns}:animation_data new.framecount run ${debug.error} {input: "Missing framecount!"}
     execute store result score max ${ns}-temptoggle run data get storage ${ns}:animation_data new.framecount
-    # Decrease max by 1 so that we don't include a nonexistent frame.
-    scoreboard players remove max ${ns}-temptoggle 1
+    ## Decrease max by 1 so that we don't include a nonexistent frame.
+    #scoreboard players remove max ${ns}-temptoggle 1
     # Set up the first framenum (equal to 0)
     execute store result storage ${ns}:temp temptoggle.framenum int 1 run scoreboard players set min ${ns}-temptoggle 0
     # Use the recursive function defined in the previous function to toggle all frames.
@@ -268,8 +268,8 @@ selectAllFrames`
     # Store the framecount as the max for the recursive function. (Error if missing but continue execution)
     execute unless data storage ${ns}:animation_data new.framecount run ${debug.error} {input: "Missing framecount!"}
     execute store result score max ${ns}-temptoggle run data get storage ${ns}:animation_data new.framecount
-    # Decrease max by 1 so that we don't include a nonexistent frame.
-    scoreboard players remove max ${ns}-temptoggle 1
+    ## Decrease max by 1 so that we don't include a nonexistent frame.
+    #scoreboard players remove max ${ns}-temptoggle 1
     # Set up the first framenum (equal to 0) and store the next one as well.
     data modify storage ${ns}:temp grabsizeanchor.framenum set value 0
     execute store result score min ${ns}-temptoggle run data modify storage ${ns}:temp grabsizeanchor.framenext set value 1

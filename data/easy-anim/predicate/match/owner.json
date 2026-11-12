@@ -1,0 +1,46 @@
+{
+    "type": "all_of",
+    "terms": [
+        {
+            "type": "entity_scores",
+            "entity": "this",
+            "scores": {
+                "easy-anim-owner0":{
+                    "type":"score",
+                    "score":"easy-anim-owner0",
+                    "target": {"type": "fixed","name": "#match"}}
+            }
+        },
+        {
+            "type": "entity_scores",
+            "entity": "this",
+            "scores": {
+                "easy-anim-owner1":{
+                    "type":"score",
+                    "score":"easy-anim-owner1",
+                    "target": {"type": "fixed","name": "#match"}}
+            }
+        },
+        {
+            "type": "entity_scores",
+            "entity": "this",
+            "scores": {
+                "easy-anim-owner2":{
+                    "type":"score",
+                    "score":"easy-anim-owner2",
+                    "target": {"type": "fixed","name": "#match"}}
+            }
+        },
+        {
+            "type": "entity_scores",
+            "entity": "this",
+            "scores": {
+                "easy-anim-owner3":{
+                    "type":"score",
+                    "score":"easy-anim-owner3",
+                    "target": {"type": "fixed","name": "#match"}}
+            }
+        }
+
+    ]
+}

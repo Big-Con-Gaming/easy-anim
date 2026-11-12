@@ -1,0 +1,46 @@
+{
+    "type": "all_of",
+    "terms": [
+        {
+            "type": "entity_scores",
+            "entity": "this",
+            "scores": {
+                "easy-anim-uuid0":{
+                    "type":"score",
+                    "score":"easy-anim-uuid0",
+                    "target": {"type": "fixed","name": "#match"}}
+            }
+        },
+        {
+            "type": "entity_scores",
+            "entity": "this",
+            "scores": {
+                "easy-anim-uuid1":{
+                    "type":"score",
+                    "score":"easy-anim-uuid1",
+                    "target": {"type": "fixed","name": "#match"}}
+            }
+        },
+        {
+            "type": "entity_scores",
+            "entity": "this",
+            "scores": {
+                "easy-anim-uuid2":{
+                    "type":"score",
+                    "score":"easy-anim-uuid2",
+                    "target": {"type": "fixed","name": "#match"}}
+            }
+        },
+        {
+            "type": "entity_scores",
+            "entity": "this",
+            "scores": {
+                "easy-anim-uuid3":{
+                    "type":"score",
+                    "score":"easy-anim-uuid3",
+                    "target": {"type": "fixed","name": "#match"}}
+            }
+        }
+
+    ]
+}

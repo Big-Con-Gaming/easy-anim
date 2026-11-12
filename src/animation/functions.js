@@ -30,6 +30,7 @@ const ns = 'easy-anim';
 const saveSpecificFrameCommands = [];
 
 saveSpecificFrameCommands.push(`
+    $execute if entity @n[type=minecraft:item_display, tag=${ns}-camera-highlight, nbt={data: {owner: $(UUID), framenum: $(framenum)}}] run ${toggleHighlightFrame} {UUID:$(UUID),framenum:$(framenum)}
     # Log the function call
     $${debug.run} {input: "saveSpecificFrame at $(ax) $(ay) $(az) within $(sx) $(sy) $(sz) for $(name) frame $(framenum)"}
     # Log the expected function path.
@@ -48,34 +49,38 @@ function createSaveSpecificFrame({axis}) {
 saveSpecificFrameCommands.push(...axis.map(createSaveSpecificFrame));
 
 saveSpecificFrameCommands.push(`
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run ${splitGroups} with storage ${ns}:temp str
-    # Delete any highlighted cameras
-    $execute if entity @n[type=minecraft:item_display, tag=${ns}-camera-highlight, nbt={data: {owner: $(UUID), framenum: $(framenum)}}] run data modify storage ${ns}:temp str.cameraHighlighted set value true
-    $execute if data storage ${ns}:temp str.cameraHighlighted run kill @n[type=minecraft:item_display, tag=${ns}-camera-highlight, nbt={data: {owner: $(UUID), framenum: $(framenum)}}]
-    # Untag them from selected and remove docile for all entities within the frame.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-selected] remove ${ns}-selected
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-entity-turned-docile] run ${removeDocile}
-    # Warn if the structure block will replace a non-air block
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) unless block ~ ~-1 ~ minecraft:air unless block ~ ~-1 ~ minecraft:structure_block run ${debug.warn} {input: "Non-air and Non-structure block at $(ax) ($(ay) - 1) $(az)! Overwriting with structure block..."}
-    # Make sure the frame's structure block is there.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
-    # Warn if the redstone block will be replacing a non-air block
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) unless block ~-1 ~-1 ~ minecraft:air run ${debug.warn} {input: "Non-air block at ($(ax) - 1) ($(ay) - 1) $(az)! Overwriting with redstone block..."}
-    # Save the frame
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~-1 ~-1 ~ minecraft:redstone_block
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~-1 ~-1 ~ minecraft:air
-    # Place back into LOAD mode for visual bounding box toggle.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run setblock ~ ~-1 ~ minecraft:structure_block{mode:"LOAD",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
-    # Store structure data since it changed.
-    $${storeFrame} {framenum: $(framenum)}
-    # Tag them all again with selected.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-selected] add ${ns}-selected
-    # Regroup all entities.
-    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) align xyz run ${regroupEntities} with storage ${ns}:temp str
+
+    $execute in ${ns}:editor positioned $(ax) $(ay) $(az) run ${a`
+        execute align xyz run ${splitGroups} with storage ${ns}:temp str
+        ## Delete any highlighted cameras
+        #$execute if entity @n[type=minecraft:item_display, tag=${ns}-camera-highlight, nbt={data: {owner: $(UUID), framenum: $(framenum)}}] run data modify storage ${ns}:temp str.cameraHighlighted set value true
+        #$execute if data storage ${ns}:temp str.cameraHighlighted run kill @n[type=minecraft:item_display, tag=${ns}-camera-highlight, nbt={data: {owner: $(UUID), framenum: $(framenum)}}]
+        # Untag them from selected and remove docile for all entities within the frame.
+        $execute align xyz run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-selected] remove ${ns}-selected
+        $execute align xyz as @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=${ns}-entity-turned-docile] run ${removeDocile}
+        # Warn if the structure block will replace a non-air block
+        $execute unless block ~ ~-1 ~ minecraft:air unless block ~ ~-1 ~ minecraft:structure_block run ${debug.warn} {input: "Non-air and Non-structure block at $(ax) ($(ay) - 1) $(az)! Overwriting with structure block..."}
+        # Make sure the frame's structure block is there.
+        $setblock ~ ~-1 ~ minecraft:structure_block{mode:"SAVE",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
+        # Warn if the redstone block will be replacing a non-air block
+        $execute unless block ~-1 ~-1 ~ minecraft:air run ${debug.warn} {input: "Non-air block at ($(ax) - 1) ($(ay) - 1) $(az)! Overwriting with redstone block..."}
+        # Save the frame
+        setblock ~-1 ~-1 ~ minecraft:redstone_block
+        setblock ~-1 ~-1 ~ minecraft:air
+        # Place back into LOAD mode for visual bounding box toggle.
+        $setblock ~ ~-1 ~ minecraft:structure_block{mode:"LOAD",showboundingbox:true,posX:0,posY:1,posZ:0,sizeX:$(sx),sizeY:$(sy),sizeZ:$(sz),ignoreEntities:false,name:"${ns}:$(name)-frame$(framenum)",strict:true}
+        # Store structure data since it changed.
+        $${storeFrame} {framenum: $(framenum)}
+        # Tag them all again with selected.
+        $execute align xyz run tag @e[type=!player,dx=$(sx),dy=$(sy),dz=$(sz),tag=!${ns}-selected] add ${ns}-selected
+        # Regroup all entities.
+        execute align xyz run ${regroupEntities} with storage ${ns}:temp str
+    `} with storage ${ns}:temp grabsizeanchor
     # Rehighlight the camera if needed.
     $execute if data storage ${ns}:temp str.cameraHighlighted run ${toggleHighlightFrame} {UUID: $(UUID), framenum: $(framenum)}
     # Remove all trailing data.
     data remove storage ${ns}:temp str
+
 `)
 
 saveSpecificFrame(saveSpecificFrameCommands.join('\n'));
