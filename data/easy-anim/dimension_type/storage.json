@@ -9,7 +9,6 @@
     "gameplay/respawn_anchor_works": true
   },
   "has_fixed_time": true,
-  "timelines": "day",
   "coordinate_scale": 1,
   "has_ender_dragon_fight": false,
   "cardinal_light": "default",

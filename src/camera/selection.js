@@ -128,6 +128,10 @@ cameraHighlight`
         ${debug.run} {input: "placing camera into world"}
         data merge entity @s {item: {components: {"minecraft:profile": {id: [I; 797692767, 214648518, -2094961131, -1410769773], properties: [{name: "textures", value: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMTQ0MjJhODJjODk5YTljMTQ1NDM4NGQzMmNjNTRjNGFlN2ExYzRkNzI0MzBlNmU0NDZkNTNiOGIzODVlMzMwIn19fQ=="}]}}, count: 1, id: "minecraft:player_head"}, item_display: "ground", transformation: ${defaultCameraTransformation}, Glowing:1b, Tags: ["${ns}-camera-highlight"]}
         data modify entity @s data.owner set from storage ${ns}:animation_data new.owner
+        execute store result score @s ${ns}-owner0 run data get storage ${ns}:animation_data new.owner[0]
+        execute store result score @s ${ns}-owner1 run data get storage ${ns}:animation_data new.owner[1]
+        execute store result score @s ${ns}-owner2 run data get storage ${ns}:animation_data new.owner[2]
+        execute store result score @s ${ns}-owner3 run data get storage ${ns}:animation_data new.owner[3]
         data modify entity @s Pos set from storage ${ns}:temp camera.pos
         data modify entity @s Rotation set from storage ${ns}:animation_data new.camera.rot
         execute at @s run tp @s ~ ~1.6 ~

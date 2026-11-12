@@ -20,7 +20,7 @@ import './storage.js';
 import './animation.js';
 import './debug.js';
 import { renderCheck } from './render.js';
-import { matchUUIDFromUUID } from './util.js';
+import { matchUUIDFromUUID, matchUUIDFromOwner, matchOwnerFromUUID, matchOwnerFromOwner } from './util.js';
 
 
 const folder = mcf.index
@@ -87,7 +87,7 @@ tick`
     # Takes any camera players that moved out of camera view
     execute as @a[tag=${ns}-camera-view] if predicate ${ns}:any_input run ${exitCamera}
     # Checks if there's any highlighted cameras in the editor that need to have particles placed.
-    execute as @a[tag=!${ns}-camera-view] at @s run ${placeParticleEveryTick} with entity @s
+    execute as @a[tag=!${ns}-camera-view] if ${matchOwnerFromUUID} at @s run ${placeParticleEveryTick}
     # Check for new players, if they have joined, show them the introduction dialog.
     execute as @a unless score @s ${ns}-first-time matches 1.. run ${a`
         execute store result score @s ${ns}-uuid0 run data get entity @s UUID[0]

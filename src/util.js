@@ -4,7 +4,8 @@ import * as debug from './debug.js';
 const folder = mcf.util;
 export const {
     replaceAllInString, toLowerCase, stringConcat, stringEquals,
-    pullDataStringEquals, testIfInt, arrayMoveEntry, quaternionToEulerNbt, matchUUIDFromUUID
+    pullDataStringEquals, testIfInt, arrayMoveEntry, quaternionToEulerNbt,
+    matchUUIDFromUUID, matchUUIDFromOwner, matchOwnerFromUUID, matchOwnerFromOwner
 } = folder;
 const {
     anonymous: a, incrementIdx, recCharTest, lowerCaseMacro, rawConcat
@@ -329,11 +330,38 @@ quaternionToEulerNbtCommands.push(`
 quaternionToEulerNbt(quaternionToEulerNbtCommands.join('\n'));
 
 
-matchUUIDFromUUID(`
+matchUUIDFromUUID`
     scoreboard players operation #match ${ns}-uuid0 = @s ${ns}-uuid0
     scoreboard players operation #match ${ns}-uuid1 = @s ${ns}-uuid1
     scoreboard players operation #match ${ns}-uuid2 = @s ${ns}-uuid2
     scoreboard players operation #match ${ns}-uuid3 = @s ${ns}-uuid3
     execute if score #match ${ns}-uuid0 matches 0 if score #match ${ns}-uuid1 matches 0 if score #match ${ns}-uuid2 matches 0 if score #match ${ns}-uuid3 matches 0 run return fail
     return 1
-`);
+`;
+
+matchUUIDFromOwner`
+    scoreboard players operation #match ${ns}-uuid0 = @s ${ns}-owner0
+    scoreboard players operation #match ${ns}-uuid1 = @s ${ns}-owner1
+    scoreboard players operation #match ${ns}-uuid2 = @s ${ns}-owner2
+    scoreboard players operation #match ${ns}-uuid3 = @s ${ns}-owner3
+    execute if score #match ${ns}-uuid0 matches 0 if score #match ${ns}-uuid1 matches 0 if score #match ${ns}-uuid2 matches 0 if score #match ${ns}-uuid3 matches 0 run return fail
+    return 1
+`;
+
+matchOwnerFromUUID`
+    scoreboard players operation #match ${ns}-owner0 = @s ${ns}-uuid0
+    scoreboard players operation #match ${ns}-owner1 = @s ${ns}-uuid1
+    scoreboard players operation #match ${ns}-owner2 = @s ${ns}-uuid2
+    scoreboard players operation #match ${ns}-owner3 = @s ${ns}-uuid3
+    execute if score #match ${ns}-owner0 matches 0 if score #match ${ns}-owner1 matches 0 if score #match ${ns}-owner2 matches 0 if score #match ${ns}-owner3 matches 0 run return fail
+    return 1
+`;
+
+matchOwnerFromOwner`
+    scoreboard players operation #match ${ns}-owner0 = @s ${ns}-owner0
+    scoreboard players operation #match ${ns}-owner1 = @s ${ns}-owner1
+    scoreboard players operation #match ${ns}-owner2 = @s ${ns}-owner2
+    scoreboard players operation #match ${ns}-owner3 = @s ${ns}-owner3
+    execute if score #match ${ns}-owner0 matches 0 if score #match ${ns}-owner1 matches 0 if score #match ${ns}-owner2 matches 0 if score #match ${ns}-owner3 matches 0 run return fail
+    return 1
+`;

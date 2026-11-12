@@ -89,7 +89,7 @@ cameraApplyRotation`
 placeParticleEveryTick`
     # Log the entry point (commented out since it is tick)
     # ${debug.entry} {input: "tick"}
-    $execute at @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] run ${cameraDisplayParticles}
-    $execute as @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] unless data entity @s transformation{left_rotation:[0.0f, 0.0f, 0.0f, 1.0f]} at @s run ${cameraApplyRotation}
-    $execute as @e[type=minecraft:item_display,tag=${ns}-camera-highlight,nbt={data:{owner:$(UUID)}}] unless data entity @s item run data modify entity @s item set value {components: {"minecraft:profile": {id: [I; 797692767, 214648518, -2094961131, -1410769773], properties: [{name: "textures", value: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMTQ0MjJhODJjODk5YTljMTQ1NDM4NGQzMmNjNTRjNGFlN2ExYzRkNzI0MzBlNmU0NDZkNTNiOGIzODVlMzMwIn19fQ=="}]}}, count: 1, id: "minecraft:player_head"}
+    execute at @e[type=minecraft:item_display,tag=${ns}-camera-highlight,predicate=${ns}:match/owner] run ${cameraDisplayParticles}
+    execute as @e[type=minecraft:item_display,tag=${ns}-camera-highlight,predicate=${ns}:match/owner] unless data entity @s transformation{left_rotation:[0.0f, 0.0f, 0.0f, 1.0f]} at @s run ${cameraApplyRotation}
+    execute as @e[type=minecraft:item_display,tag=${ns}-camera-highlight,predicate=${ns}:match/owner] unless items entity @s container.0 *[custom_data~{camera:true}] run item replace entity @s container.0 with player_head[custom_data={camera:true},profile={id: [I; 797692767, 214648518, -2094961131, -1410769773], properties: [{name: "textures", value: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMTQ0MjJhODJjODk5YTljMTQ1NDM4NGQzMmNjNTRjNGFlN2ExYzRkNzI0MzBlNmU0NDZkNTNiOGIzODVlMzMwIn19fQ=="}]}]
 `;
